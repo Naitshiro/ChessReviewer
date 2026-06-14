@@ -25,6 +25,12 @@ if not exist ".venv" (
     echo.
 )
 
+REM Download missing piece assets (chess.com alpha pieces) if they don't exist
+if not exist "frontend\assets\pieces\alpha_scaled.flag" (
+    echo  [SETUP] Downloading Alpha piece set and extensions...
+    python download_pieces.py
+)
+
 REM Activate venv and start server
 call .venv\Scripts\activate.bat
 

@@ -12,13 +12,13 @@
  */
 
 import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm';
-import { BoardManager } from './board.js?v=2';
+import { BoardManager } from './board.js?v=5';
 import {
   renderEvalBar, renderEvalChart, highlightChartMove,
   renderMoveList, setActiveMoveInList,
   renderScorecard, showToast, setEvalText,
   CLASS_META, winProb, classifyMove
-} from './analysis.js?v=3';
+} from './analysis.js?v=4';
 
 // ── Constants ───────────────────────────────────────────────────────────
 
@@ -453,7 +453,7 @@ export function navigateTo(index) {
       if (c.isCheckmate()) {
         winner = c.turn() === 'w' ? 'black' : 'white';
       }
-      renderEvalBar(m.white_cp || 0, null, gameOver, winner);
+      renderEvalBar(m.white_cp || 0, m.score_mate, gameOver, winner);
     }
 
     // Opening name
@@ -474,7 +474,7 @@ export function navigateTo(index) {
   }
 
   // Move list highlight
-  setActiveMoveInList(clampedIndex);
+  setActiveMoveInList('main', clampedIndex);
 
   // Nav button states
   _updateNavButtons();

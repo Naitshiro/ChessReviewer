@@ -206,13 +206,22 @@ class EngineManager:
                     for pv_idx, info in enumerate(info_list[:3]):
                         score = info.get("score")
                         cp = cp_from_score(score.relative if score else None)
+                        
+                        mate_val = None
+                        if score and score.relative and score.relative.is_mate():
+                            mate_val = score.relative.mate()
+                            if b.turn == chess.BLACK:
+                                mate_val = -mate_val
+                            
                         pv = info.get("pv", [])
                         best_move = pv[0].uci() if pv else None
                         key = f"pv{pv_idx+1}"
                         scores_entry[f"cp{pv_idx+1}"] = cp
+                        scores_entry[f"mate{pv_idx+1}"] = mate_val
                         scores_entry[key] = best_move
                     # relative CP of the top move
                     scores_entry["relative_cp"] = scores_entry["cp1"]
+                    scores_entry["score_mate"] = scores_entry["mate1"]
                     engine_scores.append(scores_entry)
                 except Exception as e:
                     logger.warning(f"Engine analysis failed for FEN {fen}: {e}")
@@ -300,6 +309,7 @@ class EngineManager:
                 "fen_after": fens[i + 1],
                 "cp_best": round(cp_best, 2),
                 "cp_played": round(cp_played, 2),
+                "score_mate": es_before.get("score_mate"),
                 "white_cp": round(white_cp, 2),   # White-perspective cp (for eval bar)
                 "white_win_prob": round(white_win_prob, 4),
                 "p_best": round(P_best, 4),

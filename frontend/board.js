@@ -76,9 +76,10 @@ export class BoardManager {
 
     this._board = new Chessboard(document.getElementById(this._elementId), {
       position: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-      assetsUrl: CM_ASSETS,
+      assetsUrl: "assets/",
       style: {
         cssClass: 'default',
+        pieces: { file: "pieces/neo.svg" },
         showCoordinates: true,
         moveFromMarker: MARKER_TYPE.frame,
         moveToMarker:   MARKER_TYPE.frame,

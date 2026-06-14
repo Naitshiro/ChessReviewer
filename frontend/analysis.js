@@ -21,6 +21,7 @@ export const CLASS_META = {
   good: { symbol: '✓', label: 'Good', css: 'badge-good' },
   inaccuracy: { symbol: '?!', label: 'Inaccuracy', css: 'badge-inaccuracy' },
   mistake: { symbol: '?', label: 'Mistake', css: 'badge-mistake' },
+  miss: { symbol: '✗', label: 'Miss', css: 'badge-miss' },
   blunder: { symbol: '??', label: 'Blunder', css: 'badge-blunder' },
   book: { symbol: '📖', label: 'Book', css: 'badge-book' },
 };
@@ -28,7 +29,7 @@ export const CLASS_META = {
 // Classification display order for the scorecard
 const SCORE_ORDER = [
   'brilliant', 'great', 'best', 'excellent', 'good',
-  'inaccuracy', 'mistake', 'blunder', 'book',
+  'inaccuracy', 'mistake', 'miss', 'blunder', 'book',
 ];
 
 // ── Move Classification (JS port of backend formulas) ───────────────────
@@ -47,6 +48,7 @@ export function classifyMove(delta, pBest, pSecondBest, pPlayed, sacrificed, isB
   if (delta < 0.05) return "good";
   if (delta < 0.10) return "inaccuracy";
   if (delta < 0.20) return "mistake";
+  if (pPlayed >= 0.50 && pBest >= 0.70) return "miss";
   return "blunder";
 }
 

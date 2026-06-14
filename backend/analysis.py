@@ -232,6 +232,12 @@ def classify_move(
         return "inaccuracy"
     if delta < 0.20:
         return "mistake"
+    
+    # If delta >= 0.20, it's a major error.
+    # If the player is still at least drawing (p_played >= 0.50), it's a 'miss' (missing a win).
+    if p_played >= 0.50 and p_best >= 0.70:
+        return "miss"
+        
     return "blunder"
 
 

@@ -146,6 +146,9 @@ body {
   overflow: hidden;
 }
 
+.cm-chessboard .board .square.white { fill: #ebecd0 !important; }
+.cm-chessboard .board .square.black { fill: #739552 !important; }
+
 /* Custom square classification highlights */
 .cm-chessboard .marker.marker-brilliant {
   fill: rgba(6, 182, 212, 0.45) !important;
@@ -256,13 +259,18 @@ body {
   font-size: 22px;
 }
 
+.board-class-badge.badge-miss {
+  background: #f43f5e;
+  font-size: 20px;
+}
+
 .board-class-badge.badge-blunder {
   background: #ef4444;
   font-size: 19px;
 }
 
 .board-class-badge.badge-book {
-  background: #94a3b8;
+  background: #b58863;
   font-size: 19px;
 }
 
@@ -419,14 +427,19 @@ body {
   color: #f97316;
 }
 
+.badge-miss {
+  background: rgba(244, 63, 94, 0.2);
+  color: #f43f5e;
+}
+
 .badge-blunder {
   background: rgba(239, 68, 68, 0.2);
   color: #ef4444;
 }
 
 .badge-book {
-  background: rgba(148, 163, 184, 0.15);
-  color: #94a3b8;
+  background: rgba(181, 136, 99, 0.15);
+  color: #b58863;
 }
 
 /* ── Move List ───────────────────────────────────────────── */
@@ -476,9 +489,10 @@ body {
 }
 
 .move-item.active {
-  background: rgba(99, 102, 241, 0.2);
-  border: 1px solid rgba(99, 102, 241, 0.3);
-  color: #c7d2fe;
+  background: rgba(99, 102, 241, 0.4);
+  border: 1px solid rgba(99, 102, 241, 0.8);
+  color: #fff;
+  font-weight: 600;
 }
 
 .move-item.white-move {

@@ -32,7 +32,7 @@
   <!-- Chart.js (global, not ES module) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
-  <link rel="stylesheet" href="styles.css?v=3" />
+  <link rel="stylesheet" href="styles.css?v=4" />
 </head>
 
 <body class="min-h-screen">
@@ -370,29 +370,74 @@
       <div class="glass-card p-3">
         <div class="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2">Classifications</div>
         <div class="flex flex-col gap-1">
-          <div class="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-            <span class="move-badge badge-brilliant">!!</span> Brilliant
+          <div class="flex flex-col mb-1.5">
+            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+              <span class="move-badge badge-brilliant">!!</span> Brilliant
+            </div>
+            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A difficult to find sacrifice or game-changing move.</div>
           </div>
-          <div class="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-            <span class="move-badge badge-great">!</span> Great Move
+          
+          <div class="flex flex-col mb-1.5">
+            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+              <span class="move-badge badge-great">!</span> Great Move
+            </div>
+            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">The only good move in a critical position.</div>
           </div>
-          <div class="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-            <span class="move-badge badge-best">★</span> Best
+          
+          <div class="flex flex-col mb-1.5">
+            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+              <span class="move-badge badge-best">★</span> Best
+            </div>
+            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">The optimal move according to the engine.</div>
           </div>
-          <div class="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-            <span class="move-badge badge-excellent">✦</span> Excellent
+          
+          <div class="flex flex-col mb-1.5">
+            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+              <span class="move-badge badge-excellent">✦</span> Excellent
+            </div>
+            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A very strong move that maintains your advantage.</div>
           </div>
-          <div class="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-            <span class="move-badge badge-good">✓</span> Good
+          
+          <div class="flex flex-col mb-1.5">
+            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+              <span class="move-badge badge-good">✓</span> Good
+            </div>
+            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A solid move, though somewhat less optimal.</div>
           </div>
-          <div class="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-            <span class="move-badge badge-inaccuracy">?!</span> Inaccuracy
+          
+          <div class="flex flex-col mb-1.5">
+            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+              <span class="move-badge badge-book">📖</span> Book
+            </div>
+            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">An established opening theory move.</div>
           </div>
-          <div class="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-            <span class="move-badge badge-mistake">?</span> Mistake
+          
+          <div class="flex flex-col mb-1.5">
+            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+              <span class="move-badge badge-inaccuracy">?!</span> Inaccuracy
+            </div>
+            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A suboptimal move that slightly worsens your position.</div>
           </div>
-          <div class="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-            <span class="move-badge badge-blunder">??</span> Blunder
+          
+          <div class="flex flex-col mb-1.5">
+            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+              <span class="move-badge badge-mistake">?</span> Mistake
+            </div>
+            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A weak move that loses a significant advantage.</div>
+          </div>
+          
+          <div class="flex flex-col mb-1.5">
+            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+              <span class="move-badge badge-miss">✗</span> Miss
+            </div>
+            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A move that misses a tactical opportunity or forced win.</div>
+          </div>
+          
+          <div class="flex flex-col mb-1.5">
+            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+              <span class="move-badge badge-blunder">??</span> Blunder
+            </div>
+            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A terrible move that drastically worsens your position.</div>
           </div>
         </div>
         <div class="mt-2 pt-2 border-t border-[var(--border)] text-[10px] text-[var(--text-muted)] leading-4">
@@ -414,7 +459,7 @@
   <!-- ═══════════════════════════════════════════════════════════════════
        MAIN APP (ES Module)
   ══════════════════════════════════════════════════════════════════════ -->
-  <script type="module" src="app.js?v=2"></script>
+  <script type="module" src="app.js?v=5"></script>
 
 </body>
 </html>
