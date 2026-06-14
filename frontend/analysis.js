@@ -18,7 +18,7 @@ export const CLASS_META = {
   great: { symbol: '!', label: 'Great', css: 'badge-great' },
   best: { symbol: '★', label: 'Best', css: 'badge-best' },
   excellent: { symbol: '✦', label: 'Excellent', css: 'badge-excellent' },
-  good: { symbol: '●', label: 'Good', css: 'badge-good' },
+  good: { symbol: '✓', label: 'Good', css: 'badge-good' },
   inaccuracy: { symbol: '?!', label: 'Inaccuracy', css: 'badge-inaccuracy' },
   mistake: { symbol: '?', label: 'Mistake', css: 'badge-mistake' },
   blunder: { symbol: '??', label: 'Blunder', css: 'badge-blunder' },
@@ -40,9 +40,9 @@ export function winProb(cp) {
 
 export function classifyMove(delta, pBest, pSecondBest, pPlayed, sacrificed, isBook, cpBest, cpSecond) {
   if (isBook) return "book";
-  if (delta === 0.0) return "best";
-  if (delta < 0.02 && sacrificed && pPlayed >= 0.45) return "brilliant";
+  if (delta < 0.05 && sacrificed && pPlayed >= 0.45) return "brilliant";
   if (delta < 0.02 && cpBest > 0.0 && cpSecond <= 0.0) return "great";
+  if (delta === 0.0) return "best";
   if (delta < 0.02) return "excellent";
   if (delta < 0.05) return "good";
   if (delta < 0.10) return "inaccuracy";

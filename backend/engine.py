@@ -11,7 +11,7 @@ Provides two analysis modes:
 
 import asyncio
 import logging
-from typing import Callable, Optional
+from typing import Callable, Optional, AsyncGenerator
 
 import chess
 import chess.engine
@@ -109,7 +109,7 @@ class EngineManager:
         self,
         pgn_text: str,
         depth: int = ANALYSIS_DEPTH,
-    ) -> dict:
+    ) -> AsyncGenerator[dict, None]:
         """
         Parse a PGN string and analyse every position at the given depth.
         Returns a complete game analysis object ready to be sent to the frontend.
@@ -126,6 +126,10 @@ class EngineManager:
         pgn = chess.pgn.read_game(io.StringIO(pgn_text))
         if pgn is None:
             raise ValueError("Could not parse PGN. Please check the input format.")
+            
+        if pgn.errors:
+            err_msg = str(pgn.errors[0])
+            raise ValueError(f"Invalid PGN: {err_msg}")
 
         # Collect all positions
         board = pgn.board()
@@ -166,6 +170,8 @@ class EngineManager:
 
         async with self._lock:
             for i, fen in enumerate(fens):
+                yield {"type": "progress", "current": i + 1, "total": len(fens)}
+                
                 b = chess.Board(fen)
                 if b.is_game_over():
                     outcome = b.outcome()
@@ -187,7 +193,7 @@ class EngineManager:
                 try:
                     info_list = await self._engine.analyse(
                         b,
-                        chess.engine.Limit(depth=depth),
+                        chess.engine.Limit(depth=depth, time=5.0),
                         multipv=3,
                     )
                     # info_list is a list of InfoDict for each PV
@@ -316,7 +322,7 @@ class EngineManager:
         # Game metadata
         headers = dict(pgn.headers)
 
-        return {
+        final_result = {
             "metadata": {
                 "white": headers.get("White", "White"),
                 "black": headers.get("Black", "Black"),
@@ -329,6 +335,8 @@ class EngineManager:
             "moves": move_records,
             "accuracy": accuracy,
         }
+        
+        yield {"type": "result", "data": final_result}
 
     # -----------------------------------------------------------------------
     # Streaming Analysis (On-Demand / Analysis Board mode)

@@ -12,13 +12,13 @@
  */
 
 import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm';
-import { BoardManager } from './board.js';
+import { BoardManager } from './board.js?v=2';
 import {
   renderEvalBar, renderEvalChart, highlightChartMove,
   renderMoveList, setActiveMoveInList,
   renderScorecard, showToast, setEvalText,
   CLASS_META, winProb, classifyMove
-} from './analysis.js';
+} from './analysis.js?v=3';
 
 // ── Constants ───────────────────────────────────────────────────────────
 
@@ -69,6 +69,10 @@ const el = {
   pgnInput:         document.getElementById('pgn-input'),
   analyzeBtn:       document.getElementById('analyze-btn'),
   loadingSpinner:   document.getElementById('loading-spinner'),
+  analysisProgressContainer: document.getElementById('analysis-progress-container'),
+  analysisProgressText: document.getElementById('analysis-progress-text'),
+  analysisProgressPct: document.getElementById('analysis-progress-pct'),
+  analysisProgressFill: document.getElementById('analysis-progress-fill'),
   depthSlider:      document.getElementById('depth-slider'),
   depthValue:       document.getElementById('depth-value'),
   btnFirst:         document.getElementById('btn-first'),
@@ -262,6 +266,12 @@ async function submitAnalysis() {
   // Show loading state
   if (el.analyzeBtn)  el.analyzeBtn.disabled = true;
   if (el.loadingSpinner) el.loadingSpinner.classList.remove('hidden');
+  if (el.analysisProgressContainer) {
+    el.analysisProgressContainer.classList.remove('hidden');
+    if (el.analysisProgressFill) el.analysisProgressFill.style.width = '0%';
+    if (el.analysisProgressPct) el.analysisProgressPct.textContent = '0%';
+    if (el.analysisProgressText) el.analysisProgressText.textContent = 'Starting analysis...';
+  }
 
   // Close any active WS session
   if (state.mode === MODE.ANALYSIS) _teardownWebSocket();
@@ -274,14 +284,44 @@ async function submitAnalysis() {
     });
 
     if (!res.ok) {
-      const err = await res.json();
+      let err;
+      try {
+        err = await res.json();
+      } catch (e) {
+        err = { detail: `Server error ${res.status}` };
+      }
       throw new Error(err.detail || `Server error ${res.status}`);
     }
 
-    const data = await res.json();
-    _loadGameAnalysis(data);
-    showToast('Analysis complete!', 'success');
-    _switchTab('moves');
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // Keep incomplete line in buffer
+      
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const msg = JSON.parse(line);
+        if (msg.type === "progress") {
+          const pct = Math.round((msg.current / msg.total) * 100);
+          if (el.analysisProgressFill) el.analysisProgressFill.style.width = `${pct}%`;
+          if (el.analysisProgressPct) el.analysisProgressPct.textContent = `${pct}%`;
+          if (el.analysisProgressText) el.analysisProgressText.textContent = `Analyzing move ${msg.current} of ${msg.total}...`;
+        } else if (msg.type === "result") {
+          _loadGameAnalysis(msg.data);
+          showToast('Analysis complete!', 'success');
+          _switchTab('moves');
+        } else if (msg.type === "error") {
+          throw new Error(msg.detail);
+        }
+      }
+    }
 
   } catch (e) {
     showToast(`Analysis failed: ${e.message}`, 'error', 6000);
@@ -289,6 +329,7 @@ async function submitAnalysis() {
   } finally {
     if (el.analyzeBtn) el.analyzeBtn.disabled = false;
     if (el.loadingSpinner) el.loadingSpinner.classList.add('hidden');
+    if (el.analysisProgressContainer) el.analysisProgressContainer.classList.add('hidden');
   }
 }
 

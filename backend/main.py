@@ -113,27 +113,29 @@ async def health():
 
 
 
+from fastapi.responses import StreamingResponse
+
 @app.post("/api/analyze")
 async def analyze(req: AnalyzeRequest):
     """
     Batch-analyze a PGN game using Stockfish.
     
-    Returns a full GameAnalysis object with:
-      - metadata (players, event, result)
-      - moves[] — each with fen, classification, eval, best_move, etc.
-      - accuracy — per-side accuracy scores and classification counts
+    Streams progress updates followed by the full GameAnalysis object.
     """
-    try:
-        manager = await EngineManager.get_instance()
-        result = await manager.batch_analyze(req.pgn, depth=req.depth)
-        return result
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except RuntimeError as e:
-        raise HTTPException(status_code=503, detail=str(e))
-    except Exception as e:
-        logger.exception("Unexpected error in /api/analyze")
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+    async def stream():
+        try:
+            manager = await EngineManager.get_instance()
+            async for chunk in manager.batch_analyze(req.pgn, depth=req.depth):
+                yield json.dumps(chunk) + "\n"
+        except ValueError as e:
+            yield json.dumps({"type": "error", "detail": str(e)}) + "\n"
+        except RuntimeError as e:
+            yield json.dumps({"type": "error", "detail": str(e)}) + "\n"
+        except Exception as e:
+            logger.exception("Unexpected error in /api/analyze")
+            yield json.dumps({"type": "error", "detail": f"Analysis failed: {str(e)}"}) + "\n"
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson")
 
 
 # ---------------------------------------------------------------------------

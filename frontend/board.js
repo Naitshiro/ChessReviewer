@@ -230,7 +230,7 @@ export class BoardManager {
     const wrapperRect = wrapper.getBoundingClientRect();
 
     const squareSize = boardRect.width / 8;
-    const badgeSize = Math.max(20, Math.min(28, squareSize * 0.35)); // Responsive sizing (min 20px, max 28px)
+    const badgeSize = Math.max(26, Math.min(36, squareSize * 0.45)); // Responsive sizing (min 26px, max 36px)
 
     // File (a-h -> 0-7) and Rank (1-8 -> 0-7)
     const file = square.charCodeAt(0) - 97;
