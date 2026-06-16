@@ -45,18 +45,37 @@ def win_prob(cp: float) -> float:
 
 def game_accuracy(deltas: list[float]) -> float:
     """
-    CAPS2-style game accuracy percentage.
-    Accuracy = 100 * (1 - tanh(2.5 * mean(deltas)))
-    
-    Args:
-        deltas: List of (P_best - P_played) values for each move.
-    Returns:
-        Accuracy in [0, 100].
+    Chess.com CAPS-style game accuracy percentage.
+    Calculates a non-linear accuracy score per move and averages them, 
+    applying a harsher penalty to games with multiple blunders.
     """
     if not deltas:
         return 100.0
-    avg = sum(deltas) / len(deltas)
-    return 100.0 * (1.0 - math.tanh(2.5 * avg))
+        
+    move_accs = []
+    for d in deltas:
+        if d <= 0.0:
+            move_accs.append(100.0)
+        elif d <= 0.02:
+            move_accs.append(100.0 - (d / 0.02) * 5.0)  # 100 to 95
+        elif d <= 0.05:
+            move_accs.append(95.0 - ((d - 0.02) / 0.03) * 15.0)  # 95 to 80
+        elif d <= 0.10:
+            move_accs.append(80.0 - ((d - 0.05) / 0.05) * 35.0)  # 80 to 45
+        elif d <= 0.20:
+            move_accs.append(45.0 - ((d - 0.10) / 0.10) * 35.0)  # 45 to 10
+        elif d <= 0.30:
+            move_accs.append(10.0 - ((d - 0.20) / 0.10) * 10.0)  # 10 to 0
+        else:
+            move_accs.append(0.0)
+            
+    # Harsher penalty for games with many bad moves: square the average, or apply an exponent.
+    avg_acc = sum(move_accs) / len(move_accs)
+    # Applying an exponent pulls lower scores down significantly while keeping high scores high.
+    # 0.99 ^ 2 = 0.98. 0.80 ^ 2 = 0.64.
+    normalized = (avg_acc / 100.0)
+    final_acc = (normalized ** 1.5) * 100.0
+    return max(0.0, min(100.0, final_acc))
 
 
 def material_value(board: chess.Board, color: chess.Color) -> int:
@@ -208,7 +227,7 @@ def classify_move(
         return "book"
 
     # Brilliant (!!): strict special case
-    if (delta < 0.05
+    if (delta < 0.02
             and sacrificed
             and p_played >= 0.45):
         return "brilliant"
@@ -234,8 +253,10 @@ def classify_move(
         return "mistake"
     
     # If delta >= 0.20, it's a major error.
-    # If the player is still at least drawing (p_played >= 0.50), it's a 'miss' (missing a win).
-    if p_played >= 0.50 and p_best >= 0.70:
+    # Miss: Missed opportunity
+    # It's a Miss if the player missed the *only* good move (reverse of Great move check),
+    # or if a massive advantage was ignored (p_best > 0.70 or cp_best > 200).
+    if (cp_best > 0.0 and cp_second <= 0.0) or (p_best > 0.70 or cp_best > 200.0):
         return "miss"
         
     return "blunder"
@@ -259,6 +280,43 @@ def cp_from_score(score: Optional["chess.engine.Score"], mate_score: int = 10000
     return float(cp)
 
 
+def accuracy_to_rating(accuracy: float) -> int:
+    """
+    Empirical mapping of accuracy percentage to estimated Elo rating.
+    Maps 65% to ~600 and 100% to ~4000 to match chess.com CAPS distributions.
+    """
+    if accuracy <= 50:
+        return 100
+    elif accuracy <= 65:
+        # 50 -> 100, 65 -> 600
+        return int(100 + (accuracy - 50) * (500.0 / 15.0))
+    elif accuracy <= 75:
+        # 65 -> 600, 75 -> 1200
+        return int(600 + (accuracy - 65) * 60.0)
+    elif accuracy <= 85:
+        # 75 -> 1200, 85 -> 1800
+        return int(1200 + (accuracy - 75) * 60.0)
+    elif accuracy <= 95:
+        # 85 -> 1800, 95 -> 2800
+        return int(1800 + (accuracy - 85) * 100.0)
+    else:
+        # 95 -> 2800, 100 -> 4000
+        return int(2800 + (accuracy - 95) * 240.0)
+
+def accuracy_to_badge(accuracy: float) -> str:
+    """Map a phase accuracy percentage to a classification badge."""
+    if accuracy >= 95.0:
+        return "best"
+    if accuracy >= 85.0:
+        return "excellent"
+    if accuracy >= 70.0:
+        return "good"
+    if accuracy >= 50.0:
+        return "inaccuracy"
+    if accuracy >= 30.0:
+        return "mistake"
+    return "blunder"
+
 def build_accuracy_report(
     move_records: list[dict],
 ) -> dict:
@@ -270,12 +328,12 @@ def build_accuracy_report(
     
     Returns:
         {
-          'white': {'accuracy': float, 'counts': {...}},
-          'black': {'accuracy': float, 'counts': {...}},
+          'white': {'accuracy': float, 'estimated_rating': int, 'counts': {...}},
+          'black': {'accuracy': float, 'estimated_rating': int, 'counts': {...}},
         }
     """
     labels = ["brilliant", "great", "best", "excellent", "good",
-              "inaccuracy", "mistake", "blunder", "book"]
+              "inaccuracy", "mistake", "miss", "blunder", "book"]
 
     def _side_report(color: bool) -> dict:
         records = [r for r in move_records if r["color"] == color]
@@ -286,7 +344,61 @@ def build_accuracy_report(
             c = r["classification"]
             if c in counts:
                 counts[c] += 1
-        return {"accuracy": round(accuracy, 1), "counts": counts}
+                
+        raw_rating = accuracy_to_rating(accuracy)
+        
+        # Base rating is capped by game complexity (approximated by game length)
+        num_moves = len(records)
+        base_cap = 3200
+        if num_moves <= 10:
+            base_cap = 2000
+        elif num_moves <= 15:
+            base_cap = 2500
+        elif num_moves <= 25:
+            base_cap = 3000
+            
+        capped_rating = min(raw_rating, base_cap)
+        
+        # The only way to break the baseline cap and reach 3500-4000 is to find 
+        # incredibly difficult, highly evaluated moves.
+        brilliant_bonus = counts.get("brilliant", 0) * 400
+        great_bonus = counts.get("great", 0) * 150
+        
+        final_rating = capped_rating + brilliant_bonus + great_bonus
+        
+        # Hard cap at 4000
+        final_rating = min(final_rating, 4000)
+        
+        # Round to the nearest 100
+        rounded_rating = int(round(final_rating, -2))
+        
+        # Calculate Phase badges
+        phase_badges = {}
+        for phase in ["opening", "middlegame", "endgame"]:
+            phase_records = [r for r in records if r.get("phase") == phase]
+            if not phase_records:
+                continue
+            
+            p_deltas = [r["delta"] for r in phase_records if r["classification"] not in ("book",)]
+            p_accuracy = game_accuracy(p_deltas)
+            base_badge = accuracy_to_badge(p_accuracy)
+            
+            # Upgrade badge if brilliant or great moves were found, provided accuracy isn't terrible
+            p_classifications = [r["classification"] for r in phase_records]
+            if "brilliant" in p_classifications and p_accuracy >= 80.0:
+                base_badge = "brilliant"
+            elif "great" in p_classifications and p_accuracy >= 80.0:
+                if base_badge != "brilliant":
+                    base_badge = "great"
+            
+            phase_badges[phase] = base_badge
+        
+        return {
+            "accuracy": round(accuracy, 1),
+            "estimated_rating": rounded_rating,
+            "counts": counts,
+            "phases": phase_badges
+        }
 
     return {
         "white": _side_report(chess.WHITE),

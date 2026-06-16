@@ -300,8 +300,8 @@ export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex =
   let currentRow = null;
   let lastMoveNum = -1;
 
-  // 1. Render main line up to forkIndex
-  const mainLen = forkIndex !== null ? Math.min(moves.length, forkIndex + 1) : moves.length;
+  // 1. Render main line
+  const mainLen = moves.length;
   for (let i = 0; i < mainLen; i++) {
     const m = moves[i];
     _appendMoveToRows(rows, m, 'main', i, onMoveClick, () => {
@@ -444,6 +444,36 @@ function _renderSideAccuracy(side, data) {
     if (label) label.textContent = Math.round(pct);
   }
 
+  // Estimated Rating
+  const ratingContainer = document.getElementById(`rating-${side}`);
+  if (ratingContainer && data.estimated_rating !== undefined) {
+    ratingContainer.querySelector('span').textContent = data.estimated_rating;
+    ratingContainer.classList.remove('hidden');
+  }
+
+  // Game Phases
+  if (data.phases) {
+    const phasesContainer = document.getElementById('game-phases-container');
+    if (phasesContainer) phasesContainer.classList.remove('hidden');
+
+    ['opening', 'middlegame', 'endgame'].forEach(phase => {
+      const badgeEl = document.getElementById(`phase-badge-${side}-${phase}`);
+      if (badgeEl) {
+        const badgeClass = data.phases[phase];
+        if (badgeClass && CLASS_META[badgeClass]) {
+          const meta = CLASS_META[badgeClass];
+          badgeEl.textContent = meta.symbol;
+          badgeEl.style = '';
+          badgeEl.className = `move-badge ${meta.css}`;
+        } else {
+          badgeEl.textContent = "—";
+          badgeEl.style = '';
+          badgeEl.className = `move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]`;
+        }
+      }
+    });
+  }
+
   // Scorecard counts
   const scEl = document.getElementById(`scorecard-${side}`);
   if (!scEl) return;
@@ -477,7 +507,7 @@ function _classColor(cls) {
   const map = {
     brilliant: '#06b6d4', great: '#818cf8', best: '#22c55e',
     excellent: '#4ade80', good: '#a3e635', inaccuracy: '#eab308',
-    mistake: '#f97316', blunder: '#ef4444', book: '#94a3b8',
+    mistake: '#f97316', miss: '#f43f5e', blunder: '#ef4444', book: '#94a3b8',
   };
   return map[cls] || 'var(--text-primary)';
 }

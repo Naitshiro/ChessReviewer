@@ -27,6 +27,13 @@ from .openings import is_book_move, get_opening_name
 
 logger = logging.getLogger(__name__)
 
+def get_non_pawn_material(board: chess.Board) -> int:
+    total = 0
+    for piece_type, val in [(chess.KNIGHT, 3), (chess.BISHOP, 3), (chess.ROOK, 5), (chess.QUEEN, 9)]:
+        total += len(board.pieces(piece_type, chess.WHITE)) * val
+        total += len(board.pieces(piece_type, chess.BLACK)) * val
+    return total
+
 
 class EngineManager:
     """
@@ -298,6 +305,14 @@ class EngineManager:
 
             # Best engine move
             best_move_uci = es_before["pv1"]
+            
+            # Determine game phase
+            if move_num <= 12:
+                phase = "opening"
+            elif get_non_pawn_material(board_before) <= 16:
+                phase = "endgame"
+            else:
+                phase = "middlegame"
 
             move_records.append({
                 "index": i,
@@ -321,11 +336,12 @@ class EngineManager:
                 "is_book": book,
                 "is_sacrifice": sacrificed,
                 "opening": get_opening_name(fens[i]),
+                "phase": phase,
             })
 
         # --- Build accuracy report ---
         accuracy = build_accuracy_report(
-            [{"color": (r["color"] == "white"), "delta": r["delta"], "classification": r["classification"]}
+            [{"color": (r["color"] == "white"), "delta": r["delta"], "classification": r["classification"], "phase": r["phase"]}
              for r in move_records]
         )
 

@@ -522,8 +522,8 @@ function _updateNavButtons() {
 // ── Board Move Handler (detects deviation → forks to Analysis Mode) ─────
 
 function _validateReviewMove(from, to) {
-  // In review mode, we always allow moves (chess.js validates internally)
-  return true;
+  const legalMoves = _getLegalMoves(from);
+  return legalMoves.includes(to);
 }
 
 function _handleBoardMove(from, to, promotion) {

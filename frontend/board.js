@@ -48,6 +48,7 @@ const CLASSIFICATION_MARKERS = {
   good:       { class: 'marker-good',       slice: 'markerSquare' },
   inaccuracy: { class: 'marker-inaccuracy', slice: 'markerSquare' },
   mistake:    { class: 'marker-mistake',    slice: 'markerSquare' },
+  miss:       { class: 'marker-miss',       slice: 'markerSquare' },
   blunder:    { class: 'marker-blunder',    slice: 'markerSquare' },
   book:       { class: 'marker-book',       slice: 'markerSquare' },
 };
@@ -274,6 +275,7 @@ export class BoardManager {
       good: '✓',
       inaccuracy: '?!',
       mistake: '?',
+      miss: '✗',
       blunder: '??',
       book: '📖',
     };
