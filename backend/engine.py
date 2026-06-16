@@ -23,7 +23,7 @@ from .analysis import (
     win_prob, classify_move, is_sacrifice,
     build_accuracy_report, cp_from_score
 )
-from .openings import is_book_move, get_opening_name
+from .openings import is_book_sequence, get_opening_name
 
 logger = logging.getLogger(__name__)
 
@@ -271,7 +271,7 @@ class EngineManager:
             delta = max(0.0, P_best - P_played)
 
             # Book check
-            book = is_book_move(board_before, move)
+            book = is_book_sequence(move_sans[:i + 1])
 
             # Sacrifice check
             sacrificed = False

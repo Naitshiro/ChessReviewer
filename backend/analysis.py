@@ -103,9 +103,6 @@ def get_max_loss_for_move(board: chess.Board, move: chess.Move) -> int:
     max_loss = 0
 
     for op_move in opponent_captures:
-        op_piece = after_board.piece_at(op_move.from_square)
-        op_value = PIECE_VALUES.get(op_piece.piece_type, 0) if op_piece else 0
-
         target_piece = after_board.piece_at(op_move.to_square)
         if target_piece:
             target_value = PIECE_VALUES.get(target_piece.piece_type, 0)
@@ -117,16 +114,22 @@ def get_max_loss_for_move(board: chess.Board, move: chess.Move) -> int:
 
         recapture_board = after_board.copy()
         recapture_board.push(op_move)
-        recaptures = [m for m in recapture_board.legal_moves if m.to_square == op_move.to_square]
+        
+        # Find the maximum value we can capture anywhere on the board
+        max_recapture_value = 0
+        for my_cap in recapture_board.legal_moves:
+            if recapture_board.is_capture(my_cap):
+                cap_target = recapture_board.piece_at(my_cap.to_square)
+                if cap_target:
+                    max_recapture_value = max(max_recapture_value, PIECE_VALUES.get(cap_target.piece_type, 0))
+                elif recapture_board.is_en_passant(my_cap):
+                    max_recapture_value = max(max_recapture_value, PIECE_VALUES[chess.PAWN])
 
-        if recaptures:
-            net_loss = target_value - op_value
-        else:
-            if target_value <= PIECE_VALUES[chess.PAWN]:
-                net_loss = 0
-            else:
-                net_loss = target_value
-                
+        # If we can capture an equal or more valuable piece, it's a trade/fork, not a sacrifice
+        net_loss = target_value - max_recapture_value
+        if net_loss < 0:
+            net_loss = 0
+            
         max_loss = max(max_loss, net_loss - material_won)
         
     return max_loss
@@ -148,7 +151,7 @@ def is_sacrifice(board: chess.Board, move: chess.Move) -> bool:
     """
     actual_max_loss = get_max_loss_for_move(board, move)
     
-    if actual_max_loss >= 50:
+    if actual_max_loss >= 200:
         # 0. Check if the piece we are moving was ALREADY under a severe LEAGAL threat
         mover_piece = board.piece_at(move.from_square)
         before_loss_of_mover = 0
@@ -224,10 +227,10 @@ def classify_move(
         Classification string.
     """
     if is_book:
-        return "book"
+        return "theory"
 
     # Brilliant (!!): strict special case
-    if (delta < 0.02
+    if (delta <= 0.02
             and sacrificed
             and p_played >= 0.45):
         return "brilliant"
@@ -333,11 +336,11 @@ def build_accuracy_report(
         }
     """
     labels = ["brilliant", "great", "best", "excellent", "good",
-              "inaccuracy", "mistake", "miss", "blunder", "book"]
+              "theory", "inaccuracy", "mistake", "miss", "blunder"]
 
     def _side_report(color: bool) -> dict:
         records = [r for r in move_records if r["color"] == color]
-        deltas = [r["delta"] for r in records if r["classification"] not in ("book",)]
+        deltas = [0.0 if r["classification"] == "theory" else r["delta"] for r in records]
         accuracy = game_accuracy(deltas)
         counts = {lbl: 0 for lbl in labels}
         for r in records:
@@ -359,10 +362,32 @@ def build_accuracy_report(
             
         capped_rating = min(raw_rating, base_cap)
         
+        # Calculate Phase badges
+        phase_badges = {}
+        for phase in ["opening", "middlegame", "endgame"]:
+            phase_records = [r for r in records if r.get("phase") == phase]
+            if not phase_records:
+                continue
+            
+            p_deltas = [0.0 if r["classification"] == "theory" else r["delta"] for r in phase_records]
+            p_accuracy = game_accuracy(p_deltas)
+            base_badge = accuracy_to_badge(p_accuracy)
+            
+            p_classifications = [r["classification"] for r in phase_records]
+            has_brilliant = "brilliant" in p_classifications
+            has_great = "great" in p_classifications
+            
+            if p_accuracy >= 95.0 and has_brilliant:
+                base_badge = "brilliant"
+            elif p_accuracy == 100.0 or (p_accuracy >= 95.0 and has_great) or (p_accuracy >= 85.0 and has_brilliant):
+                base_badge = "great"
+            
+            phase_badges[phase] = base_badge
+            
         # The only way to break the baseline cap and reach 3500-4000 is to find 
-        # incredibly difficult, highly evaluated moves.
-        brilliant_bonus = counts.get("brilliant", 0) * 400
-        great_bonus = counts.get("great", 0) * 150
+        # incredibly difficult, highly evaluated moves across a full phase.
+        brilliant_bonus = sum(500 for b in phase_badges.values() if b == "brilliant")
+        great_bonus = sum(100 for b in phase_badges.values() if b == "great")
         
         final_rating = capped_rating + brilliant_bonus + great_bonus
         
@@ -371,27 +396,6 @@ def build_accuracy_report(
         
         # Round to the nearest 100
         rounded_rating = int(round(final_rating, -2))
-        
-        # Calculate Phase badges
-        phase_badges = {}
-        for phase in ["opening", "middlegame", "endgame"]:
-            phase_records = [r for r in records if r.get("phase") == phase]
-            if not phase_records:
-                continue
-            
-            p_deltas = [r["delta"] for r in phase_records if r["classification"] not in ("book",)]
-            p_accuracy = game_accuracy(p_deltas)
-            base_badge = accuracy_to_badge(p_accuracy)
-            
-            # Upgrade badge if brilliant or great moves were found, provided accuracy isn't terrible
-            p_classifications = [r["classification"] for r in phase_records]
-            if "brilliant" in p_classifications and p_accuracy >= 80.0:
-                base_badge = "brilliant"
-            elif "great" in p_classifications and p_accuracy >= 80.0:
-                if base_badge != "brilliant":
-                    base_badge = "great"
-            
-            phase_badges[phase] = base_badge
         
         return {
             "accuracy": round(accuracy, 1),

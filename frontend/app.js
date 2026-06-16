@@ -12,13 +12,13 @@
  */
 
 import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm';
-import { BoardManager } from './board.js?v=5';
+import { BoardManager } from './board.js?v=6';
 import {
   renderEvalBar, renderEvalChart, highlightChartMove,
   renderMoveList, setActiveMoveInList,
   renderScorecard, showToast, setEvalText,
   CLASS_META, winProb, classifyMove
-} from './analysis.js?v=4';
+} from './analysis.js?v=7';
 
 // ── Constants ───────────────────────────────────────────────────────────
 

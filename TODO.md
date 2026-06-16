@@ -1,0 +1,12 @@
+- Suggestions (like moves rating but with white background and black foreground)
+- Win probability without symbols (only small dots), and allow to click dots to bring you to move
+- Deviations (they are not branching at the right number)
+- Play and pause automatic game review
+- Stop the analysis
+- White ratings not with +
+- 1-0 is white, 0-1 is black, and 1/2-1/2 is white
+- Mate bar must be completely full with the color
+- Eval bar 0.0 must be on white not black
+- Implementing pgn names, ranks, images, time, etc...
+- Implementing win / lost / draw icons
+- Potential issue on live engine with moves rating (brilliant, great, theory, ...)

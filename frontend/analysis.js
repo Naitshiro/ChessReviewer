@@ -23,13 +23,13 @@ export const CLASS_META = {
   mistake: { symbol: '?', label: 'Mistake', css: 'badge-mistake' },
   miss: { symbol: '✗', label: 'Miss', css: 'badge-miss' },
   blunder: { symbol: '??', label: 'Blunder', css: 'badge-blunder' },
-  book: { symbol: '📖', label: 'Book', css: 'badge-book' },
+  theory: { symbol: '⌕', label: 'Theory', css: 'badge-theory' },
 };
 
 // Classification display order for the scorecard
 const SCORE_ORDER = [
-  'brilliant', 'great', 'best', 'excellent', 'good',
-  'inaccuracy', 'mistake', 'miss', 'blunder', 'book',
+  'brilliant', 'great', 'best', 'excellent', 'good', 'theory',
+  'inaccuracy', 'mistake', 'miss', 'blunder',
 ];
 
 // ── Move Classification (JS port of backend formulas) ───────────────────
@@ -40,7 +40,7 @@ export function winProb(cp) {
 }
 
 export function classifyMove(delta, pBest, pSecondBest, pPlayed, sacrificed, isBook, cpBest, cpSecond) {
-  if (isBook) return "book";
+  if (isBook) return "theory";
   if (delta < 0.05 && sacrificed && pPlayed >= 0.45) return "brilliant";
   if (delta < 0.02 && cpBest > 0.0 && cpSecond <= 0.0) return "great";
   if (delta === 0.0) return "best";
@@ -192,36 +192,12 @@ export function renderEvalChart(moves) {
           const x = point.x;
           const y = point.y;
 
-          // Draw text badges only for critical move classes to keep it clean
-          const isInteresting = ['brilliant', 'great', 'inaccuracy', 'mistake', 'blunder'].includes(cls);
-
-          if (isInteresting) {
-            const symbol = CLASS_META[cls]?.symbol || '';
-            const bgColor = _classColor(cls);
-            const textColor = ['inaccuracy', 'good'].includes(cls) ? '#21201d' : '#ffffff';
-
-            canvasCtx.beginPath();
-            canvasCtx.arc(x, y, 7.5, 0, 2 * Math.PI);
-            canvasCtx.fillStyle = bgColor;
-            canvasCtx.fill();
-
-            canvasCtx.lineWidth = 1.25;
-            canvasCtx.strokeStyle = '#111118';
-            canvasCtx.stroke();
-
-            canvasCtx.fillStyle = textColor;
-            canvasCtx.font = 'bold 8px "Outfit", sans-serif';
-            canvasCtx.textAlign = 'center';
-            canvasCtx.textBaseline = 'middle';
-            canvasCtx.fillText(symbol, x, y + 0.5);
-          } else {
-            // Draw tiny dots for standard moves
-            const bgColor = _classColor(cls);
-            canvasCtx.beginPath();
-            canvasCtx.arc(x, y, 2.5, 0, 2 * Math.PI);
-            canvasCtx.fillStyle = bgColor;
-            canvasCtx.fill();
-          }
+          // Draw tiny dots for all moves
+          const bgColor = _classColor(cls);
+          canvasCtx.beginPath();
+          canvasCtx.arc(x, y, 2.5, 0, 2 * Math.PI);
+          canvasCtx.fillStyle = bgColor;
+          canvasCtx.fill();
         });
         canvasCtx.restore();
       }
@@ -422,33 +398,45 @@ export function setActiveMoveInList(type, moveIndex) {
 export function renderScorecard(accuracy) {
   _renderSideAccuracy('white', accuracy.white);
   _renderSideAccuracy('black', accuracy.black);
+
+  // Render merged scorecard
+  const mergedEl = document.getElementById('scorecard-merged');
+  if (mergedEl) {
+    mergedEl.innerHTML = SCORE_ORDER.map(cls => {
+      const wCount = accuracy.white.counts[cls] || 0;
+      const bCount = accuracy.black.counts[cls] || 0;
+      const meta = CLASS_META[cls];
+      return `
+        <div class="flex justify-between items-center">
+          <span class="flex items-center gap-2">
+            <span class="move-badge ${meta.css}">${meta.symbol}</span>
+            ${meta.label}
+          </span>
+          <div class="flex justify-between items-center w-[56px] mr-1 text-[13px] font-bold">
+            <span class="w-5 text-center" style="color: ${wCount > 0 ? _classColor(cls) : 'var(--text-muted)'}">${wCount}</span>
+            <span class="w-5 text-center" style="color: ${bCount > 0 ? _classColor(cls) : 'var(--text-muted)'}">${bCount}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
 }
 
 function _renderSideAccuracy(side, data) {
   const pct = data.accuracy;
 
-  // Accuracy ring
-  const ringEl = document.getElementById(`accuracy-${side}`);
-  if (ringEl) {
-    const circle = ringEl.querySelector('.ring-progress');
-    const label = ringEl.querySelector('.accuracy-number');
-
-    if (circle) {
-      const r = 28;
-      const circumference = 2 * Math.PI * r;
-      const dashOffset = circumference * (1 - pct / 100);
-      circle.style.strokeDasharray = circumference;
-      circle.style.strokeDashoffset = dashOffset;
-      circle.style.stroke = _accuracyColor(pct);
-    }
-    if (label) label.textContent = Math.round(pct);
+  // Update Accuracy Box
+  const accuracyBox = document.getElementById(`accuracy-${side}-box`);
+  if (accuracyBox) {
+    accuracyBox.textContent = pct.toFixed(1);
   }
 
-  // Estimated Rating
-  const ratingContainer = document.getElementById(`rating-${side}`);
-  if (ratingContainer && data.estimated_rating !== undefined) {
-    ratingContainer.querySelector('span').textContent = data.estimated_rating;
-    ratingContainer.classList.remove('hidden');
+  // Update Estimated Rating Box
+  const ratingBox = document.getElementById(`rating-${side}-box`);
+  const ratingRow = document.getElementById('rating-row');
+  if (ratingBox && data.estimated_rating !== undefined) {
+    ratingBox.textContent = data.estimated_rating;
+    if (ratingRow) ratingRow.classList.remove('hidden');
   }
 
   // Game Phases
@@ -463,36 +451,16 @@ function _renderSideAccuracy(side, data) {
         if (badgeClass && CLASS_META[badgeClass]) {
           const meta = CLASS_META[badgeClass];
           badgeEl.textContent = meta.symbol;
-          badgeEl.style = '';
+          badgeEl.removeAttribute('style');
           badgeEl.className = `move-badge ${meta.css}`;
         } else {
           badgeEl.textContent = "—";
-          badgeEl.style = '';
+          badgeEl.removeAttribute('style');
           badgeEl.className = `move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]`;
         }
       }
     });
   }
-
-  // Scorecard counts
-  const scEl = document.getElementById(`scorecard-${side}`);
-  if (!scEl) return;
-
-  scEl.innerHTML = SCORE_ORDER.map(cls => {
-    const count = data.counts[cls] || 0;
-    const meta = CLASS_META[cls];
-    return `
-      <div class="score-row">
-        <span class="score-label">
-          <span class="move-badge ${meta.css}">${meta.symbol}</span>
-          ${meta.label}
-        </span>
-        <span class="score-count" style="color: ${count > 0 ? _classColor(cls) : 'var(--text-muted)'}">
-          ${count}
-        </span>
-      </div>
-    `;
-  }).join('');
 }
 
 function _accuracyColor(pct) {
@@ -507,7 +475,7 @@ function _classColor(cls) {
   const map = {
     brilliant: '#06b6d4', great: '#818cf8', best: '#22c55e',
     excellent: '#4ade80', good: '#a3e635', inaccuracy: '#eab308',
-    mistake: '#f97316', miss: '#f43f5e', blunder: '#ef4444', book: '#94a3b8',
+    mistake: '#f97316', miss: '#f43f5e', blunder: '#ef4444', theory: '#b58863',
   };
   return map[cls] || 'var(--text-primary)';
 }

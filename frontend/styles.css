@@ -186,8 +186,8 @@ body {
   fill: rgba(244, 63, 94, 0.45) !important;
 }
 
-.cm-chessboard .marker.marker-book {
-  fill: rgba(148, 163, 184, 0.45) !important;
+.cm-chessboard .marker.marker-theory {
+  fill: rgba(181, 136, 99, 0.45) !important;
 }
 
 /* Board Classification Badge overlays */
@@ -273,7 +273,7 @@ body {
   font-size: 19px;
 }
 
-.board-class-badge.badge-book {
+.board-class-badge.badge-theory {
   background: #b58863;
   font-size: 19px;
 }
@@ -441,7 +441,7 @@ body {
   color: #ef4444;
 }
 
-.badge-book {
+.badge-theory {
   background: rgba(181, 136, 99, 0.15);
   color: #b58863;
 }

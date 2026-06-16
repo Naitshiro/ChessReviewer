@@ -50,7 +50,7 @@ const CLASSIFICATION_MARKERS = {
   mistake:    { class: 'marker-mistake',    slice: 'markerSquare' },
   miss:       { class: 'marker-miss',       slice: 'markerSquare' },
   blunder:    { class: 'marker-blunder',    slice: 'markerSquare' },
-  book:       { class: 'marker-book',       slice: 'markerSquare' },
+  theory:     { class: 'marker-theory',     slice: 'markerSquare' },
 };
 
 /**
@@ -277,7 +277,7 @@ export class BoardManager {
       mistake: '?',
       miss: '✗',
       blunder: '??',
-      book: '📖',
+      theory: '⌕',
     };
     badge.textContent = symbols[classification] || '';
 
