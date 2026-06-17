@@ -21,7 +21,7 @@ import io
 from .config import STOCKFISH_PATH, ENGINE_THREADS, ENGINE_HASH_MB, ANALYSIS_DEPTH
 from .analysis import (
     win_prob, classify_move, is_sacrifice,
-    build_accuracy_report, cp_from_score
+    build_accuracy_report, cp_from_score, get_mate_moves
 )
 from .openings import is_book_sequence, get_opening_name
 
@@ -241,6 +241,7 @@ class EngineManager:
 
         # --- Compute move records ---
         move_records: list[dict] = []
+        brilliant_theory_found = False
 
         for i, move in enumerate(moves_played):
             board_before = boards_before[i]
@@ -271,15 +272,21 @@ class EngineManager:
             delta = max(0.0, P_best - P_played)
 
             # Book check
-            book = is_book_sequence(move_sans[:i + 1])
+            if brilliant_theory_found:
+                book = False
+            else:
+                book = is_book_sequence(move_sans[:i + 1])
 
-            # Sacrifice check
+            # Sacrifice check (always needed now because a book move could be brilliant)
             sacrificed = False
-            if not book:
-                try:
-                    sacrificed = is_sacrifice(board_before, move)
-                except Exception:
-                    sacrificed = False
+            try:
+                sacrificed = is_sacrifice(board_before, move)
+            except Exception:
+                sacrificed = False
+
+            # Extract mate information in moves
+            mate_best = get_mate_moves(es_before.get("score_mate"), color)
+            mate_played = get_mate_moves(es_after.get("score_mate"), color)
 
             classification = classify_move(
                 delta=delta,
@@ -290,7 +297,16 @@ class EngineManager:
                 is_book=book,
                 cp_best=cp_best,
                 cp_second=cp_second,
+                cp_played=cp_played,
+                mate_best=mate_best,
+                mate_played=mate_played,
+                is_engine_top_choice=(move.uci() == es_before.get("pv1")),
             )
+
+            # If it was a book move and it was classified as brilliant,
+            # we found a brilliant theory move. Stop flagging subsequent theory.
+            if classification == "brilliant" and book:
+                brilliant_theory_found = True
 
             # Compute White's absolute centipawn score for the eval bar/graph
             # post_relative is from the opponent's perspective in FEN_after
@@ -324,7 +340,7 @@ class EngineManager:
                 "fen_after": fens[i + 1],
                 "cp_best": round(cp_best, 2),
                 "cp_played": round(cp_played, 2),
-                "score_mate": es_before.get("score_mate"),
+                "score_mate": es_after.get("score_mate"),
                 "white_cp": round(white_cp, 2),   # White-perspective cp (for eval bar)
                 "white_win_prob": round(white_win_prob, 4),
                 "p_best": round(P_best, 4),
@@ -352,9 +368,15 @@ class EngineManager:
             "metadata": {
                 "white": headers.get("White", "White"),
                 "black": headers.get("Black", "Black"),
+                "white_elo": headers.get("WhiteElo", ""),
+                "black_elo": headers.get("BlackElo", ""),
+                "white_title": headers.get("WhiteTitle", ""),
+                "black_title": headers.get("BlackTitle", ""),
                 "event": headers.get("Event", ""),
                 "date": headers.get("Date", ""),
                 "result": headers.get("Result", "*"),
+                "time_control": headers.get("TimeControl", ""),
+                "termination": headers.get("Termination", ""),
                 "depth_used": depth,
             },
             "initial_fen": fens[0],

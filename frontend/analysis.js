@@ -32,24 +32,12 @@ const SCORE_ORDER = [
   'inaccuracy', 'mistake', 'miss', 'blunder',
 ];
 
-// ── Move Classification (JS port of backend formulas) ───────────────────
-
-export function winProb(cp) {
-  const clamped = Math.max(-3000.0, Math.min(3000.0, parseFloat(cp) || 0));
-  return 1.0 / (1.0 + Math.exp(-0.004 * clamped));
-}
-
-export function classifyMove(delta, pBest, pSecondBest, pPlayed, sacrificed, isBook, cpBest, cpSecond) {
-  if (isBook) return "theory";
-  if (delta < 0.05 && sacrificed && pPlayed >= 0.45) return "brilliant";
-  if (delta < 0.02 && cpBest > 0.0 && cpSecond <= 0.0) return "great";
-  if (delta === 0.0) return "best";
-  if (delta < 0.02) return "excellent";
-  if (delta < 0.05) return "good";
-  if (delta < 0.10) return "inaccuracy";
-  if (delta < 0.20) return "mistake";
-  if (pPlayed >= 0.50 && pBest >= 0.70) return "miss";
-  return "blunder";
+export function getMateMoves(plies, color) {
+  if (plies === null || plies === undefined) return null;
+  const relPlies = color === 'white' ? plies : -plies;
+  if (relPlies > 0) return Math.ceil(relPlies / 2.0);
+  if (relPlies < 0) return -Math.ceil(Math.abs(relPlies) / 2.0);
+  return 0;
 }
 
 // ── Evaluation Bar ──────────────────────────────────────────────────────
@@ -62,8 +50,17 @@ const evalBarLabel = document.getElementById('eval-bar-label');
  * @param {number} whiteCp - Centipawns from White's perspective (positive = White winning)
  * @param {number|null} mateMoves - Mate-in-N (positive = White mating, negative = Black mating)
  */
-export function renderEvalBar(whiteCp, mateMoves = null, gameOver = false, winner = null) {
+export function renderEvalBar(whiteCp, mateMoves = null, gameOver = false, winner = null, orientation = 'white') {
   if (!evalBarWhite) return;
+
+  const container = document.getElementById('eval-bar-container');
+  if (container) {
+    if (orientation === 'black') {
+      container.classList.add('flipped');
+    } else {
+      container.classList.remove('flipped');
+    }
+  }
 
   let heightPct;
   let labelText;
@@ -87,7 +84,7 @@ export function renderEvalBar(whiteCp, mateMoves = null, gameOver = false, winne
       heightPct = 0;
       labelText = '0 - 1';
     } else {
-      heightPct = mateMoves > 0 ? 98 : 2;
+      heightPct = mateMoves > 0 ? 100 : 0;
       labelText = mateMoves > 0 ? `M${mateMoves}` : `M${-mateMoves}`;
     }
   } else {
@@ -97,9 +94,13 @@ export function renderEvalBar(whiteCp, mateMoves = null, gameOver = false, winne
     // Map 0–1 to 2–98% (leave a small gutter at extremes)
     heightPct = 2 + prob * 96;
 
-    // Use 1 decimal place like chess.com (e.g., 1.5, 0.4)
-    const absVal = Math.abs(clampedCp / 100).toFixed(1);
-    labelText = absVal;
+    const val = Math.abs((whiteCp || 0) / 100);
+    const formatted = val.toFixed(1);
+    if (parseFloat(formatted) < 10) {
+      labelText = formatted;
+    } else {
+      labelText = Math.round(val).toString();
+    }
   }
 
   evalBarWhite.style.height = `${heightPct}%`;
@@ -108,8 +109,8 @@ export function renderEvalBar(whiteCp, mateMoves = null, gameOver = false, winne
     evalBarLabel.textContent = labelText;
 
     // Position label dynamically (like chess.com: text on the winning side)
-    if (heightPct > 50) {
-      // White is winning -> label at bottom, dark text on white background
+    if (heightPct >= 50) {
+      // White is winning or equal -> label at bottom, dark text on white background
       evalBarLabel.style.top = 'auto';
       evalBarLabel.style.bottom = '8px';
       evalBarLabel.style.color = '#21201d';
@@ -273,6 +274,7 @@ export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex =
   if (!container) return;
 
   const rows = [];
+  const rowElements = [];
   let currentRow = null;
   let lastMoveNum = -1;
 
@@ -292,12 +294,17 @@ export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex =
       return currentRow;
     }, (row) => currentRow = row, lastMoveNum);
     lastMoveNum = m.move_number;
+    rowElements[i] = currentRow;
   }
 
-  // 2. Render branch moves (if any) underneath
-  if (branchMoves && branchMoves.length > 0) {
+  container.innerHTML = '';
+  rows.forEach(r => container.appendChild(r));
+
+  // 2. Render branch moves inline
+  if (branchMoves && branchMoves.length > 0 && forkIndex !== null) {
     const branchContainer = document.createElement('div');
-    branchContainer.className = 'branch-container mt-2 ml-4 pl-3 border-l-2 border-indigo-500/30 bg-indigo-900/10 rounded-r-md py-1';
+    // Subtle background to distinguish branch, no left margin so columns align perfectly
+    branchContainer.className = 'branch-container bg-indigo-900/20 my-1 py-1 rounded';
     const branchRows = [];
     let bCurrentRow = null;
     let bLastMoveNum = -1;
@@ -308,8 +315,16 @@ export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex =
         bCurrentRow = document.createElement('div');
         bCurrentRow.className = 'move-row';
         const numEl = document.createElement('span');
-        numEl.className = 'move-num text-[var(--text-secondary)]';
-        numEl.textContent = `${m.move_number}.`;
+        numEl.className = 'move-num text-[var(--text-secondary)] relative';
+        
+        if (i === 0) {
+          const lIcon = document.createElement('span');
+          lIcon.textContent = '↳ ';
+          lIcon.className = 'absolute -left-3 top-0 opacity-50';
+          numEl.appendChild(lIcon);
+        }
+        numEl.appendChild(document.createTextNode(`${m.move_number}.`));
+        
         bCurrentRow.appendChild(numEl);
         bCurrentRow.appendChild(_createEmptyCell(`b-move-cell-w-${m.move_number}`));
         bCurrentRow.appendChild(_createEmptyCell(`b-move-cell-b-${m.move_number}`));
@@ -319,11 +334,14 @@ export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex =
     }
 
     branchRows.forEach(r => branchContainer.appendChild(r));
-    rows.push(branchContainer);
+    
+    const targetRow = rowElements[forkIndex];
+    if (targetRow) {
+      targetRow.after(branchContainer);
+    } else {
+      container.prepend(branchContainer);
+    }
   }
-
-  container.innerHTML = '';
-  rows.forEach(r => container.appendChild(r));
 }
 
 function _createEmptyCell(id) {

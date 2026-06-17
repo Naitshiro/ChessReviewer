@@ -271,7 +271,7 @@ export class BoardManager {
       brilliant: '!!',
       great: '!',
       best: '★',
-      excellent: '✓',
+      excellent: '✦',
       good: '✓',
       inaccuracy: '?!',
       mistake: '?',

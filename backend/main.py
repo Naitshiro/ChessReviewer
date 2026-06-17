@@ -27,9 +27,12 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
+import chess
 
 from .engine import EngineManager
 from .config import ANALYSIS_DEPTH
+from .openings import is_book_sequence
+from .analysis import classify_move, is_sacrifice, win_prob
 
 logging.basicConfig(
     level=logging.INFO,
@@ -95,6 +98,20 @@ class AnalyzeRequest(BaseModel):
             raise ValueError("PGN cannot be empty")
         return v.strip()
 
+class TheoryRequest(BaseModel):
+    sans: list[str]
+
+class ClassifyRequest(BaseModel):
+    fen_before: str
+    move_uci: str
+    cp_best: float
+    cp_second: float
+    best_move_uci: Optional[str] = None
+    mate_best: Optional[int] = None
+    cp_played: float
+    mate_played: Optional[int] = None
+    is_book: Optional[bool] = False
+
 
 # ---------------------------------------------------------------------------
 # HTTP Routes
@@ -109,9 +126,48 @@ async def health():
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+@app.post("/api/theory")
+async def check_theory(req: TheoryRequest):
+    """Check if a sequence of SANs is a known opening theory."""
+    is_theory = is_book_sequence(req.sans)
+    return {"is_theory": is_theory}
 
-
-
+@app.post("/api/classify")
+async def classify_live_move(req: ClassifyRequest):
+    """Classify a move played during live analysis."""
+    try:
+        board = chess.Board(req.fen_before)
+        try:
+            move = chess.Move.from_uci(req.move_uci)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid move UCI")
+            
+        sacrificed = is_sacrifice(board, move)
+        is_engine_top_choice = (req.best_move_uci is not None) and (req.move_uci == req.best_move_uci)
+        
+        p_best = win_prob(req.cp_best)
+        p_played = win_prob(req.cp_played)
+        delta = max(0.0, p_best - p_played)
+        p_second = win_prob(req.cp_second)
+        
+        classification = classify_move(
+            delta=delta,
+            p_best=p_best,
+            p_second_best=p_second,
+            p_played=p_played,
+            sacrificed=sacrificed,
+            is_book=req.is_book,
+            cp_best=req.cp_best,
+            cp_second=req.cp_second,
+            cp_played=req.cp_played,
+            mate_best=req.mate_best,
+            mate_played=req.mate_played,
+            is_engine_top_choice=is_engine_top_choice,
+        )
+        return {"classification": classification}
+    except Exception as e:
+        logger.exception("Error in /api/classify")
+        raise HTTPException(status_code=500, detail=str(e))
 
 from fastapi.responses import StreamingResponse
 

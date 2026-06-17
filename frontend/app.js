@@ -17,13 +17,13 @@ import {
   renderEvalBar, renderEvalChart, highlightChartMove,
   renderMoveList, setActiveMoveInList,
   renderScorecard, showToast, setEvalText,
-  CLASS_META, winProb, classifyMove
+  CLASS_META, getMateMoves
 } from './analysis.js?v=7';
 
 // ── Constants ───────────────────────────────────────────────────────────
 
 const API_BASE = '';   // Same origin
-const WS_URL   = `ws://${location.host}/ws/analyze`;
+const WS_URL = `ws://${location.host}/ws/analyze`;
 
 const MODE = { IDLE: 'idle', REVIEW: 'review', ANALYSIS: 'analysis' };
 
@@ -57,42 +57,60 @@ const state = {
     branchMoves: [],      // Moves played in analysis mode
     currentBranchIndex: -1, // Currently viewed move in branch
   },
+  boardOrientation: 'white', // tracks the visual orientation to render player cards correctly
+  autoplay: {
+    intervalId: null,
+    isPlaying: false,
+  },
 };
 
 // ── DOM References ──────────────────────────────────────────────────────
 
 const el = {
-  modeBadge:        document.getElementById('mode-badge'),
-  badgeDot:         document.getElementById('badge-dot'),
-  badgeText:        document.getElementById('badge-text'),
-  openingName:      document.getElementById('opening-name'),
-  pgnInput:         document.getElementById('pgn-input'),
-  analyzeBtn:       document.getElementById('analyze-btn'),
-  loadingSpinner:   document.getElementById('loading-spinner'),
+  modeBadge: document.getElementById('mode-badge'),
+  badgeDot: document.getElementById('badge-dot'),
+  badgeText: document.getElementById('badge-text'),
+  openingName: document.getElementById('opening-name'),
+  pgnInput: document.getElementById('pgn-input'),
+  analyzeBtn: document.getElementById('analyze-btn'),
+  loadingSpinner: document.getElementById('loading-spinner'),
   analysisProgressContainer: document.getElementById('analysis-progress-container'),
   analysisProgressText: document.getElementById('analysis-progress-text'),
   analysisProgressPct: document.getElementById('analysis-progress-pct'),
   analysisProgressFill: document.getElementById('analysis-progress-fill'),
-  depthSlider:      document.getElementById('depth-slider'),
-  depthValue:       document.getElementById('depth-value'),
-  btnFirst:         document.getElementById('btn-first'),
-  btnPrev:          document.getElementById('btn-prev'),
-  btnNext:          document.getElementById('btn-next'),
-  btnLast:          document.getElementById('btn-last'),
-  btnFlip:          document.getElementById('btn-flip'),
-  backToReviewBtn:  document.getElementById('back-to-review-btn'),
-  tabSummary:       document.getElementById('tab-summary'),
-  tabMoves:         document.getElementById('tab-moves'),
-  panelSummary:     document.getElementById('panel-summary'),
-  panelMoves:       document.getElementById('panel-moves'),
+  depthSlider: document.getElementById('depth-slider'),
+  depthValue: document.getElementById('depth-value'),
+  btnFirst: document.getElementById('btn-first'),
+  btnPrev: document.getElementById('btn-prev'),
+  btnPlay: document.getElementById('btn-play'),
+  playIcon: document.getElementById('play-icon'),
+  pauseIcon: document.getElementById('pause-icon'),
+  btnNext: document.getElementById('btn-next'),
+  btnLast: document.getElementById('btn-last'),
+  btnFlip: document.getElementById('btn-flip'),
+  backToReviewBtn: document.getElementById('back-to-review-btn'),
+  tabSummary: document.getElementById('tab-summary'),
+  tabMoves: document.getElementById('tab-moves'),
+  panelSummary: document.getElementById('panel-summary'),
+  panelMoves: document.getElementById('panel-moves'),
   engineDepthBadge: document.getElementById('engine-depth-badge'),
   liveEngineToggle: document.getElementById('live-engine-toggle'),
-  liveEngineDot:    document.getElementById('live-engine-dot'),
-  liveDepthInput:   document.getElementById('live-depth'),
+  liveEngineDot: document.getElementById('live-engine-dot'),
+  liveDepthInput: document.getElementById('live-depth'),
   liveTimeoutInput: document.getElementById('live-timeout'),
   engineLinesPanel: document.getElementById('live-engine-lines'),
   engineLinesContainer: document.getElementById('engine-lines-container'),
-  engineSpinner:    document.getElementById('engine-spinner'),
+  engineSpinner: document.getElementById('engine-spinner'),
+
+  // Player Cards
+  topPlayerName: document.getElementById('top-player-name'),
+  topPlayerElo: document.getElementById('top-player-elo'),
+  topPlayerTitle: document.getElementById('top-player-title'),
+  topPlayerAvatar: document.getElementById('top-player-avatar'),
+  bottomPlayerName: document.getElementById('bottom-player-name'),
+  bottomPlayerElo: document.getElementById('bottom-player-elo'),
+  bottomPlayerTitle: document.getElementById('bottom-player-title'),
+  bottomPlayerAvatar: document.getElementById('bottom-player-avatar'),
 };
 
 // ── Board ───────────────────────────────────────────────────────────────
@@ -113,10 +131,14 @@ async function init() {
   // Keyboard navigation
   document.addEventListener('keydown', e => {
     if (e.target.tagName === 'TEXTAREA') return;
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') navigateNext();
-    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')  navigatePrev();
-    if (e.key === 'Home')  navigateFirst();
-    if (e.key === 'End')   navigateLast();
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { stopAutoplay(); navigateNext(); }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { stopAutoplay(); navigatePrev(); }
+    if (e.key === 'Home') { stopAutoplay(); navigateFirst(); }
+    if (e.key === 'End') { stopAutoplay(); navigateLast(); }
+    if (e.key === ' ') {
+      e.preventDefault();
+      toggleAutoplay();
+    }
   });
 
   // Enable interaction right away so user can play from blank board
@@ -162,14 +184,23 @@ function _bindControls() {
   });
 
   // Navigation buttons
-  el.btnFirst?.addEventListener('click', navigateFirst);
-  el.btnPrev?.addEventListener('click',  navigatePrev);
-  el.btnNext?.addEventListener('click',  navigateNext);
-  el.btnLast?.addEventListener('click',  navigateLast);
-  el.btnFlip?.addEventListener('click',  () => board.flipBoard());
+  el.btnFirst?.addEventListener('click', () => { stopAutoplay(); navigateFirst(); });
+  el.btnPrev?.addEventListener('click', () => { stopAutoplay(); navigatePrev(); });
+  el.btnPlay?.addEventListener('click', toggleAutoplay);
+  el.btnNext?.addEventListener('click', () => { stopAutoplay(); navigateNext(); });
+  el.btnLast?.addEventListener('click', () => { stopAutoplay(); navigateLast(); });
+  el.btnFlip?.addEventListener('click', () => {
+    board.flipBoard();
+    state.boardOrientation = state.boardOrientation === 'white' ? 'black' : 'white';
+    _updatePlayerCards();
+    _triggerEvalBarRender();
+  });
 
   // Back to review (exits analysis mode)
-  el.backToReviewBtn?.addEventListener('click', exitAnalysisMode);
+  el.backToReviewBtn?.addEventListener('click', () => {
+    stopAutoplay();
+    exitAnalysisMode();
+  });
 
   // Depth slider
   el.depthSlider?.addEventListener('input', () => {
@@ -178,7 +209,7 @@ function _bindControls() {
 
   // Tabs
   el.tabSummary?.addEventListener('click', () => _switchTab('summary'));
-  el.tabMoves?.addEventListener('click',   () => _switchTab('moves'));
+  el.tabMoves?.addEventListener('click', () => _switchTab('moves'));
 
   // Live Engine Toggle
   el.liveEngineToggle?.addEventListener('change', (e) => {
@@ -188,7 +219,7 @@ function _bindControls() {
     }
     _handleLiveEngineToggle();
   });
-  
+
   // Live settings change — re-trigger analysis with new limits
   el.liveDepthInput?.addEventListener('change', () => {
     if (state.liveEngineEnabled) _restartCurrentAnalysis();
@@ -209,24 +240,8 @@ function _handleLiveEngineToggle() {
     if (el.engineSpinner) el.engineSpinner.classList.add('hidden');
     if (el.engineLinesPanel) el.engineLinesPanel.classList.add('hidden');
     if (el.badgeDot) el.badgeDot.style.animation = 'none';
-    
-    if (state.mode === MODE.REVIEW) {
-      const idx = state.review.currentIndex;
-      if (idx >= 0) {
-        const m = state.game.moves[idx];
-        const c = new Chess(m.fen_after);
-        let gameOver = c.isGameOver();
-        let winner = null;
-        if (c.isCheckmate()) {
-          winner = c.turn() === 'w' ? 'black' : 'white';
-        }
-        renderEvalBar(m.white_cp || 0, null, gameOver, winner);
-      } else {
-        renderEvalBar(0, null, false, null);
-      }
-    } else {
-      renderEvalBar(0, null, false, null);
-    }
+
+    _triggerEvalBarRender();
   }
 }
 
@@ -255,6 +270,7 @@ function _restartCurrentAnalysis() {
 // ── PGN Submission & Batch Analysis ────────────────────────────────────
 
 async function submitAnalysis() {
+  stopAutoplay();
   const pgn = el.pgnInput?.value?.trim();
   if (!pgn) {
     showToast('Please paste a PGN or list of moves.', 'error');
@@ -264,7 +280,7 @@ async function submitAnalysis() {
   const depth = parseInt(el.depthSlider?.value || '18', 10);
 
   // Show loading state
-  if (el.analyzeBtn)  el.analyzeBtn.disabled = true;
+  if (el.analyzeBtn) el.analyzeBtn.disabled = true;
   if (el.loadingSpinner) el.loadingSpinner.classList.remove('hidden');
   if (el.analysisProgressContainer) {
     el.analysisProgressContainer.classList.remove('hidden');
@@ -300,11 +316,11 @@ async function submitAnalysis() {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      
+
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
       buffer = lines.pop(); // Keep incomplete line in buffer
-      
+
       for (const line of lines) {
         if (!line.trim()) continue;
         const msg = JSON.parse(line);
@@ -337,7 +353,7 @@ async function submitAnalysis() {
 
 function _loadGameAnalysis(data) {
   state.game.metadata = data.metadata;
-  state.game.moves    = data.moves;
+  state.game.moves = data.moves;
   state.game.accuracy = data.accuracy;
   state.game.initialFen = data.initial_fen ||
     'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -356,12 +372,97 @@ function _loadGameAnalysis(data) {
     metaEl.classList.remove('hidden');
   }
 
+  // Populate player cards
+  state.boardOrientation = 'white'; // Board defaults to white orientation on new game
+  board.setOrientation('white');
+  _updatePlayerCards();
+
   // Switch to review mode at initial position
   _setMode(MODE.REVIEW);
   navigateFirst();
 
   // Enable board interaction (for On-Demand forking)
   board.enableInteraction(_validateReviewMove, _getLegalMoves);
+}
+
+// ── Player Cards ────────────────────────────────────────────────────────
+
+function _updatePlayerCards() {
+  if (!state.game.metadata) return;
+  const m = state.game.metadata;
+
+  // Create safe values
+  const whiteName = (m.white && m.white !== '?') ? m.white : 'White';
+  const blackName = (m.black && m.black !== '?') ? m.black : 'Black';
+  const whiteElo = m.white_elo ? `(${m.white_elo})` : '';
+  const blackElo = m.black_elo ? `(${m.black_elo})` : '';
+  const whiteTitle = m.white_title || '';
+  const blackTitle = m.black_title || '';
+
+  let top, bottom;
+  if (state.boardOrientation === 'white') {
+    top = { name: blackName, elo: blackElo, title: blackTitle, color: 'black' };
+    bottom = { name: whiteName, elo: whiteElo, title: whiteTitle, color: 'white' };
+  } else {
+    top = { name: whiteName, elo: whiteElo, title: whiteTitle, color: 'white' };
+    bottom = { name: blackName, elo: blackElo, title: blackTitle, color: 'black' };
+  }
+
+  const renderAvatar = (el, color) => {
+    if (!el) return;
+    if (color === 'white') {
+      el.className = 'w-7 h-7 rounded bg-gray-200 flex items-center justify-center text-[18px] text-gray-900 border border-[var(--border)]';
+    } else {
+      el.className = 'w-7 h-7 rounded bg-gray-900 flex items-center justify-center text-[18px] text-gray-200 border border-[var(--border)]';
+    }
+  };
+
+  renderAvatar(el.topPlayerAvatar, top.color);
+  renderAvatar(el.bottomPlayerAvatar, bottom.color);
+
+  if (el.topPlayerName) el.topPlayerName.textContent = top.name;
+  if (el.topPlayerElo) el.topPlayerElo.textContent = top.elo;
+  if (el.topPlayerTitle) {
+    el.topPlayerTitle.textContent = top.title;
+    top.title ? el.topPlayerTitle.classList.remove('hidden') : el.topPlayerTitle.classList.add('hidden');
+  }
+
+  if (el.bottomPlayerName) el.bottomPlayerName.textContent = bottom.name;
+  if (el.bottomPlayerElo) el.bottomPlayerElo.textContent = bottom.elo;
+  if (el.bottomPlayerTitle) {
+    el.bottomPlayerTitle.textContent = bottom.title;
+    bottom.title ? el.bottomPlayerTitle.classList.remove('hidden') : el.bottomPlayerTitle.classList.add('hidden');
+  }
+}
+
+function _triggerEvalBarRender() {
+  if (state.liveEngineEnabled && state.analysis.latestLines?.[0]) {
+    const line = state.analysis.latestLines[0];
+    renderEvalBar(line.white_cp, line.score_mate, line.game_over, line.winner, state.boardOrientation);
+  } else if (state.mode === MODE.REVIEW) {
+    const idx = state.review.currentIndex;
+    if (idx >= 0) {
+      const m = state.game.moves[idx];
+      const c = new Chess(m.fen_after);
+      let gameOver = c.isGameOver();
+      let winner = null;
+      if (c.isCheckmate()) {
+        winner = c.turn() === 'w' ? 'black' : 'white';
+      }
+      renderEvalBar(m.white_cp || 0, m.score_mate, gameOver, winner, state.boardOrientation);
+    } else {
+      renderEvalBar(0, null, false, null, state.boardOrientation);
+    }
+  } else if (state.mode === MODE.ANALYSIS) {
+    const activeBranch = state.analysis.branchMoves[state.analysis.currentBranchIndex];
+    if (activeBranch) {
+      renderEvalBar(activeBranch.white_cp || 0, activeBranch.mate_played, false, null, state.boardOrientation);
+    } else {
+      renderEvalBar(0, null, false, null, state.boardOrientation);
+    }
+  } else {
+    renderEvalBar(0, null, false, null, state.boardOrientation);
+  }
 }
 
 // ── Review Mode Navigation ──────────────────────────────────────────────
@@ -397,7 +498,7 @@ function _navigateToBranch(idx) {
   const fen = idx === -1 ? state.analysis.forkFen : state.analysis.branchMoves[idx].fen_after;
   state.analysis.chess = new Chess(fen);
   board.setPosition(fen, true);
-  
+
   if (idx === -1) {
     const forkIdx = state.analysis.forkIndex;
     if (forkIdx >= 0 && state.game.moves[forkIdx]) {
@@ -442,7 +543,7 @@ export function navigateTo(index) {
   if (clampedIndex >= 0) {
     const m = moves[clampedIndex];
     const from = m.uci.slice(0, 2);
-    const to   = m.uci.slice(2, 4);
+    const to = m.uci.slice(2, 4);
     board.addLastMoveMarkers(from, to, m.classification);
 
     // Eval bar (from White's perspective)
@@ -453,7 +554,7 @@ export function navigateTo(index) {
       if (c.isCheckmate()) {
         winner = c.turn() === 'w' ? 'black' : 'white';
       }
-      renderEvalBar(m.white_cp || 0, m.score_mate, gameOver, winner);
+      renderEvalBar(m.white_cp || 0, m.score_mate, gameOver, winner, state.boardOrientation);
     }
 
     // Opening name
@@ -467,7 +568,7 @@ export function navigateTo(index) {
     board.clearMarkers();
     if (!state.liveEngineEnabled) {
       board.clearArrows();
-      renderEvalBar(0);
+      renderEvalBar(0, null, false, null, state.boardOrientation);
     }
     if (el.openingName) el.openingName.textContent = 'Starting Position';
     highlightChartMove(-1);
@@ -487,6 +588,7 @@ export function navigateTo(index) {
 }
 
 function _onMoveClick(type, index) {
+  stopAutoplay();
   if (type === 'main') {
     if (state.mode === MODE.ANALYSIS) {
       exitAnalysisMode();
@@ -498,7 +600,7 @@ function _onMoveClick(type, index) {
     const m = state.analysis.branchMoves[index];
     state.analysis.chess = new Chess(m.fen_after);
     board.setPosition(m.fen_after, true);
-    
+
     // Add marker for the branch move
     board.clearMarkers();
     const from = m.uci.slice(0, 2);
@@ -514,9 +616,68 @@ function _updateNavButtons() {
   const idx = state.review.currentIndex;
   const max = state.game.moves.length - 1;
   if (el.btnFirst) el.btnFirst.disabled = idx < 0;
-  if (el.btnPrev)  el.btnPrev.disabled  = idx < 0;
-  if (el.btnNext)  el.btnNext.disabled  = idx >= max;
-  if (el.btnLast)  el.btnLast.disabled  = idx >= max;
+  if (el.btnPrev) el.btnPrev.disabled = idx < 0;
+  if (el.btnNext) el.btnNext.disabled = idx >= max;
+  if (el.btnLast) el.btnLast.disabled = idx >= max;
+}
+
+// ── Autoplay ────────────────────────────────────────────────────────────
+
+export function startAutoplay() {
+  if (state.autoplay.isPlaying) return;
+
+  if (state.mode === MODE.REVIEW) {
+    if (state.review.currentIndex >= state.game.moves.length - 1) return;
+  } else if (state.mode === MODE.ANALYSIS) {
+    if (state.analysis.currentBranchIndex >= state.analysis.branchMoves.length - 1) return;
+  } else {
+    return;
+  }
+
+  state.autoplay.isPlaying = true;
+  if (el.playIcon) el.playIcon.classList.add('hidden');
+  if (el.pauseIcon) el.pauseIcon.classList.remove('hidden');
+
+  state.autoplay.intervalId = setInterval(_autoplayTick, 1000);
+}
+
+export function stopAutoplay() {
+  if (!state.autoplay.isPlaying) return;
+
+  state.autoplay.isPlaying = false;
+  if (el.playIcon) el.playIcon.classList.remove('hidden');
+  if (el.pauseIcon) el.pauseIcon.classList.add('hidden');
+
+  if (state.autoplay.intervalId) {
+    clearInterval(state.autoplay.intervalId);
+    state.autoplay.intervalId = null;
+  }
+}
+
+export function toggleAutoplay() {
+  if (state.autoplay.isPlaying) {
+    stopAutoplay();
+  } else {
+    startAutoplay();
+  }
+}
+
+function _autoplayTick() {
+  if (state.mode === MODE.REVIEW) {
+    if (state.review.currentIndex >= state.game.moves.length - 1) {
+      stopAutoplay();
+      return;
+    }
+    navigateNext();
+  } else if (state.mode === MODE.ANALYSIS) {
+    if (state.analysis.currentBranchIndex >= state.analysis.branchMoves.length - 1) {
+      stopAutoplay();
+      return;
+    }
+    navigateNext();
+  } else {
+    stopAutoplay();
+  }
 }
 
 // ── Board Move Handler (detects deviation → forks to Analysis Mode) ─────
@@ -527,6 +688,7 @@ function _validateReviewMove(from, to) {
 }
 
 function _handleBoardMove(from, to, promotion) {
+  stopAutoplay();
   if (state.mode === MODE.IDLE) {
     state.game.initialFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
     state.game.moves = [];
@@ -569,9 +731,9 @@ function _handleBoardMove(from, to, promotion) {
     }
 
     // Deviation detected → fork into On-Demand analysis mode
-    const cpBest = (state.liveEngineEnabled && state.analysis.latestLines?.[0]) 
+    const cpBest = (state.liveEngineEnabled && state.analysis.latestLines?.[0])
       ? (state.analysis.latestLines[0].score_cp || 0)
-      : (idx + 1 < state.game.moves.length ? (state.game.moves[idx + 1].cp_best * 100) : 0);
+      : (idx + 1 < state.game.moves.length ? state.game.moves[idx + 1].cp_best : 0);
     const cpSecond = (state.liveEngineEnabled && state.analysis.latestLines?.[1])
       ? (state.analysis.latestLines[1].score_cp || cpBest)
       : cpBest;
@@ -579,6 +741,12 @@ function _handleBoardMove(from, to, promotion) {
     _enterAnalysisMode(fen, idx);
     state.analysis.chess.move(moveResult.san);
     board.setPosition(newFen, true);
+
+    const mateBestPlies = (state.liveEngineEnabled && state.analysis.latestLines?.[0])
+      ? state.analysis.latestLines[0].score_mate
+      : (idx + 1 < state.game.moves.length ? state.game.moves[idx + 1].score_mate : null);
+
+    const mateBestMoves = getMateMoves(mateBestPlies, moveResult.color === 'w' ? 'white' : 'black');
 
     state.analysis.branchMoves = [{
       move_number: parseInt(fen.split(' ')[5], 10) || 1,
@@ -590,6 +758,12 @@ function _handleBoardMove(from, to, promotion) {
       cp_best: cpBest,
       cp_second: cpSecond,
       cp_played: null,
+      white_cp: (state.liveEngineEnabled && state.analysis.latestLines?.[0]) ? (state.analysis.latestLines[0].white_cp || 0) : 0,
+      best_uci: (state.liveEngineEnabled && state.analysis.latestLines?.[0] && state.analysis.latestLines[0].pv?.length > 0)
+                ? state.analysis.latestLines[0].pv[0] 
+                : null,
+      mate_best: mateBestMoves,
+      mate_played: null,
       classification: null,
       moveResult: moveResult
     }];
@@ -598,6 +772,8 @@ function _handleBoardMove(from, to, promotion) {
     renderMoveList(state.game.moves, _onMoveClick, state.analysis.branchMoves, state.analysis.forkIndex);
     setActiveMoveInList('branch', 0);
     _updatePgnInput();
+    board.addLastMoveMarkers(from, to, null); // Clear old badge, show new move squares
+    _checkTheory(0);
 
     if (state.liveEngineEnabled) {
       _startWebSocketAnalysis(newFen);
@@ -622,12 +798,15 @@ function _handleBoardMove(from, to, promotion) {
 
     const newFen = chess.fen();
     board.setPosition(newFen, true);
-    
+
     const cpBest = state.analysis.latestLines?.[0]?.score_cp || 0;
     const cpSecond = state.analysis.latestLines?.[1]?.score_cp || cpBest;
 
     const bIdx = state.analysis.currentBranchIndex;
     state.analysis.branchMoves = state.analysis.branchMoves.slice(0, bIdx + 1);
+
+    const mateBestPlies = state.analysis.latestLines?.[0]?.score_mate ?? null;
+    const mateBestMoves = getMateMoves(mateBestPlies, moveResult.color === 'w' ? 'white' : 'black');
 
     state.analysis.branchMoves.push({
       move_number: parseInt(fenBefore.split(' ')[5], 10) || 1,
@@ -639,6 +818,12 @@ function _handleBoardMove(from, to, promotion) {
       cp_best: cpBest,
       cp_second: cpSecond,
       cp_played: null,
+      white_cp: (state.liveEngineEnabled && state.analysis.latestLines?.[0]) ? (state.analysis.latestLines[0].white_cp || 0) : 0,
+      best_uci: (state.liveEngineEnabled && state.analysis.latestLines?.[0] && state.analysis.latestLines[0].pv?.length > 0)
+                ? state.analysis.latestLines[0].pv[0] 
+                : null,
+      mate_best: mateBestMoves,
+      mate_played: null,
       classification: null,
       moveResult: moveResult
     });
@@ -647,6 +832,8 @@ function _handleBoardMove(from, to, promotion) {
     renderMoveList(state.game.moves, _onMoveClick, state.analysis.branchMoves, state.analysis.forkIndex);
     setActiveMoveInList('branch', state.analysis.currentBranchIndex);
     _updatePgnInput();
+    board.addLastMoveMarkers(from, to, null); // Clear old badge, show new move squares
+    _checkTheory(state.analysis.currentBranchIndex);
 
     if (state.liveEngineEnabled) {
       _startWebSocketAnalysis(newFen);
@@ -658,9 +845,9 @@ function _handleBoardMove(from, to, promotion) {
 
 function _enterAnalysisMode(fen, gameIndex) {
   state.mode = MODE.ANALYSIS;
-  state.analysis.forkFen   = fen;
+  state.analysis.forkFen = fen;
   state.analysis.forkIndex = gameIndex;
-  state.analysis.chess     = new Chess(fen);
+  state.analysis.chess = new Chess(fen);
   state.analysis.latestLines = [];
 
   _setMode(MODE.ANALYSIS);
@@ -768,6 +955,14 @@ function _handleEngineMessage(msg) {
   if (msg.type === 'done') {
     if (el.engineSpinner) el.engineSpinner.classList.add('hidden');
     if (el.badgeDot) el.badgeDot.style.animation = 'none';
+
+    // Fallback: classify if engine finishes before target depth
+    if (state.analysis.branchMoves && state.analysis.branchMoves.length > 0) {
+      const activeBranch = state.analysis.branchMoves[state.analysis.currentBranchIndex];
+      if (activeBranch && (!activeBranch.classification || activeBranch.classification === 'theory') && state.analysis.latestLines?.[0]) {
+        _classifyLiveMove(state.analysis.latestLines[0]);
+      }
+    }
     return;
   }
 
@@ -786,42 +981,18 @@ function _handleEngineMessage(msg) {
 
       // Update eval bar with MultiPV 1 (best line)
       if (msg.multipv === 1) {
-        renderEvalBar(msg.white_cp, msg.score_mate, msg.game_over, msg.winner);
+        renderEvalBar(msg.white_cp, msg.score_mate, msg.game_over, msg.winner, state.boardOrientation);
         if (el.engineDepthBadge) {
           el.engineDepthBadge.classList.remove('hidden');
           el.engineDepthBadge.textContent = `depth ${msg.depth}`;
         }
 
-        // Classify branch move if pending
+        // Classify branch move if pending or holding temporary theory badge
         if (state.analysis.branchMoves && state.analysis.branchMoves.length > 0) {
           const activeBranch = state.analysis.branchMoves[state.analysis.currentBranchIndex];
-          if (activeBranch && !activeBranch.classification && msg.depth >= 10) {
-            try {
-              const cpPlayed = -msg.score_cp;
-              activeBranch.cp_played = cpPlayed;
-
-              const pBest = winProb(activeBranch.cp_best);
-              const pSecond = winProb(activeBranch.cp_second);
-              const pPlayed = winProb(cpPlayed);
-              const delta = Math.max(0, pBest - pPlayed);
-
-              const isSac = _isSacrifice(activeBranch.fen_before, activeBranch.moveResult);
-              activeBranch.classification = classifyMove(
-                delta, pBest, pSecond, pPlayed, isSac, false, activeBranch.cp_best, activeBranch.cp_second
-              );
-            } catch (err) {
-              console.error("Classification error:", err);
-              activeBranch.classification = "good"; // Fallback to avoid getting stuck
-            }
-
-            // Re-render move list to show badge
-            renderMoveList(state.game.moves, _onMoveClick, state.analysis.branchMoves, state.analysis.forkIndex);
-            setActiveMoveInList('branch', state.analysis.currentBranchIndex);
-
-            // Add marker to board
-            const from = activeBranch.uci.slice(0, 2);
-            const to = activeBranch.uci.slice(2, 4);
-            board.addLastMoveMarkers(from, to, activeBranch.classification);
+          const targetDepth = parseInt(el.liveDepthInput.value, 10) || 18;
+          if (activeBranch && (!activeBranch.classification || activeBranch.classification === 'theory') && msg.depth >= targetDepth) {
+            _classifyLiveMove(msg);
           }
         }
       }
@@ -841,6 +1012,103 @@ function _handleEngineMessage(msg) {
   }
 }
 
+async function _checkTheory(branchIndex) {
+  const mainSans = state.game.moves.slice(0, state.analysis.forkIndex + 1).map(m => m.san);
+  const branchSans = state.analysis.branchMoves.slice(0, branchIndex + 1).map(m => m.san);
+  const allSans = [...mainSans, ...branchSans];
+
+  try {
+    const res = await fetch(`${API_BASE}/api/theory`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sans: allSans })
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.is_theory) {
+      const activeBranch = state.analysis.branchMoves[branchIndex];
+      if (activeBranch) {
+
+        let brilliantTheoryFound = false;
+        for (const m of state.game.moves.slice(0, state.analysis.forkIndex + 1)) {
+          if (m.classification === 'brilliant') {
+            brilliantTheoryFound = true;
+            break;
+          }
+        }
+        for (let i = 0; i < branchIndex; i++) {
+          const m = state.analysis.branchMoves[i];
+          if (m.classification === 'brilliant' && m.is_theory) {
+            brilliantTheoryFound = true;
+            break;
+          }
+        }
+
+        if (!brilliantTheoryFound) {
+          activeBranch.is_theory = true;
+          if (activeBranch.classification && activeBranch.classification !== 'brilliant' && activeBranch.classification !== 'theory') {
+            activeBranch.classification = 'theory';
+            renderMoveList(state.game.moves, _onMoveClick, state.analysis.branchMoves, state.analysis.forkIndex);
+
+            const from = activeBranch.uci.slice(0, 2);
+            const to = activeBranch.uci.slice(2, 4);
+            board.addLastMoveMarkers(from, to, 'theory');
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Theory check failed", err);
+  }
+}
+
+async function _classifyLiveMove(msg) {
+  if (!state.analysis.branchMoves || state.analysis.branchMoves.length === 0) return;
+  const activeBranch = state.analysis.branchMoves[state.analysis.currentBranchIndex];
+
+  if (!activeBranch) return;
+  // Only classify if not yet classified OR if it was just holding a temporary 'theory' badge
+  if (activeBranch.classification && activeBranch.classification !== 'theory') return;
+
+  try {
+    const cpPlayed = -msg.score_cp;
+    activeBranch.cp_played = cpPlayed;
+    activeBranch.white_cp = msg.white_cp;
+
+    const matePlayedMoves = getMateMoves(msg.score_mate, activeBranch.color);
+    activeBranch.mate_played = matePlayedMoves;
+
+    const res = await fetch(`${API_BASE}/api/classify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fen_before: activeBranch.fen_before,
+        move_uci: activeBranch.uci,
+        cp_best: activeBranch.cp_best,
+        cp_second: activeBranch.cp_second,
+        best_move_uci: activeBranch.best_uci,
+        mate_best: activeBranch.mate_best,
+        cp_played: cpPlayed,
+        mate_played: matePlayedMoves,
+        is_book: activeBranch.is_theory || false
+      })
+    });
+    if (!res.ok) throw new Error("Classification API failed");
+    const data = await res.json();
+    activeBranch.classification = data.classification;
+  } catch (err) {
+    console.error("Classification error:", err);
+    activeBranch.classification = "good";
+  }
+
+  renderMoveList(state.game.moves, _onMoveClick, state.analysis.branchMoves, state.analysis.forkIndex);
+  setActiveMoveInList('branch', state.analysis.currentBranchIndex);
+
+  const from = activeBranch.uci.slice(0, 2);
+  const to = activeBranch.uci.slice(2, 4);
+  board.addLastMoveMarkers(from, to, activeBranch.classification);
+}
+
 // ── Mode UI Updates ─────────────────────────────────────────────────────
 
 function _setMode(mode) {
@@ -852,8 +1120,8 @@ function _setMode(mode) {
   }
   if (el.badgeText) {
     const labels = {
-      [MODE.IDLE]:     '● Idle',
-      [MODE.REVIEW]:   '● Review',
+      [MODE.IDLE]: '● Idle',
+      [MODE.REVIEW]: '● Review',
       [MODE.ANALYSIS]: '● Live Analysis',
     };
     el.badgeText.textContent = labels[mode] || mode;
@@ -871,9 +1139,12 @@ function _setMode(mode) {
 
   // Nav buttons — enabled in REVIEW and ANALYSIS
   const navEnabled = mode === MODE.REVIEW || mode === MODE.ANALYSIS;
-  [el.btnFirst, el.btnPrev, el.btnNext, el.btnLast].forEach(btn => {
+  [el.btnFirst, el.btnPrev, el.btnPlay, el.btnNext, el.btnLast].forEach(btn => {
     if (btn) btn.disabled = !navEnabled;
   });
+  if (!navEnabled) {
+    stopAutoplay();
+  }
 }
 
 // ── Tabs ────────────────────────────────────────────────────────────────
@@ -911,19 +1182,27 @@ function _updatePgnInput() {
   if (!el.pgnInput) return;
   const clone = new Chess(state.game.initialFen);
   let pgnStr = '';
-  
-  // 1. Play main line up to fork
-  for (let i = 0; i <= state.analysis.forkIndex; i++) {
+
+  let isVariation = state.analysis.forkIndex < state.game.moves.length - 1;
+  let mainLineEndIndex = isVariation ? state.analysis.forkIndex + 1 : state.analysis.forkIndex;
+
+  // 1. Play main line up to the replaced move (inclusive)
+  for (let i = 0; i <= mainLineEndIndex; i++) {
     const m = state.game.moves[i];
     if (clone.turn() === 'w') pgnStr += `${clone.moveNumber()}. `;
     pgnStr += `${m.san} `;
     clone.move(m.uci);
   }
-  
+
   // 2. Play branch
-  let isVariation = state.analysis.forkIndex < state.game.moves.length - 1;
   let branchStr = isVariation ? '(' : '';
-  const branchClone = new Chess(clone.fen());
+
+  // Branch starts from forkIndex
+  const branchClone = new Chess(state.game.initialFen);
+  for (let i = 0; i <= state.analysis.forkIndex; i++) {
+    branchClone.move(state.game.moves[i].uci);
+  }
+
   for (let i = 0; i < state.analysis.branchMoves.length; i++) {
     const m = state.analysis.branchMoves[i];
     if (branchClone.turn() === 'w') branchStr += `${branchClone.moveNumber()}. `;
@@ -934,87 +1213,41 @@ function _updatePgnInput() {
   branchStr = branchStr.trim();
   if (isVariation) branchStr += ') ';
   else branchStr += ' ';
-  
+
   pgnStr += branchStr;
-  
+
   // 3. Play rest of main line
   if (isVariation) {
-    for (let i = state.analysis.forkIndex + 1; i < state.game.moves.length; i++) {
+    for (let i = state.analysis.forkIndex + 2; i < state.game.moves.length; i++) {
       const m = state.game.moves[i];
       if (clone.turn() === 'w') pgnStr += `${clone.moveNumber()}. `;
-      else if (i === state.analysis.forkIndex + 1) pgnStr += `${clone.moveNumber()}... `;
+      else if (i === state.analysis.forkIndex + 2) pgnStr += `${clone.moveNumber()}... `;
       pgnStr += `${m.san} `;
       clone.move(m.uci);
     }
   }
-  
+
   el.pgnInput.value = pgnStr.trim();
 }
-
-function _isSacrifice(boardFen, move) {
-  try {
-    const c = new Chess(boardFen);
-    const moverPiece = c.get(move.from);
-    if (!moverPiece) return false;
-
-    const PIECE_VALUES = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 0 };
-    const moverValue = PIECE_VALUES[moverPiece.type] || 0;
-
-    const capturedPiece = c.get(move.to);
-    let capturedValue = capturedPiece ? (PIECE_VALUES[capturedPiece.type] || 0) : 0;
-
-    if (moverPiece.type === 'p' && move.to[0] !== move.from[0] && !capturedPiece) {
-      capturedValue = 100;
-    }
-
-    c.move({ from: move.from, to: move.to, promotion: move.promotion || 'q' });
-
-    const opMoves = c.moves({ verbose: true }).filter(m => m.to === move.to);
-    if (opMoves.length === 0) return false;
-
-    for (const opMove of opMoves) {
-      const opPiece = c.get(opMove.from);
-      const opValue = PIECE_VALUES[opPiece.type] || 0;
-
-      const cRecapture = new Chess(c.fen());
-      try {
-        cRecapture.move({ from: opMove.from, to: opMove.to, promotion: opMove.promotion || 'q' });
-      } catch (e) { continue; }
-      const recaptures = cRecapture.moves({ verbose: true }).filter(m => m.to === move.to);
-
-      if (recaptures.length === 0) {
-        if (moverValue > capturedValue) return true;
-      } else {
-        if (capturedValue + opValue < moverValue) return true;
-      }
-    }
-
-    return false;
-  } catch (err) {
-    console.error("isSacrifice error:", err);
-    return false;
-  }
-}
-
 function _updateEngineLinesPanel() {
   if (!el.engineLinesPanel || !el.engineLinesContainer) return;
-  
+
   if (!state.liveEngineEnabled && state.mode !== MODE.ANALYSIS) {
     el.engineLinesPanel.classList.add('hidden');
     return;
   }
-  
+
   el.engineLinesPanel.classList.remove('hidden');
   const lines = state.analysis.latestLines.filter(Boolean);
-  
+
   if (lines.length === 0) {
     el.engineLinesContainer.innerHTML = '<div class="text-[var(--text-muted)] italic">Thinking...</div>';
     return;
   }
-  
+
   // Get current FEN to convert PV from UCI to SAN
   const currentFen = _getCurrentFen();
-  
+
   let html = '';
   lines.forEach(line => {
     let scoreStr = '';
@@ -1029,18 +1262,18 @@ function _updateEngineLinesPanel() {
       }
     } else {
       const cp = (line.white_cp / 100).toFixed(2);
-      scoreStr = line.white_cp >= 0 ? `+${cp}` : cp;
+      scoreStr = cp;
     }
-    
+
     // White advantage → white bg, black text. Black advantage → dark bg, white text.
-    const whiteAdv = (line.score_mate !== undefined && line.score_mate !== null) 
+    const whiteAdv = (line.score_mate !== undefined && line.score_mate !== null)
       ? line.score_mate > 0
       : line.white_cp >= 0;
     const scoreBg = whiteAdv ? 'background:#fff;color:#111;' : 'background:#222;color:#fff;';
-    
+
     // Convert UCI PV to SAN
     const pvSan = _uciPvToSan(currentFen, line.pv || []);
-    
+
     html += `
       <div style="display:flex;gap:6px;align-items:center;">
         <span style="${scoreBg}min-width:50px;text-align:center;padding:2px 6px;border-radius:4px;font-weight:700;font-size:11px;flex-shrink:0;">${scoreStr}</span>
@@ -1048,7 +1281,7 @@ function _updateEngineLinesPanel() {
       </div>
     `;
   });
-  
+
   el.engineLinesContainer.innerHTML = html;
 }
 

@@ -149,6 +149,16 @@ def is_sacrifice(board: chess.Board, move: chess.Move) -> bool:
     Returns:
         True if the move leaves material in a sacrifice state.
     """
+    # If the opponent is forced to capture (has only one legal move and it's a capture),
+    # it is an involuntary sacrifice/sequence, so we do not count it as a sacrifice.
+    after_board = board.copy()
+    after_board.push(move)
+    opponent_moves = list(after_board.legal_moves)
+    if len(opponent_moves) == 1:
+        forced_move = opponent_moves[0]
+        if after_board.is_capture(forced_move):
+            return False
+
     actual_max_loss = get_max_loss_for_move(board, move)
     
     if actual_max_loss >= 200:
@@ -199,6 +209,10 @@ def classify_move(
     is_book: bool,
     cp_best: float,
     cp_second: float,
+    cp_played: float,
+    mate_best: Optional[int] = None,
+    mate_played: Optional[int] = None,
+    is_engine_top_choice: bool = False,
 ) -> str:
     """
     Classify a chess move based on win probability delta and special conditions.
@@ -226,14 +240,84 @@ def classify_move(
     Returns:
         Classification string.
     """
+    # Force delta to 0.0 if the user played the exact move the engine recommended
+    if is_engine_top_choice:
+        delta = 0.0
+        
+    # Brilliant check first so that a brilliant theory move gets the 'brilliant' badge
+    if (sacrificed and p_played >= 0.45 and (cp_best - cp_played) <= 50.0):
+        return "brilliant"
+
     if is_book:
         return "theory"
 
-    # Brilliant (!!): strict special case
-    if (delta <= 0.02
-            and sacrificed
-            and p_played >= 0.45):
-        return "brilliant"
+    # If it is the engine's top choice, it must be brilliant, theory, great, or best
+    if is_engine_top_choice:
+        if (delta < 0.02
+                and cp_best > 0.0
+                and cp_second <= 0.0):
+            return "great"
+        return "best"
+
+    # 1. Explicit Mate Handling
+    if mate_best is not None or mate_played is not None:
+        if mate_best is not None and mate_played is not None:
+            if mate_best > 0 and mate_played > 0:
+                # We had mate, and we still have mate.
+                # A perfect move reduces the mate distance by exactly 1 move.
+                if mate_played <= mate_best - 1:
+                    return "best"
+                elif mate_played == mate_best:
+                    return "excellent"
+                elif mate_played == mate_best + 1:
+                    return "good"
+                else:
+                    return "inaccuracy"
+            elif mate_best < 0 and mate_played < 0:
+                # We are getting mated.
+                # Closer to 0 means a faster mate for the opponent (worse for us).
+                if mate_played <= mate_best:
+                    return "best"
+                elif mate_played == mate_best + 1:
+                    return "excellent"
+                elif mate_played == mate_best + 2:
+                    return "good"
+                else:
+                    return "inaccuracy"
+            elif mate_best > 0 and mate_played < 0:
+                # We had forced mate, but blundered into getting mated.
+                return "blunder"
+            elif mate_best < 0 and mate_played > 0:
+                # Engine horizon anomaly: we were getting mated, but found a mate.
+                return "best"
+        
+        elif mate_best is not None and mate_played is None:
+            if mate_best > 0:
+                # We had a forced mate, but lost it. Evaluate based on remaining advantage.
+                if cp_played > 500:
+                    return "good"
+                elif cp_played > 200:
+                    return "inaccuracy"
+                else:
+                    return "mistake"
+            else:
+                # We were getting mated, but escaped.
+                return "best"
+
+        elif mate_best is None and mate_played is not None:
+            if mate_played < 0:
+                # We allowed the opponent a forced mate.
+                if cp_best > -400.0:
+                    return "blunder"
+                elif cp_best > -1500.0:
+                    return "mistake"
+                return "inaccuracy"
+            else:
+                # We found a mate that the engine didn't see initially.
+                return "best"
+
+    # 2. Brilliant (!!): strict special case
+    # (Already handled at the top to override theory)
 
     # Great (!): only move that doesn't lose the advantage
     if (delta < 0.02
@@ -257,9 +341,8 @@ def classify_move(
     
     # If delta >= 0.20, it's a major error.
     # Miss: Missed opportunity
-    # It's a Miss if the player missed the *only* good move (reverse of Great move check),
-    # or if a massive advantage was ignored (p_best > 0.70 or cp_best > 200).
-    if (cp_best > 0.0 and cp_second <= 0.0) or (p_best > 0.70 or cp_best > 200.0):
+    # It's a Miss if the player missed the *only* good move (reverse of Great move check)
+    if cp_best > 0.0 and cp_second <= 0.0:
         return "miss"
         
     return "blunder"
@@ -281,6 +364,22 @@ def cp_from_score(score: Optional["chess.engine.Score"], mate_score: int = 10000
     if cp is None:
         return float(mate_score) if score.is_mate() and score.mate() > 0 else float(-mate_score)
     return float(cp)
+
+
+def get_mate_moves(plies: Optional[int], color: chess.Color) -> Optional[int]:
+    """
+    Convert raw plies to mate (from White's perspective) into the number of full MOVES
+    to mate from the perspective of the given color.
+    Positive means `color` is delivering mate. Negative means `color` is getting mated.
+    """
+    if plies is None:
+        return None
+    rel_plies = plies if color == chess.WHITE else -plies
+    if rel_plies > 0:
+        return math.ceil(rel_plies / 2.0)
+    elif rel_plies < 0:
+        return -math.ceil(abs(rel_plies) / 2.0)
+    return 0
 
 
 def accuracy_to_rating(accuracy: float) -> int:

@@ -175,8 +175,32 @@
         </div>
 
         <!-- Board -->
-        <div id="board-wrapper" class="flex-1">
+        <div id="board-wrapper" class="flex-1 flex flex-col justify-center min-w-0">
+          <!-- Top Player Card -->
+          <div class="flex items-center gap-2 mb-2 mr-auto bg-[var(--bg-card)] rounded-md pl-1.5 pr-3 py-1 border border-[var(--border)] shadow-sm">
+            <div id="top-player-avatar" class="w-7 h-7 rounded bg-[var(--bg-secondary)] flex items-center justify-center text-[18px] border border-[var(--border)]">
+              ♚
+            </div>
+            <div class="flex items-center gap-1 text-sm">
+              <span id="top-player-title" class="hidden text-[10px] bg-amber-500/20 text-amber-500 px-1 py-0.5 rounded uppercase tracking-wider font-bold"></span>
+              <span id="top-player-name" class="font-bold text-[var(--text-primary)] truncate max-w-[150px] sm:max-w-[200px]">Black</span>
+              <span id="top-player-elo" class="text-[var(--text-muted)]"></span>
+            </div>
+          </div>
+
           <div id="board"></div>
+
+          <!-- Bottom Player Card -->
+          <div class="flex items-center gap-2 mt-2 mr-auto bg-[var(--bg-card)] rounded-md pl-1.5 pr-3 py-1 border border-[var(--border)] shadow-sm">
+            <div id="bottom-player-avatar" class="w-7 h-7 rounded bg-[var(--bg-secondary)] flex items-center justify-center text-[18px] border border-[var(--border)]">
+              ♚
+            </div>
+            <div class="flex items-center gap-1 text-sm">
+              <span id="bottom-player-title" class="hidden text-[10px] bg-amber-500/20 text-amber-500 px-1 py-0.5 rounded uppercase tracking-wider font-bold"></span>
+              <span id="bottom-player-name" class="font-bold text-[var(--text-primary)] truncate max-w-[150px] sm:max-w-[200px]">White</span>
+              <span id="bottom-player-elo" class="text-[var(--text-muted)]"></span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -205,6 +229,15 @@
         <button id="btn-flip" class="nav-btn" title="Flip board">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
+          </svg>
+        </button>
+        <button id="btn-play" class="nav-btn" title="Autoplay (Space)">
+          <svg id="play-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="6 4 20 12 6 20 6 4"/>
+          </svg>
+          <svg id="pause-icon" class="hidden" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="5" y="4" width="4" height="16" rx="1"/>
+            <rect x="15" y="4" width="4" height="16" rx="1"/>
           </svg>
         </button>
         <button id="btn-next" class="nav-btn" title="Next move (→)">
@@ -458,7 +491,7 @@
   <!-- ═══════════════════════════════════════════════════════════════════
        MAIN APP (ES Module)
   ══════════════════════════════════════════════════════════════════════ -->
-  <script type="module" src="app.js?v=7"></script>
+  <script type="module" src="app.js?v=8"></script>
 
 </body>
 </html>

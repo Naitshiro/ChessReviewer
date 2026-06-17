@@ -1,4 +1,4 @@
-- Suggestions (like moves rating but with white background and black foreground)
+- Manual move review (like moves rating but with white background and black foreground)
 - Win probability without symbols (only small dots), and allow to click dots to bring you to move
 - Deviations (they are not branching at the right number)
 - Play and pause automatic game review
