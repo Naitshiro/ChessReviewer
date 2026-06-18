@@ -413,7 +413,7 @@ function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setR
     if (annotationObj) {
       badgeToRender = {
         symbol: annotationObj.symbol,
-        css: `badge-${annotationObj.classKey || 'theory'}`,
+        css: `badge-annotation-${m.color}`,
         label: annotationObj.label
       };
     } else if (meta) {
@@ -433,7 +433,7 @@ function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setR
     } else if (annotationObj) {
       badgeToRender = {
         symbol: annotationObj.symbol,
-        css: 'badge-annotation',
+        css: `badge-annotation-${m.color}`,
         label: annotationObj.label
       };
     }
@@ -644,9 +644,9 @@ function _accuracyColor(pct) {
 
 function _classColor(cls) {
   const map = {
-    brilliant: '#06b6d4', great: '#818cf8', best: '#22c55e',
+    brilliant: '#05b0cd', great: '#818cf8', best: '#22c55e',
     excellent: '#4ade80', good: '#a3e635', inaccuracy: '#eab308',
-    mistake: '#f97316', miss: '#f43f5e', blunder: '#ef4444', theory: '#b58863',
+    mistake: '#f97316', miss: '#f43f5e', blunder: '#ef4444', theory: '#af835f',
   };
   return map[cls] || 'var(--text-primary)';
 }

@@ -245,115 +245,28 @@ body {
 }
 
 /* Specific colors for board badges */
-.board-class-badge.badge-brilliant {
-  background: #06b6d4 !important;
-  color: white !important;
-  font-size: 19px;
-}
-
-.board-class-badge.badge-great {
-  background: #818cf8 !important;
-  color: white !important;
-  font-size: 22px;
-}
-
-.board-class-badge.badge-best {
-  background: #22c55e !important;
-  color: white !important;
-  font-size: 20px;
-}
-
-.board-class-badge.badge-excellent {
-  background: #4ade80 !important;
-  color: #09090f !important;
-  font-size: 20px;
-}
-
-.board-class-badge.badge-good {
-  background: #a3e635 !important;
-  color: #09090f !important;
-  font-size: 22px;
-}
-
-.board-class-badge.badge-inaccuracy {
-  background: #eab308 !important;
-  color: white !important;
-  font-size: 19px;
-}
-
-.board-class-badge.badge-mistake {
-  background: #f97316 !important;
-  color: white !important;
-  font-size: 22px;
-}
-
-.board-class-badge.badge-miss {
-  background: #f43f5e !important;
-  color: white !important;
-  font-size: 20px;
-}
-
-.board-class-badge.badge-blunder {
-  background: #ef4444 !important;
-  color: white !important;
-  font-size: 19px;
-}
-
-.board-class-badge.badge-theory {
-  background: #b58863 !important;
-  color: white !important;
-  font-size: 19px;
-}
+.board-class-badge.badge-brilliant { background: #05b0cd; font-size: 19px; color: white !important; }
+.board-class-badge.badge-great { background: #818cf8; font-size: 22px; color: white !important; }
+.board-class-badge.badge-best { background: #22c55e; font-size: 20px; color: white !important; }
+.board-class-badge.badge-excellent { background: #4ade80; font-size: 20px; color: white !important; }
+.board-class-badge.badge-good { background: #a3e635; font-size: 22px; color: white !important; }
+.board-class-badge.badge-inaccuracy { background: #eab308; font-size: 19px; color: white !important; }
+.board-class-badge.badge-mistake { background: #f97316; font-size: 22px; color: white !important; }
+.board-class-badge.badge-miss { background: #f43f5e; font-size: 20px; color: white !important; }
+.board-class-badge.badge-blunder { background: #ef4444; font-size: 19px; color: white !important; }
+.board-class-badge.badge-theory { background: #af835f; font-size: 19px; color: white !important; }
 
 /* Solid annotation badges for board */
-.board-class-badge.solid-brilliant {
-  background: #06b6d4 !important;
-  color: white !important;
+.board-class-badge.solid-annotation-white {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border: 1px solid var(--border);
 }
 
-.board-class-badge.solid-great {
-  background: #818cf8 !important;
-  color: white !important;
-}
-
-.board-class-badge.solid-best {
-  background: #22c55e !important;
-  color: white !important;
-}
-
-.board-class-badge.solid-excellent {
-  background: #4ade80 !important;
-  color: #09090f !important;
-}
-
-.board-class-badge.solid-good {
-  background: #a3e635 !important;
-  color: #09090f !important;
-}
-
-.board-class-badge.solid-inaccuracy {
-  background: #eab308 !important;
-  color: white !important;
-}
-
-.board-class-badge.solid-mistake {
-  background: #f97316 !important;
-  color: white !important;
-}
-
-.board-class-badge.solid-miss {
-  background: #f43f5e !important;
-  color: white !important;
-}
-
-.board-class-badge.solid-blunder {
-  background: #ef4444 !important;
-  color: white !important;
-}
-
-.board-class-badge.solid-theory {
-  background: #b58863 !important;
-  color: white !important;
+.board-class-badge.solid-annotation-black {
+  background: #000000 !important;
+  color: #ffffff !important;
+  border: 1px solid var(--border);
 }
 
 /* Custom arrow colors for engine lines */
@@ -474,58 +387,25 @@ body {
   flex-shrink: 0;
 }
 
-.badge-brilliant {
-  background: rgba(6, 182, 212, 0.2);
-  color: #06b6d4;
+.badge-brilliant { background: #113440; color: #05b0cd; }
+.badge-great { background: #242446; color: #818cf8; }
+.badge-best { background: #173729; color: #22c55e; }
+.badge-excellent { background: #1c322a; color: #4ade80; }
+.badge-good { background: #29331f; color: #a3e635; }
+.badge-inaccuracy { background: #3f3418; color: #eab308; }
+.badge-mistake { background: #42271a; color: #f97316; }
+.badge-miss { background: #411d29; color: #f43f5e; }
+.badge-blunder { background: #401e24; color: #ef4444; }
+.badge-theory { background: #2c2526; color: #af835f; }
+
+.badge-annotation-white {
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid var(--border);
 }
 
-.badge-great {
-  background: rgba(99, 102, 241, 0.2);
-  color: #818cf8;
-}
-
-.badge-best {
-  background: rgba(34, 197, 94, 0.2);
-  color: #22c55e;
-}
-
-.badge-excellent {
-  background: rgba(74, 222, 128, 0.15);
-  color: #4ade80;
-}
-
-.badge-good {
-  background: rgba(163, 230, 53, 0.15);
-  color: #a3e635;
-}
-
-.badge-inaccuracy {
-  background: rgba(234, 179, 8, 0.2);
-  color: #eab308;
-}
-
-.badge-mistake {
-  background: rgba(249, 115, 22, 0.2);
-  color: #f97316;
-}
-
-.badge-miss {
-  background: rgba(244, 63, 94, 0.2);
-  color: #f43f5e;
-}
-
-.badge-blunder {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
-}
-
-.badge-theory {
-  background: rgba(181, 136, 99, 0.15);
-  color: #b58863;
-}
-
-.badge-annotation {
-  background: #1e293b;
+.badge-annotation-black {
+  background: #000000;
   color: #ffffff;
   border: 1px solid var(--border);
 }

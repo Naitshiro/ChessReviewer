@@ -285,8 +285,7 @@ export class BoardManager {
       };
       badge.textContent = symbols[text] || '';
     } else {
-      const classKey = text.classKey || 'theory';
-      badge.className = `board-class-badge solid-${classKey} font-bold`;
+      badge.className = `board-class-badge solid-annotation-${moveColor} font-bold`;
       badge.style.fontSize = `${badgeSize * 0.65}px`; // scale character relative to badge size
       badge.textContent = text.symbol || text;
     }
