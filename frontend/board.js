@@ -65,7 +65,7 @@ export class BoardManager {
     this._interactive = false;
     this._orientation = COLOR.white;
     this._currentFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-    this._activeBadge = null; // { square, classification }
+    this._activeBadge = null; // { square, text, type, color }
   }
 
   /**
@@ -195,18 +195,22 @@ export class BoardManager {
     this.clearClassificationBadge();
   }
 
-  addLastMoveMarkers(fromSq, toSq, classification = null) {
+  addLastMoveMarkers(fromSq, toSq, classification = null, annotationObj = null, moveColor = 'white') {
     if (!this._board || !fromSq || !toSq) return;
     this.clearMarkers();
     
-    // Highlight from-square (always default highlight)
-    this._board.addMarker(MARKER_TYPE.square, fromSq);
-
-    // Highlight to-square with classification or default highlight
     if (classification && CLASSIFICATION_MARKERS[classification]) {
+      this._board.addMarker(CLASSIFICATION_MARKERS[classification], fromSq);
       this._board.addMarker(CLASSIFICATION_MARKERS[classification], toSq);
-      this.showClassificationBadge(toSq, classification);
+      this.showClassificationBadge(toSq, classification, 'classification', moveColor);
+    } else if (annotationObj) {
+      const classKey = annotationObj.classKey || 'theory';
+      const marker = CLASSIFICATION_MARKERS[classKey] || { class: 'marker-theory', slice: 'markerSquare' };
+      this._board.addMarker(marker, fromSq);
+      this._board.addMarker(marker, toSq);
+      this.showClassificationBadge(toSq, annotationObj, 'annotation', moveColor);
     } else {
+      this._board.addMarker(MARKER_TYPE.square, fromSq);
       this._board.addMarker(MARKER_TYPE.square, toSq);
       this.clearClassificationBadge();
     }
@@ -214,9 +218,9 @@ export class BoardManager {
 
   // ── Classification Badges ─────────────────────────────────────────────
 
-  showClassificationBadge(square, classification) {
+  showClassificationBadge(square, text, type = 'classification', moveColor = 'white') {
     // Keep track of active badge state
-    this._activeBadge = { square, classification };
+    this._activeBadge = { square, text, type, color: moveColor };
 
     // Find wrapper (must be relative positioned)
     const wrapper = document.getElementById('board-wrapper');
@@ -260,26 +264,32 @@ export class BoardManager {
     // Create DOM element
     const badge = document.createElement('div');
     badge.id = 'board-class-badge';
-    badge.className = `board-class-badge badge-${classification}`;
     badge.style.width = `${badgeSize}px`;
     badge.style.height = `${badgeSize}px`;
     badge.style.left = `${x}px`;
     badge.style.top = `${y}px`;
 
-    // Map symbols (using checkmarks for excellent and good, matching chess.com)
-    const symbols = {
-      brilliant: '!!',
-      great: '!',
-      best: '★',
-      excellent: '✦',
-      good: '✓',
-      inaccuracy: '?!',
-      mistake: '?',
-      miss: '✗',
-      blunder: '??',
-      theory: '⌕',
-    };
-    badge.textContent = symbols[classification] || '';
+    if (type === 'classification') {
+      badge.className = `board-class-badge badge-${text}`;
+      const symbols = {
+        brilliant: '!!',
+        great: '!',
+        best: '★',
+        excellent: '✦',
+        good: '✓',
+        inaccuracy: '?!',
+        mistake: '?',
+        miss: '✗',
+        blunder: '??',
+        theory: '⌕',
+      };
+      badge.textContent = symbols[text] || '';
+    } else {
+      const classKey = text.classKey || 'theory';
+      badge.className = `board-class-badge solid-${classKey} font-bold`;
+      badge.style.fontSize = `${badgeSize * 0.65}px`; // scale character relative to badge size
+      badge.textContent = text.symbol || text;
+    }
 
     wrapper.appendChild(badge);
   }
@@ -291,8 +301,8 @@ export class BoardManager {
 
   _redrawActiveBadge() {
     if (this._activeBadge) {
-      const { square, classification } = this._activeBadge;
-      this.showClassificationBadge(square, classification);
+      const { square, text, type, color } = this._activeBadge;
+      this.showClassificationBadge(square, text, type, color);
     }
   }
 

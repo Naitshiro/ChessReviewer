@@ -29,7 +29,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
 import chess
 
-from .engine import EngineManager
+from .engine import EngineManager, parse_pgn_game
 from .config import ANALYSIS_DEPTH
 from .openings import is_book_sequence
 from .analysis import classify_move, is_sacrifice, win_prob
@@ -168,6 +168,21 @@ async def classify_live_move(req: ClassifyRequest):
     except Exception as e:
         logger.exception("Error in /api/classify")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/import")
+async def import_pgn(req: AnalyzeRequest):
+    """
+    Parse a PGN game without running Stockfish analysis.
+    Returns the parsed game data.
+    """
+    try:
+        data = parse_pgn_game(req.pgn)
+        return data
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Error in /api/import")
+        raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
 
 from fastapi.responses import StreamingResponse
 

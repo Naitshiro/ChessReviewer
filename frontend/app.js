@@ -16,8 +16,8 @@ import { BoardManager } from './board.js?v=6';
 import {
   renderEvalBar, renderEvalChart, highlightChartMove,
   renderMoveList, setActiveMoveInList,
-  renderScorecard, showToast, setEvalText,
-  CLASS_META, getMateMoves
+  renderScorecard, renderAnnotationsScorecard, showToast, setEvalText,
+  CLASS_META, getMateMoves, COMPREHENSIVE_NAG_MAP
 } from './analysis.js?v=7';
 
 // ── Constants ───────────────────────────────────────────────────────────
@@ -43,6 +43,8 @@ const state = {
     accuracy: null,
     initialFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
   },
+
+  overlayPriority: 'classification', // 'classification' or 'annotation'
 
   review: {
     currentIndex: -1,   // -1 = at initial position, 0 = after first move
@@ -72,7 +74,11 @@ const el = {
   badgeText: document.getElementById('badge-text'),
   openingName: document.getElementById('opening-name'),
   pgnInput: document.getElementById('pgn-input'),
+  importBtn: document.getElementById('import-btn'),
+  importSpinner: document.getElementById('import-spinner'),
   analyzeBtn: document.getElementById('analyze-btn'),
+  analyzeBtnText: document.getElementById('analyze-btn-text'),
+  analyzeBtnIcon: document.getElementById('analyze-btn-icon'),
   loadingSpinner: document.getElementById('loading-spinner'),
   analysisProgressContainer: document.getElementById('analysis-progress-container'),
   analysisProgressText: document.getElementById('analysis-progress-text'),
@@ -88,6 +94,7 @@ const el = {
   btnNext: document.getElementById('btn-next'),
   btnLast: document.getElementById('btn-last'),
   btnFlip: document.getElementById('btn-flip'),
+  btnToggleOverlay: document.getElementById('btn-toggle-overlay'),
   backToReviewBtn: document.getElementById('back-to-review-btn'),
   tabSummary: document.getElementById('tab-summary'),
   tabMoves: document.getElementById('tab-moves'),
@@ -175,12 +182,13 @@ async function _checkHealth() {
 // ── Control Binding ─────────────────────────────────────────────────────
 
 function _bindControls() {
-  // Analyze button
+  // Import and Analyze buttons
+  el.importBtn?.addEventListener('click', importPgn);
   el.analyzeBtn?.addEventListener('click', submitAnalysis);
 
   // PGN input — submit on Ctrl+Enter
   el.pgnInput?.addEventListener('keydown', e => {
-    if (e.ctrlKey && e.key === 'Enter') submitAnalysis();
+    if (e.ctrlKey && e.key === 'Enter') importPgn();
   });
 
   // Navigation buttons
@@ -205,6 +213,19 @@ function _bindControls() {
   // Depth slider
   el.depthSlider?.addEventListener('input', () => {
     if (el.depthValue) el.depthValue.textContent = el.depthSlider.value;
+  });
+
+  // Overlay Toggle
+  el.btnToggleOverlay?.addEventListener('click', () => {
+    state.overlayPriority = state.overlayPriority === 'classification' ? 'annotation' : 'classification';
+    el.btnToggleOverlay.textContent = state.overlayPriority === 'classification' ? 'Class' : 'Annot';
+    _redrawCurrentMoveOverlay();
+    _triggerMoveListRender();
+    if (state.mode === MODE.ANALYSIS) {
+      setActiveMoveInList('branch', state.analysis.currentBranchIndex);
+    } else {
+      setActiveMoveInList('main', state.review.currentIndex);
+    }
   });
 
   // Tabs
@@ -269,7 +290,110 @@ function _restartCurrentAnalysis() {
 
 // ── PGN Submission & Batch Analysis ────────────────────────────────────
 
+let currentAnalysisController = null;
+
+function destroyApp() {
+  if (state.mode === MODE.ANALYSIS) _teardownWebSocket();
+  if (currentAnalysisController) currentAnalysisController.abort();
+  board.destroy();
+}
+
+function _drawMarkersForMove(from, to, m) {
+  let classification = m.classification;
+  let annotationObj = _getAnnotationSymbol(m);
+  
+  if (state.overlayPriority === 'annotation' && annotationObj) {
+    classification = null; // Suppress classification
+  } else if (state.overlayPriority === 'classification' && classification) {
+    annotationObj = null; // Suppress annotation
+  }
+  
+  board.addLastMoveMarkers(from, to, classification, annotationObj, m.color);
+}
+
+function _redrawCurrentMoveOverlay() {
+  if (state.mode === MODE.REVIEW) {
+    if (state.review.currentIndex >= 0) {
+      const m = state.game.moves[state.review.currentIndex];
+      _drawMarkersForMove(m.uci.slice(0, 2), m.uci.slice(2, 4), m);
+    }
+  } else if (state.mode === MODE.ANALYSIS) {
+    const idx = state.analysis.currentBranchIndex;
+    const m = idx === -1 
+      ? state.game.moves[state.analysis.forkIndex] 
+      : state.analysis.branchMoves[idx];
+    if (m) {
+      _drawMarkersForMove(m.uci.slice(0, 2), m.uci.slice(2, 4), m);
+    }
+  }
+}
+
+function _triggerMoveListRender() {
+  if (state.mode === MODE.ANALYSIS) {
+    renderMoveList(
+      state.game.moves,
+      _onMoveClick,
+      state.analysis.branchMoves,
+      state.analysis.forkIndex,
+      state.overlayPriority
+    );
+  } else {
+    renderMoveList(
+      state.game.moves,
+      _onMoveClick,
+      [],
+      null,
+      state.overlayPriority
+    );
+  }
+}
+
+async function importPgn() {
+  stopAutoplay();
+  const pgn = el.pgnInput?.value?.trim();
+  if (!pgn) {
+    showToast('Please paste a PGN or list of moves.', 'error');
+    return;
+  }
+
+  if (el.importBtn) el.importBtn.disabled = true;
+  if (el.importSpinner) el.importSpinner.classList.remove('hidden');
+
+  try {
+    const res = await fetch(`${API_BASE}/api/import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pgn, depth: 18 }), // depth ignored by import
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: `Server error ${res.status}` }));
+      throw new Error(err.detail);
+    }
+
+    const data = await res.json();
+    _loadGameAnalysis(data);
+    showToast('PGN Imported!', 'success');
+    _switchTab('moves');
+
+    if (el.analyzeBtn) el.analyzeBtn.disabled = false;
+  } catch (e) {
+    showToast(`Import failed: ${e.message}`, 'error', 6000);
+    console.error(e);
+  } finally {
+    if (el.importBtn) el.importBtn.disabled = false;
+    if (el.importSpinner) el.importSpinner.classList.add('hidden');
+  }
+}
+
 async function submitAnalysis() {
+  if (currentAnalysisController) {
+    // Stop Analysis clicked
+    currentAnalysisController.abort();
+    currentAnalysisController = null;
+    return;
+  }
+
   stopAutoplay();
   const pgn = el.pgnInput?.value?.trim();
   if (!pgn) {
@@ -279,8 +403,16 @@ async function submitAnalysis() {
 
   const depth = parseInt(el.depthSlider?.value || '18', 10);
 
+  // Setup abort controller
+  currentAnalysisController = new AbortController();
+
   // Show loading state
-  if (el.analyzeBtn) el.analyzeBtn.disabled = true;
+  if (el.analyzeBtnText) el.analyzeBtnText.textContent = 'Stop Analysis';
+  if (el.analyzeBtn) {
+    el.analyzeBtn.classList.remove('btn-primary');
+    el.analyzeBtn.classList.add('btn-danger');
+  }
+  if (el.analyzeBtnIcon) el.analyzeBtnIcon.classList.add('hidden');
   if (el.loadingSpinner) el.loadingSpinner.classList.remove('hidden');
   if (el.analysisProgressContainer) {
     el.analysisProgressContainer.classList.remove('hidden');
@@ -297,6 +429,7 @@ async function submitAnalysis() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pgn, depth }),
+      signal: currentAnalysisController.signal,
     });
 
     if (!res.ok) {
@@ -340,10 +473,20 @@ async function submitAnalysis() {
     }
 
   } catch (e) {
-    showToast(`Analysis failed: ${e.message}`, 'error', 6000);
-    console.error(e);
+    if (e.name === 'AbortError') {
+      showToast('Analysis stopped.', 'info');
+    } else {
+      showToast(`Analysis failed: ${e.message}`, 'error', 6000);
+      console.error(e);
+    }
   } finally {
-    if (el.analyzeBtn) el.analyzeBtn.disabled = false;
+    currentAnalysisController = null;
+    if (el.analyzeBtnText) el.analyzeBtnText.textContent = 'Analyze';
+    if (el.analyzeBtn) {
+      el.analyzeBtn.classList.add('btn-primary');
+      el.analyzeBtn.classList.remove('btn-danger');
+    }
+    if (el.analyzeBtnIcon) el.analyzeBtnIcon.classList.remove('hidden');
     if (el.loadingSpinner) el.loadingSpinner.classList.add('hidden');
     if (el.analysisProgressContainer) el.analysisProgressContainer.classList.add('hidden');
   }
@@ -359,8 +502,9 @@ function _loadGameAnalysis(data) {
     'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
   // Render UI
-  renderMoveList(data.moves, _onMoveClick);
-  renderScorecard(data.accuracy);
+  _triggerMoveListRender();
+  renderScorecard(data.accuracy, data.metadata?.depth_used);
+  renderAnnotationsScorecard(data.moves);
   renderEvalChart(data.moves);
 
   // Metadata display
@@ -505,7 +649,7 @@ function _navigateToBranch(idx) {
       const m = state.game.moves[forkIdx];
       const from = m.uci.slice(0, 2);
       const to = m.uci.slice(2, 4);
-      board.addLastMoveMarkers(from, to, m.classification);
+      _drawMarkersForMove(from, to, m);
     } else {
       board.clearMarkers();
     }
@@ -513,7 +657,7 @@ function _navigateToBranch(idx) {
     const m = state.analysis.branchMoves[idx];
     const from = m.uci.slice(0, 2);
     const to = m.uci.slice(2, 4);
-    board.addLastMoveMarkers(from, to, m.classification);
+    _drawMarkersForMove(from, to, m);
   }
 
   setActiveMoveInList('branch', idx);
@@ -523,6 +667,17 @@ function _navigateToBranch(idx) {
     board.clearArrows();
     _startWebSocketAnalysis(fen);
   }
+}
+
+function _getAnnotationSymbol(m) {
+  if (m.nags && m.nags.length > 0) {
+    for (const code of m.nags) {
+      if (COMPREHENSIVE_NAG_MAP[code]) {
+        return COMPREHENSIVE_NAG_MAP[code];
+      }
+    }
+  }
+  return null;
 }
 
 export function navigateTo(index) {
@@ -544,7 +699,7 @@ export function navigateTo(index) {
     const m = moves[clampedIndex];
     const from = m.uci.slice(0, 2);
     const to = m.uci.slice(2, 4);
-    board.addLastMoveMarkers(from, to, m.classification);
+    _drawMarkersForMove(from, to, m);
 
     // Eval bar (from White's perspective)
     if (!state.liveEngineEnabled) {
@@ -605,7 +760,7 @@ function _onMoveClick(type, index) {
     board.clearMarkers();
     const from = m.uci.slice(0, 2);
     const to = m.uci.slice(2, 4);
-    board.addLastMoveMarkers(from, to, m.classification);
+    _drawMarkersForMove(from, to, m);
 
     _startWebSocketAnalysis(m.fen_after);
     setActiveMoveInList('branch', index);
@@ -769,7 +924,7 @@ function _handleBoardMove(from, to, promotion) {
     }];
     state.analysis.currentBranchIndex = 0;
 
-    renderMoveList(state.game.moves, _onMoveClick, state.analysis.branchMoves, state.analysis.forkIndex);
+    _triggerMoveListRender();
     setActiveMoveInList('branch', 0);
     _updatePgnInput();
     board.addLastMoveMarkers(from, to, null); // Clear old badge, show new move squares
@@ -829,7 +984,7 @@ function _handleBoardMove(from, to, promotion) {
     });
     state.analysis.currentBranchIndex = state.analysis.branchMoves.length - 1;
 
-    renderMoveList(state.game.moves, _onMoveClick, state.analysis.branchMoves, state.analysis.forkIndex);
+    _triggerMoveListRender();
     setActiveMoveInList('branch', state.analysis.currentBranchIndex);
     _updatePgnInput();
     board.addLastMoveMarkers(from, to, null); // Clear old badge, show new move squares
@@ -1048,11 +1203,11 @@ async function _checkTheory(branchIndex) {
           activeBranch.is_theory = true;
           if (activeBranch.classification && activeBranch.classification !== 'brilliant' && activeBranch.classification !== 'theory') {
             activeBranch.classification = 'theory';
-            renderMoveList(state.game.moves, _onMoveClick, state.analysis.branchMoves, state.analysis.forkIndex);
+            _triggerMoveListRender();
 
             const from = activeBranch.uci.slice(0, 2);
             const to = activeBranch.uci.slice(2, 4);
-            board.addLastMoveMarkers(from, to, 'theory');
+            _drawMarkersForMove(from, to, activeBranch);
           }
         }
       }
@@ -1101,12 +1256,12 @@ async function _classifyLiveMove(msg) {
     activeBranch.classification = "good";
   }
 
-  renderMoveList(state.game.moves, _onMoveClick, state.analysis.branchMoves, state.analysis.forkIndex);
+  _triggerMoveListRender();
   setActiveMoveInList('branch', state.analysis.currentBranchIndex);
 
   const from = activeBranch.uci.slice(0, 2);
   const to = activeBranch.uci.slice(2, 4);
-  board.addLastMoveMarkers(from, to, activeBranch.classification);
+  _drawMarkersForMove(from, to, activeBranch);
 }
 
 // ── Mode UI Updates ─────────────────────────────────────────────────────

@@ -32,6 +32,45 @@ const SCORE_ORDER = [
   'inaccuracy', 'mistake', 'miss', 'blunder',
 ];
 
+export const COMPREHENSIVE_NAG_MAP = {
+  1: { symbol: "!", label: "Good Move", classKey: "good" },
+  2: { symbol: "?", label: "Mistake", classKey: "mistake" },
+  3: { symbol: "!!", label: "Brilliant Move", classKey: "brilliant" },
+  4: { symbol: "??", label: "Blunder", classKey: "blunder" },
+  5: { symbol: "!?", label: "Interesting", classKey: "excellent" },
+  6: { symbol: "?!", label: "Dubious Move", classKey: "inaccuracy" },
+  7: { symbol: "□", label: "Forced", classKey: "best" },
+  10: { symbol: "=", label: "Balanced", classKey: "theory" },
+  11: { symbol: "=", label: "Balanced", classKey: "theory" },
+  12: { symbol: "=", label: "Balanced", classKey: "theory" },
+  13: { symbol: "∞", label: "Unclear", classKey: "theory" },
+  14: { symbol: "⩲", label: "Slight advantage", classKey: "theory" },
+  15: { symbol: "⩱", label: "Slight advantage", classKey: "theory" },
+  16: { symbol: "±", label: "Moderate advantage", classKey: "theory" },
+  17: { symbol: "∓", label: "Moderate advantage", classKey: "theory" },
+  18: { symbol: "+-", label: "Decisive advantage", classKey: "theory" },
+  20: { symbol: "+-", label: "Decisive advantage", classKey: "theory" },
+  19: { symbol: "-+", label: "Decisive advantage", classKey: "theory" },
+  21: { symbol: "-+", label: "Decisive advantage", classKey: "theory" },
+  22: { symbol: "⨀", label: "Zugzwang", classKey: "theory" },
+  23: { symbol: "⨀", label: "Zugzwang", classKey: "theory" },
+  26: { symbol: "○", label: "Space", classKey: "theory" },
+  27: { symbol: "○", label: "Space", classKey: "theory" },
+  32: { symbol: "⟳", label: "Development", classKey: "theory" },
+  33: { symbol: "⟳", label: "Development", classKey: "theory" },
+  36: { symbol: "↑", label: "Initiative" },
+  37: { symbol: "↑", label: "Initiative" },
+  40: { symbol: "→", label: "Attack" },
+  41: { symbol: "→", label: "Attack" },
+  44: { symbol: "⯹", label: "Compensation" },
+  45: { symbol: "⯹", label: "Compensation" },
+  130: { symbol: "⇆", label: "Counterplay" },
+  131: { symbol: "⇆", label: "Counterplay" },
+  136: { symbol: "⨁", label: "Time trouble" },
+  137: { symbol: "⨁", label: "Time trouble" },
+  146: { symbol: "N", label: "Novelty" }
+};
+
 export function getMateMoves(plies, color) {
   if (plies === null || plies === undefined) return null;
   const relPlies = color === 'white' ? plies : -plies;
@@ -269,7 +308,7 @@ export function highlightChartMove(moveIndex) {
  * @param {Array} branchMoves - Array of branch moves
  * @param {number} forkIndex - Index in main moves where branch started
  */
-export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex = null) {
+export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex = null, overlayPriority = 'classification') {
   const container = document.getElementById('move-list');
   if (!container) return;
 
@@ -292,7 +331,7 @@ export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex =
       currentRow.appendChild(_createEmptyCell(`move-cell-w-${m.move_number}`));
       currentRow.appendChild(_createEmptyCell(`move-cell-b-${m.move_number}`));
       return currentRow;
-    }, (row) => currentRow = row, lastMoveNum);
+    }, (row) => currentRow = row, lastMoveNum, overlayPriority);
     lastMoveNum = m.move_number;
     rowElements[i] = currentRow;
   }
@@ -329,7 +368,7 @@ export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex =
         bCurrentRow.appendChild(_createEmptyCell(`b-move-cell-w-${m.move_number}`));
         bCurrentRow.appendChild(_createEmptyCell(`b-move-cell-b-${m.move_number}`));
         return bCurrentRow;
-      }, (row) => bCurrentRow = row, bLastMoveNum);
+      }, (row) => bCurrentRow = row, bLastMoveNum, overlayPriority);
       bLastMoveNum = m.move_number;
     }
 
@@ -350,25 +389,69 @@ function _createEmptyCell(id) {
   return el;
 }
 
-function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setRowFn, lastMoveNum) {
+function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setRowFn, lastMoveNum, overlayPriority = 'classification') {
   if (m.color === 'white' || m.move_number !== lastMoveNum) {
     rowsArray.push(createRowFn());
   }
 
   const currentRow = rowsArray[rowsArray.length - 1];
-  const meta = CLASS_META[m.classification];
+
+  let badgeToRender = null;
+  let annotationObj = null;
+  if (m.nags && m.nags.length > 0) {
+    for (const code of m.nags) {
+      if (COMPREHENSIVE_NAG_MAP[code]) {
+        annotationObj = COMPREHENSIVE_NAG_MAP[code];
+        break;
+      }
+    }
+  }
+
+  const meta = m.classification ? CLASS_META[m.classification] : null;
+
+  if (overlayPriority === 'annotation') {
+    if (annotationObj) {
+      badgeToRender = {
+        symbol: annotationObj.symbol,
+        css: `badge-${annotationObj.classKey || 'theory'}`,
+        label: annotationObj.label
+      };
+    } else if (meta) {
+      badgeToRender = {
+        symbol: meta.symbol,
+        css: meta.css,
+        label: meta.label
+      };
+    }
+  } else { // 'classification'
+    if (meta) {
+      badgeToRender = {
+        symbol: meta.symbol,
+        css: meta.css,
+        label: meta.label
+      };
+    } else if (annotationObj) {
+      badgeToRender = {
+        symbol: annotationObj.symbol,
+        css: 'badge-annotation',
+        label: annotationObj.label
+      };
+    }
+  }
+
   const cell = document.createElement('div');
   cell.className = `move-item ${m.color}-move`;
   cell.dataset.type = type;
   cell.dataset.index = index;
   cell.id = `${type}-move-item-${index}`;
 
-  if (meta) {
+  if (badgeToRender) {
     const badge = document.createElement('span');
-    badge.className = `move-badge ${meta.css}`;
-    badge.textContent = meta.symbol;
+    badge.className = `move-badge ${badgeToRender.css}`;
+    badge.textContent = badgeToRender.symbol;
+    badge.title = badgeToRender.label;
     cell.appendChild(badge);
-  } else {
+  } else if (m.classification === null || m.classification === undefined) {
     // Unclassified yet (waiting for engine)
     const spinner = document.createElement('span');
     spinner.className = 'w-2 h-2 rounded-full bg-indigo-500/50 animate-pulse mr-1 inline-block';
@@ -413,7 +496,25 @@ export function setActiveMoveInList(type, moveIndex) {
  * Render the accuracy ring + classification counts for both sides.
  * @param {object} accuracy - { white: { accuracy, counts }, black: { accuracy, counts } }
  */
-export function renderScorecard(accuracy) {
+export function renderScorecard(accuracy, depthUsed = null) {
+  const accuracyRow = document.getElementById('accuracy-row');
+  const ratingRow = document.getElementById('rating-row');
+  const phasesContainer = document.getElementById('game-phases-container');
+
+  if (depthUsed === 0) {
+    if (accuracyRow) accuracyRow.classList.add('hidden');
+    if (ratingRow) ratingRow.classList.add('hidden');
+    if (phasesContainer) phasesContainer.classList.add('hidden');
+    
+    const mergedEl = document.getElementById('scorecard-merged');
+    if (mergedEl) {
+      mergedEl.innerHTML = '<div class="text-[var(--text-muted)] text-xs italic text-center py-2">Analyze a game to see results.</div>';
+    }
+    return;
+  }
+
+  if (accuracyRow) accuracyRow.classList.remove('hidden');
+
   _renderSideAccuracy('white', accuracy.white);
   _renderSideAccuracy('black', accuracy.black);
 
@@ -438,6 +539,58 @@ export function renderScorecard(accuracy) {
       `;
     }).join('');
   }
+}
+
+export function renderAnnotationsScorecard(moves) {
+  const container = document.getElementById('annotations-container');
+  const listEl = document.getElementById('annotations-list');
+  if (!container || !listEl) return;
+
+  const counts = {};
+
+  for (const m of moves) {
+    if (m.nags && m.nags.length > 0) {
+      for (const nagCode of m.nags) {
+        const nagObj = COMPREHENSIVE_NAG_MAP[nagCode];
+        if (nagObj) {
+          const key = `${nagObj.symbol}_${nagObj.label}`;
+          if (!counts[key]) counts[key] = { symbol: nagObj.symbol, label: nagObj.label, classKey: nagObj.classKey, white: 0, black: 0 };
+          counts[key][m.color]++;
+        }
+      }
+    }
+  }
+
+  const keys = Object.keys(counts);
+  if (keys.length === 0) {
+    container.style.display = 'none';
+    return;
+  }
+
+  container.style.display = 'block';
+
+  listEl.innerHTML = keys.map(key => {
+    const data = counts[key];
+    const wCount = data.white;
+    const bCount = data.black;
+    const nagStr = data.symbol;
+    const label = data.label;
+    const classKey = data.classKey || 'theory';
+    return `
+      <div class="flex justify-between items-center">
+        <span class="flex items-center gap-2">
+          <div class="flex gap-1">
+            <span class="move-badge badge-${classKey} font-bold">${nagStr}</span>
+          </div>
+          <span class="text-[13px] truncate" title="${label}">${label}</span>
+        </span>
+        <div class="flex justify-between items-center w-[56px] mr-1 text-[13px] font-bold">
+          <span class="w-5 text-center" style="color: ${wCount > 0 ? 'var(--text-primary)' : 'var(--text-muted)'}">${wCount}</span>
+          <span class="w-5 text-center" style="color: ${bCount > 0 ? 'var(--text-primary)' : 'var(--text-muted)'}">${bCount}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 function _renderSideAccuracy(side, data) {

@@ -17,6 +17,7 @@ import chess
 import chess.engine
 import chess.pgn
 import io
+import re
 
 from .config import STOCKFISH_PATH, ENGINE_THREADS, ENGINE_HASH_MB, ANALYSIS_DEPTH
 from .analysis import (
@@ -27,12 +28,158 @@ from .openings import is_book_sequence, get_opening_name
 
 logger = logging.getLogger(__name__)
 
+def preprocess_pgn_nags(pgn_text: str) -> str:
+    """Preprocess PGN text to convert non-standard annotation symbols into standard numeric NAGs."""
+    lines = pgn_text.splitlines()
+    body_lines = []
+    header_lines = []
+    
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith('['):
+            header_lines.append(line)
+        else:
+            body_lines.append(line)
+            
+    body = '\n'.join(body_lines)
+    
+    # Mapping of annotation text patterns to standard PGN NAG codes
+    mappings = [
+        (r'\+/\u2212|\+/-|\+/–|\u00b1', ' $16 '),  # +/−, +/-, +/–, ± (moderate advantage white)
+        (r'\u2212/\+|-/\+|–/\+|\u2213', ' $17 '),  # −/+, -/+, –/+, ∓ (moderate advantage black)
+        (r'\+/=|\u2a72', ' $14 '),                # +/=, ⩲ (slight advantage white)
+        (r'=/\+|\u2a71', ' $15 '),                # =/+, ⩱ (slight advantage black)
+        (r'\+-', ' $18 '),                       # +- (decisive advantage white)
+        (r'-\+', ' $19 '),                       # -+ (decisive advantage black)
+        (r'=/\u221e|\u221e/=|\u221e', ' $13 '),   # =/∞, ∞/=, ∞ (unclear)
+    ]
+    
+    for pattern, nag in mappings:
+        body = re.sub(pattern, nag, body)
+        
+    return '\n'.join(header_lines + [body])
+
 def get_non_pawn_material(board: chess.Board) -> int:
     total = 0
     for piece_type, val in [(chess.KNIGHT, 3), (chess.BISHOP, 3), (chess.ROOK, 5), (chess.QUEEN, 9)]:
         total += len(board.pieces(piece_type, chess.WHITE)) * val
         total += len(board.pieces(piece_type, chess.BLACK)) * val
     return total
+
+def parse_pgn_game(pgn_text: str) -> dict:
+    """Parse a PGN string and return the game structure without Stockfish analysis."""
+    pgn_text = preprocess_pgn_nags(pgn_text)
+    pgn = chess.pgn.read_game(io.StringIO(pgn_text))
+    if pgn is None:
+        raise ValueError("Could not parse PGN. Please check the input format.")
+        
+    if pgn.errors:
+        err_msg = str(pgn.errors[0])
+        raise ValueError(f"Invalid PGN: {err_msg}")
+
+    board = pgn.board()
+    fens: list[str] = [board.fen()]
+    boards_before: list[chess.Board] = []
+    moves_played: list[chess.Move] = []
+    move_sans: list[str] = []
+    move_colors: list[chess.Color] = []
+    move_numbers: list[int] = []
+    move_nags: list[list[int]] = []
+
+    for node in pgn.mainline():
+        boards_before.append(board.copy())
+        
+        move = node.move
+        san = node.san()
+        color = board.turn
+        move_num = board.fullmove_number
+
+        moves_played.append(move)
+        move_sans.append(san)
+        move_colors.append(color)
+        move_numbers.append(move_num)
+        move_nags.append(list(node.nags))
+
+        board.push(move)
+        fens.append(board.fen())
+
+    if not moves_played:
+        raise ValueError("The PGN contains no moves.")
+
+    move_records: list[dict] = []
+    
+    for i, move in enumerate(moves_played):
+        board_before = boards_before[i]
+        color = move_colors[i]
+        san = move_sans[i]
+        move_num = move_numbers[i]
+        nags = move_nags[i]
+
+        if move_num <= 12:
+            phase = "opening"
+        elif get_non_pawn_material(board_before) <= 16:
+            phase = "endgame"
+        else:
+            phase = "middlegame"
+
+        book = is_book_sequence(move_sans[:i + 1])
+        sacrificed = False
+        try:
+            sacrificed = is_sacrifice(board_before, move)
+        except Exception:
+            pass
+
+        move_records.append({
+            "index": i,
+            "move_number": move_num,
+            "color": "white" if color == chess.WHITE else "black",
+            "san": san,
+            "uci": move.uci(),
+            "fen_before": fens[i],
+            "fen_after": fens[i + 1],
+            "cp_best": None,
+            "cp_played": None,
+            "score_mate": None,
+            "white_cp": 0,
+            "white_win_prob": 0.5,
+            "p_best": None,
+            "p_played": None,
+            "delta": 0,
+            "classification": None,
+            "best_move": None,
+            "nags": nags,
+            "top_moves": [],
+            "is_book": book,
+            "is_sacrifice": sacrificed,
+            "opening": get_opening_name(fens[i]),
+            "phase": phase,
+        })
+
+    headers = dict(pgn.headers)
+    accuracy = build_accuracy_report([
+        {"color": (r["color"] == "white"), "delta": 0, "classification": None, "phase": r["phase"]}
+        for r in move_records
+    ])
+    
+    return {
+        "metadata": {
+            "white": headers.get("White", "White"),
+            "black": headers.get("Black", "Black"),
+            "white_elo": headers.get("WhiteElo", ""),
+            "black_elo": headers.get("BlackElo", ""),
+            "white_title": headers.get("WhiteTitle", ""),
+            "black_title": headers.get("BlackTitle", ""),
+            "event": headers.get("Event", ""),
+            "date": headers.get("Date", ""),
+            "result": headers.get("Result", "*"),
+            "time_control": headers.get("TimeControl", ""),
+            "termination": headers.get("Termination", ""),
+            "depth_used": 0,
+        },
+        "initial_fen": fens[0],
+        "moves": move_records,
+        "accuracy": accuracy,
+    }
 
 
 class EngineManager:
@@ -130,6 +277,7 @@ class EngineManager:
         await self.ensure_ready()
 
         # --- Parse PGN ---
+        pgn_text = preprocess_pgn_nags(pgn_text)
         pgn = chess.pgn.read_game(io.StringIO(pgn_text))
         if pgn is None:
             raise ValueError("Could not parse PGN. Please check the input format.")
@@ -150,6 +298,7 @@ class EngineManager:
         move_sans: list[str] = []
         move_colors: list[chess.Color] = []
         move_numbers: list[int] = []
+        move_nags: list[list[int]] = []
 
         for node in pgn.mainline():
             boards_before.append(board.copy())  # board state BEFORE the move
@@ -163,6 +312,7 @@ class EngineManager:
             move_sans.append(san)
             move_colors.append(color)
             move_numbers.append(move_num)
+            move_nags.append(list(node.nags))
 
             board.push(move)
             fens.append(board.fen())
@@ -248,6 +398,7 @@ class EngineManager:
             color = move_colors[i]
             san = move_sans[i]
             move_num = move_numbers[i]
+            nags = move_nags[i]
 
             # Scores from the position BEFORE the move
             es_before = engine_scores[i]
@@ -348,6 +499,7 @@ class EngineManager:
                 "delta": round(delta, 4),
                 "classification": classification,
                 "best_move": best_move_uci,
+                "nags": nags,
                 "top_moves": [m for m in [es_before["pv1"], es_before["pv2"], es_before["pv3"]] if m],
                 "is_book": book,
                 "is_sacrifice": sacrificed,

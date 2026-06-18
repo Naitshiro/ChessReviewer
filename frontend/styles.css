@@ -153,8 +153,13 @@ body {
   overflow: hidden;
 }
 
-.cm-chessboard .board .square.white { fill: #ebecd0 !important; }
-.cm-chessboard .board .square.black { fill: #739552 !important; }
+.cm-chessboard .board .square.white {
+  fill: #ebecd0 !important;
+}
+
+.cm-chessboard .board .square.black {
+  fill: #739552 !important;
+}
 
 /* Custom square classification highlights */
 .cm-chessboard .marker.marker-brilliant {
@@ -197,6 +202,14 @@ body {
   fill: rgba(181, 136, 99, 0.45) !important;
 }
 
+.cm-chessboard .marker.marker-annotation-white {
+  fill: rgba(248, 249, 250, 0.45) !important;
+}
+
+.cm-chessboard .marker.marker-annotation-black {
+  fill: rgba(30, 41, 59, 0.45) !important;
+}
+
 /* Board Classification Badge overlays */
 .board-class-badge {
   position: absolute;
@@ -207,7 +220,7 @@ body {
   font-family: var(--font-sans);
   font-weight: 900;
   font-size: 11px;
-  color: white !important;
+  color: white;
   line-height: 1 !important;
   white-space: nowrap !important;
   overflow: visible !important;
@@ -215,6 +228,7 @@ body {
   pointer-events: none;
   /* Let mouse clicks pass to the board underneath */
   user-select: none;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
   animation: badge-pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
@@ -232,55 +246,114 @@ body {
 
 /* Specific colors for board badges */
 .board-class-badge.badge-brilliant {
-  background: #06b6d4;
+  background: #06b6d4 !important;
+  color: white !important;
   font-size: 19px;
 }
 
 .board-class-badge.badge-great {
-  background: #818cf8;
+  background: #818cf8 !important;
+  color: white !important;
   font-size: 22px;
 }
 
 .board-class-badge.badge-best {
-  background: #22c55e;
+  background: #22c55e !important;
+  color: white !important;
   font-size: 20px;
 }
 
 .board-class-badge.badge-excellent {
-  background: #4ade80;
+  background: #4ade80 !important;
+  color: #09090f !important;
   font-size: 20px;
 }
 
 .board-class-badge.badge-good {
-  background: #a3e635;
+  background: #a3e635 !important;
+  color: #09090f !important;
   font-size: 22px;
-  color: white !important;
 }
 
 .board-class-badge.badge-inaccuracy {
-  background: #eab308;
+  background: #eab308 !important;
+  color: white !important;
   font-size: 19px;
-  color: #21201d !important;
 }
 
 .board-class-badge.badge-mistake {
-  background: #f97316;
+  background: #f97316 !important;
+  color: white !important;
   font-size: 22px;
 }
 
 .board-class-badge.badge-miss {
-  background: #f43f5e;
+  background: #f43f5e !important;
+  color: white !important;
   font-size: 20px;
 }
 
 .board-class-badge.badge-blunder {
-  background: #ef4444;
+  background: #ef4444 !important;
+  color: white !important;
   font-size: 19px;
 }
 
 .board-class-badge.badge-theory {
-  background: #b58863;
+  background: #b58863 !important;
+  color: white !important;
   font-size: 19px;
+}
+
+/* Solid annotation badges for board */
+.board-class-badge.solid-brilliant {
+  background: #06b6d4 !important;
+  color: white !important;
+}
+
+.board-class-badge.solid-great {
+  background: #818cf8 !important;
+  color: white !important;
+}
+
+.board-class-badge.solid-best {
+  background: #22c55e !important;
+  color: white !important;
+}
+
+.board-class-badge.solid-excellent {
+  background: #4ade80 !important;
+  color: #09090f !important;
+}
+
+.board-class-badge.solid-good {
+  background: #a3e635 !important;
+  color: #09090f !important;
+}
+
+.board-class-badge.solid-inaccuracy {
+  background: #eab308 !important;
+  color: white !important;
+}
+
+.board-class-badge.solid-mistake {
+  background: #f97316 !important;
+  color: white !important;
+}
+
+.board-class-badge.solid-miss {
+  background: #f43f5e !important;
+  color: white !important;
+}
+
+.board-class-badge.solid-blunder {
+  background: #ef4444 !important;
+  color: white !important;
+}
+
+.board-class-badge.solid-theory {
+  background: #b58863 !important;
+  color: white !important;
 }
 
 /* Custom arrow colors for engine lines */
@@ -449,6 +522,12 @@ body {
 .badge-theory {
   background: rgba(181, 136, 99, 0.15);
   color: #b58863;
+}
+
+.badge-annotation {
+  background: #1e293b;
+  color: #ffffff;
+  border: 1px solid var(--border);
 }
 
 /* ── Move List ───────────────────────────────────────────── */
