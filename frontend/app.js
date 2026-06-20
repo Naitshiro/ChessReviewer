@@ -35,6 +35,13 @@ const normFen = fen => (fen || '').split(' ').slice(0, 4).join(' ');
 const state = {
   mode: MODE.IDLE,
   liveEngineEnabled: false,
+  liveReviewEnabled: false,
+  bestMovesEnabled: false,
+  threatsEnabled: false,
+  latestThreats: [],
+  savedBestMovesEnabled: true,
+  savedLiveReviewEnabled: false,
+  savedThreatsEnabled: false,
 
   /** Populated after batch analysis (Review Mode) */
   game: {
@@ -103,6 +110,15 @@ const el = {
   engineDepthBadge: document.getElementById('engine-depth-badge'),
   liveEngineToggle: document.getElementById('live-engine-toggle'),
   liveEngineDot: document.getElementById('live-engine-dot'),
+  liveReviewToggle: document.getElementById('live-review-toggle'),
+  liveReviewDot: document.getElementById('live-review-dot'),
+  liveReviewLabel: document.getElementById('live-review-label'),
+  bestMovesToggle: document.getElementById('best-moves-toggle'),
+  bestMovesDot: document.getElementById('best-moves-dot'),
+  bestMovesLabel: document.getElementById('best-moves-label'),
+  threatToggle: document.getElementById('threat-toggle'),
+  threatDot: document.getElementById('threat-dot'),
+  threatLabel: document.getElementById('threat-label'),
   liveDepthInput: document.getElementById('live-depth'),
   liveTimeoutInput: document.getElementById('live-timeout'),
   engineLinesPanel: document.getElementById('live-engine-lines'),
@@ -150,6 +166,7 @@ async function init() {
 
   // Enable interaction right away so user can play from blank board
   board.enableInteraction(() => true, _getLegalMoves);
+  _triggerEvalBarRender();
 }
 
 // ── Health Check ────────────────────────────────────────────────────────
@@ -236,33 +253,145 @@ function _bindControls() {
   el.liveEngineToggle?.addEventListener('change', (e) => {
     state.liveEngineEnabled = e.target.checked;
     if (el.liveEngineDot) {
-      el.liveEngineDot.style.background = state.liveEngineEnabled ? '#22c55e' : '';
+      el.liveEngineDot.style.background = state.liveEngineEnabled ? '#38bdf8' : '';
     }
     _handleLiveEngineToggle();
   });
 
+  // Live Review Toggle
+  el.liveReviewToggle?.addEventListener('change', (e) => {
+    state.liveReviewEnabled = e.target.checked;
+    if (el.liveReviewDot) {
+      el.liveReviewDot.style.background = state.liveReviewEnabled ? '#f59e0b' : '';
+    }
+    _handleLiveReviewToggle();
+  });
+
+  // Best Moves Toggle
+  el.bestMovesToggle?.addEventListener('change', (e) => {
+    state.bestMovesEnabled = e.target.checked;
+    if (el.bestMovesDot) {
+      el.bestMovesDot.style.background = state.bestMovesEnabled ? '#10b981' : '';
+    }
+    _redrawBoardArrows();
+  });
+
+  // Threat Assessment Toggle
+  el.threatToggle?.addEventListener('change', (e) => {
+    state.threatsEnabled = e.target.checked;
+    if (el.threatDot) {
+      el.threatDot.style.background = state.threatsEnabled ? '#ef4444' : '';
+    }
+    if (state.threatsEnabled) {
+      _fetchAndDrawThreats();
+    } else {
+      _redrawBoardArrows();
+    }
+  });
+
   // Live settings change — re-trigger analysis with new limits
   el.liveDepthInput?.addEventListener('change', () => {
-    if (state.liveEngineEnabled) _restartCurrentAnalysis();
+    if (state.liveEngineEnabled || state.liveReviewEnabled) _restartCurrentAnalysis();
   });
   el.liveTimeoutInput?.addEventListener('change', () => {
-    if (state.liveEngineEnabled) _restartCurrentAnalysis();
+    if (state.liveEngineEnabled || state.liveReviewEnabled) _restartCurrentAnalysis();
   });
+}
+
+function _setToggleDisabled(toggleEl, dotEl, labelEl, disabled, colorCode) {
+  if (!toggleEl) return;
+  toggleEl.disabled = disabled;
+  if (disabled) {
+    if (labelEl) labelEl.classList.add('opacity-40', 'pointer-events-none');
+    if (dotEl) dotEl.style.background = '';
+    toggleEl.checked = false;
+  } else {
+    if (labelEl) labelEl.classList.remove('opacity-40', 'pointer-events-none');
+    if (dotEl) dotEl.style.background = toggleEl.checked ? colorCode : '';
+  }
 }
 
 function _handleLiveEngineToggle() {
   if (state.liveEngineEnabled) {
+    // 1. Enable dependent toggles
+    _setToggleDisabled(el.bestMovesToggle, el.bestMovesDot, el.bestMovesLabel, false, '#10b981');
+    _setToggleDisabled(el.liveReviewToggle, el.liveReviewDot, el.liveReviewLabel, false, '#f59e0b');
+    _setToggleDisabled(el.threatToggle, el.threatDot, el.threatLabel, false, '#ef4444');
+
+    // 2. Restore state variables
+    state.bestMovesEnabled = state.savedBestMovesEnabled;
+    state.liveReviewEnabled = state.savedLiveReviewEnabled;
+    state.threatsEnabled = state.savedThreatsEnabled;
+
+    // 3. Restore checked states in DOM
+    if (el.bestMovesToggle) el.bestMovesToggle.checked = state.bestMovesEnabled;
+    if (el.liveReviewToggle) el.liveReviewToggle.checked = state.liveReviewEnabled;
+    if (el.threatToggle) el.threatToggle.checked = state.threatsEnabled;
+
+    // 4. Update dot backgrounds based on restored checkbox states
+    if (el.bestMovesDot) el.bestMovesDot.style.background = state.bestMovesEnabled ? '#10b981' : '';
+    if (el.liveReviewDot) el.liveReviewDot.style.background = state.liveReviewEnabled ? '#f59e0b' : '';
+    if (el.threatDot) el.threatDot.style.background = state.threatsEnabled ? '#ef4444' : '';
+
+    // 5. Start WebSocket analysis and fetch threats/reviews as needed
     const fen = _getCurrentFen();
     _startWebSocketAnalysis(fen);
+    if (state.threatsEnabled) {
+      _fetchAndDrawThreats();
+    }
+    _triggerMoveListRender();
   } else {
+    // 1. Save current states
+    state.savedBestMovesEnabled = state.bestMovesEnabled;
+    state.savedLiveReviewEnabled = state.liveReviewEnabled;
+    state.savedThreatsEnabled = state.threatsEnabled;
+
+    // 2. Clear state variables
+    state.bestMovesEnabled = false;
+    state.liveReviewEnabled = false;
+    state.threatsEnabled = false;
+
+    // 3. Disable all dependent toggles visually and functionally
+    _setToggleDisabled(el.bestMovesToggle, el.bestMovesDot, el.bestMovesLabel, true, '#10b981');
+    _setToggleDisabled(el.liveReviewToggle, el.liveReviewDot, el.liveReviewLabel, true, '#f59e0b');
+    _setToggleDisabled(el.threatToggle, el.threatDot, el.threatLabel, true, '#ef4444');
+
+    // 4. Teardown websocket and clean up engine indicators
     _teardownWebSocket();
-    board.clearArrows();
-    if (el.engineDepthBadge) el.engineDepthBadge.classList.add('hidden');
     if (el.engineSpinner) el.engineSpinner.classList.add('hidden');
-    if (el.engineLinesPanel) el.engineLinesPanel.classList.add('hidden');
     if (el.badgeDot) el.badgeDot.style.animation = 'none';
 
+    state.analysis.latestLines = [];
+    _redrawBoardArrows();
+    if (el.engineDepthBadge) el.engineDepthBadge.classList.add('hidden');
+    if (el.engineLinesPanel) el.engineLinesPanel.classList.add('hidden');
+
     _triggerEvalBarRender();
+    _triggerMoveListRender();
+  }
+}
+
+function _handleLiveReviewToggle() {
+  if (state.liveReviewEnabled) {
+    const fen = _getCurrentFen();
+    if (!state.analysis.ws) {
+      _startWebSocketAnalysis(fen);
+    } else {
+      if (state.mode === MODE.ANALYSIS && state.analysis.branchMoves.length > 0) {
+        const activeBranch = state.analysis.branchMoves[state.analysis.currentBranchIndex];
+        if (activeBranch && (!activeBranch.classification || activeBranch.classification === 'theory') && state.analysis.latestLines?.[0]) {
+          _classifyLiveMove(state.analysis.latestLines[0]);
+        }
+      }
+    }
+    _triggerMoveListRender();
+  } else {
+    if (!state.liveEngineEnabled) {
+      _teardownWebSocket();
+      if (el.engineSpinner) el.engineSpinner.classList.add('hidden');
+      if (el.badgeDot) el.badgeDot.style.animation = 'none';
+    }
+    _triggerMoveListRender();
   }
 }
 
@@ -301,13 +430,13 @@ function destroyApp() {
 function _drawMarkersForMove(from, to, m) {
   let classification = m.classification;
   let annotationObj = _getAnnotationSymbol(m);
-  
+
   if (state.overlayPriority === 'annotation' && annotationObj) {
     classification = null; // Suppress classification
   } else if (state.overlayPriority === 'classification' && classification) {
     annotationObj = null; // Suppress annotation
   }
-  
+
   board.addLastMoveMarkers(from, to, classification, annotationObj, m.color);
 }
 
@@ -319,8 +448,8 @@ function _redrawCurrentMoveOverlay() {
     }
   } else if (state.mode === MODE.ANALYSIS) {
     const idx = state.analysis.currentBranchIndex;
-    const m = idx === -1 
-      ? state.game.moves[state.analysis.forkIndex] 
+    const m = idx === -1
+      ? state.game.moves[state.analysis.forkIndex]
       : state.analysis.branchMoves[idx];
     if (m) {
       _drawMarkersForMove(m.uci.slice(0, 2), m.uci.slice(2, 4), m);
@@ -335,7 +464,8 @@ function _triggerMoveListRender() {
       _onMoveClick,
       state.analysis.branchMoves,
       state.analysis.forkIndex,
-      state.overlayPriority
+      state.overlayPriority,
+      state.liveReviewEnabled
     );
   } else {
     renderMoveList(
@@ -343,7 +473,8 @@ function _triggerMoveListRender() {
       _onMoveClick,
       [],
       null,
-      state.overlayPriority
+      state.overlayPriority,
+      state.liveReviewEnabled
     );
   }
 }
@@ -598,9 +729,13 @@ function _triggerEvalBarRender() {
       renderEvalBar(0, null, false, null, state.boardOrientation);
     }
   } else if (state.mode === MODE.ANALYSIS) {
-    const activeBranch = state.analysis.branchMoves[state.analysis.currentBranchIndex];
-    if (activeBranch) {
-      renderEvalBar(activeBranch.white_cp || 0, activeBranch.mate_played, false, null, state.boardOrientation);
+    if (state.liveEngineEnabled) {
+      const activeBranch = state.analysis.branchMoves[state.analysis.currentBranchIndex];
+      if (activeBranch) {
+        renderEvalBar(activeBranch.white_cp || 0, activeBranch.mate_played, false, null, state.boardOrientation);
+      } else {
+        renderEvalBar(0, null, false, null, state.boardOrientation);
+      }
     } else {
       renderEvalBar(0, null, false, null, state.boardOrientation);
     }
@@ -663,9 +798,15 @@ function _navigateToBranch(idx) {
   setActiveMoveInList('branch', idx);
   _updatePgnInput();
 
-  if (state.liveEngineEnabled) {
-    board.clearArrows();
+  state.latestThreats = [];
+  state.analysis.latestLines = [];
+  _redrawBoardArrows();
+
+  if (state.liveEngineEnabled || state.liveReviewEnabled) {
     _startWebSocketAnalysis(fen);
+  }
+  if (state.threatsEnabled) {
+    _fetchAndDrawThreats();
   }
 }
 
@@ -735,10 +876,16 @@ export function navigateTo(index) {
   // Nav button states
   _updateNavButtons();
 
+  state.latestThreats = [];
+  state.analysis.latestLines = [];
+  _redrawBoardArrows();
+
   // Update live engine if enabled
   if (state.liveEngineEnabled && state.mode === MODE.REVIEW) {
-    board.clearArrows();
     _startWebSocketAnalysis(fen);
+  }
+  if (state.threatsEnabled) {
+    _fetchAndDrawThreats();
   }
 }
 
@@ -895,7 +1042,7 @@ function _handleBoardMove(from, to, promotion) {
 
     _enterAnalysisMode(fen, idx);
     state.analysis.chess.move(moveResult.san);
-    board.setPosition(newFen, true);
+    board.setPosition(newFen, false);
 
     const mateBestPlies = (state.liveEngineEnabled && state.analysis.latestLines?.[0])
       ? state.analysis.latestLines[0].score_mate
@@ -915,8 +1062,8 @@ function _handleBoardMove(from, to, promotion) {
       cp_played: null,
       white_cp: (state.liveEngineEnabled && state.analysis.latestLines?.[0]) ? (state.analysis.latestLines[0].white_cp || 0) : 0,
       best_uci: (state.liveEngineEnabled && state.analysis.latestLines?.[0] && state.analysis.latestLines[0].pv?.length > 0)
-                ? state.analysis.latestLines[0].pv[0] 
-                : null,
+        ? state.analysis.latestLines[0].pv[0]
+        : null,
       mate_best: mateBestMoves,
       mate_played: null,
       classification: null,
@@ -930,8 +1077,11 @@ function _handleBoardMove(from, to, promotion) {
     board.addLastMoveMarkers(from, to, null); // Clear old badge, show new move squares
     _checkTheory(0);
 
-    if (state.liveEngineEnabled) {
+    if (state.liveEngineEnabled || state.liveReviewEnabled) {
       _startWebSocketAnalysis(newFen);
+    }
+    if (state.threatsEnabled) {
+      _fetchAndDrawThreats();
     }
   } else if (state.mode === MODE.ANALYSIS) {
     // Already in analysis mode — user is exploring further
@@ -952,7 +1102,7 @@ function _handleBoardMove(from, to, promotion) {
     }
 
     const newFen = chess.fen();
-    board.setPosition(newFen, true);
+    board.setPosition(newFen, false);
 
     const cpBest = state.analysis.latestLines?.[0]?.score_cp || 0;
     const cpSecond = state.analysis.latestLines?.[1]?.score_cp || cpBest;
@@ -975,8 +1125,8 @@ function _handleBoardMove(from, to, promotion) {
       cp_played: null,
       white_cp: (state.liveEngineEnabled && state.analysis.latestLines?.[0]) ? (state.analysis.latestLines[0].white_cp || 0) : 0,
       best_uci: (state.liveEngineEnabled && state.analysis.latestLines?.[0] && state.analysis.latestLines[0].pv?.length > 0)
-                ? state.analysis.latestLines[0].pv[0] 
-                : null,
+        ? state.analysis.latestLines[0].pv[0]
+        : null,
       mate_best: mateBestMoves,
       mate_played: null,
       classification: null,
@@ -990,8 +1140,11 @@ function _handleBoardMove(from, to, promotion) {
     board.addLastMoveMarkers(from, to, null); // Clear old badge, show new move squares
     _checkTheory(state.analysis.currentBranchIndex);
 
-    if (state.liveEngineEnabled) {
+    if (state.liveEngineEnabled || state.liveReviewEnabled) {
       _startWebSocketAnalysis(newFen);
+    }
+    if (state.threatsEnabled) {
+      _fetchAndDrawThreats();
     }
   }
 }
@@ -1007,7 +1160,7 @@ function _enterAnalysisMode(fen, gameIndex) {
 
   _setMode(MODE.ANALYSIS);
 
-  board.setPosition(fen, true);
+  board.setPosition(fen, false);
   board.clearMarrows();
   board.enableInteraction(() => true, _getLegalMoves);
 
@@ -1038,14 +1191,62 @@ function exitAnalysisMode() {
   board.enableInteraction(_validateReviewMove, _getLegalMoves);
 }
 
+// ── Threat Assessment ───────────────────────────────────────────────────
+
+let lastThreatFen = null;
+
+async function _fetchAndDrawThreats() {
+  if (!state.threatsEnabled) return;
+
+  const fen = _getCurrentFen();
+  lastThreatFen = fen;
+
+  // Retrieve current evaluation score (white_cp)
+  let whiteCp = 0;
+  if (state.liveEngineEnabled && state.analysis.latestLines?.[0]) {
+    whiteCp = state.analysis.latestLines[0].white_cp || 0;
+  } else if (state.mode === MODE.REVIEW) {
+    const idx = state.review.currentIndex;
+    whiteCp = idx >= 0 ? (state.game.moves[idx].white_cp || 0) : 0;
+  } else if (state.mode === MODE.ANALYSIS) {
+    const idx = state.analysis.currentBranchIndex;
+    whiteCp = idx >= 0 ? (state.analysis.branchMoves[idx].white_cp || 0) : 0;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/api/threats`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fen, current_eval_cp: whiteCp })
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+
+    // Verify the FEN hasn't changed since the request was initiated
+    if (lastThreatFen === fen && state.threatsEnabled) {
+      state.latestThreats = data.threats;
+      _redrawBoardArrows();
+    }
+  } catch (err) {
+    console.error('Failed to fetch threats:', err);
+  }
+}
+
+function _redrawBoardArrows() {
+  const engineLines = (state.liveEngineEnabled && state.bestMovesEnabled) ? state.analysis.latestLines.filter(Boolean) : [];
+  const threats = state.threatsEnabled ? state.latestThreats : [];
+  board.drawAllArrows(engineLines, threats);
+}
+
 // ── WebSocket Management ────────────────────────────────────────────────
 
 function _startWebSocketAnalysis(fen) {
-  if (!state.liveEngineEnabled) return;
+  const needsAnalysis = state.liveEngineEnabled || (state.mode === MODE.ANALYSIS && state.liveReviewEnabled);
+  if (!needsAnalysis) return;
 
   // Clear previous arrows and analysis lines when analyzing a new position
   state.analysis.latestLines = [];
-  board.clearArrows();
+  _redrawBoardArrows();
   if (el.engineSpinner) el.engineSpinner.classList.remove('hidden');
   if (el.badgeDot) el.badgeDot.style.animation = 'blink-dot 1s ease-in-out infinite';
 
@@ -1105,14 +1306,18 @@ function _teardownWebSocket() {
 }
 
 function _handleEngineMessage(msg) {
-  if (state.mode !== MODE.ANALYSIS && !state.liveEngineEnabled) return;
+  const needsEngine = state.liveEngineEnabled || (state.mode === MODE.ANALYSIS && state.liveReviewEnabled);
+  if (!needsEngine) return;
 
   if (msg.type === 'done') {
     if (el.engineSpinner) el.engineSpinner.classList.add('hidden');
     if (el.badgeDot) el.badgeDot.style.animation = 'none';
+    if (state.threatsEnabled) {
+      _fetchAndDrawThreats();
+    }
 
     // Fallback: classify if engine finishes before target depth
-    if (state.analysis.branchMoves && state.analysis.branchMoves.length > 0) {
+    if (state.liveReviewEnabled && state.analysis.branchMoves && state.analysis.branchMoves.length > 0) {
       const activeBranch = state.analysis.branchMoves[state.analysis.currentBranchIndex];
       if (activeBranch && (!activeBranch.classification || activeBranch.classification === 'theory') && state.analysis.latestLines?.[0]) {
         _classifyLiveMove(state.analysis.latestLines[0]);
@@ -1128,22 +1333,26 @@ function _handleEngineMessage(msg) {
       // Update our latestLines array
       state.analysis.latestLines[pvIdx] = msg;
 
-      // Draw arrows for all known lines
-      board.drawEngineArrows(state.analysis.latestLines.filter(Boolean));
+      if (state.liveEngineEnabled) {
+        // Draw arrows for all known lines
+        _redrawBoardArrows();
 
-      // Update Engine Lines panel
-      _updateEngineLinesPanel();
+        // Update Engine Lines panel
+        _updateEngineLinesPanel();
+      }
 
       // Update eval bar with MultiPV 1 (best line)
       if (msg.multipv === 1) {
-        renderEvalBar(msg.white_cp, msg.score_mate, msg.game_over, msg.winner, state.boardOrientation);
-        if (el.engineDepthBadge) {
-          el.engineDepthBadge.classList.remove('hidden');
-          el.engineDepthBadge.textContent = `depth ${msg.depth}`;
+        if (state.liveEngineEnabled) {
+          renderEvalBar(msg.white_cp, msg.score_mate, msg.game_over, msg.winner, state.boardOrientation);
+          if (el.engineDepthBadge) {
+            el.engineDepthBadge.classList.remove('hidden');
+            el.engineDepthBadge.textContent = `depth ${msg.depth}`;
+          }
         }
 
         // Classify branch move if pending or holding temporary theory badge
-        if (state.analysis.branchMoves && state.analysis.branchMoves.length > 0) {
+        if (state.liveReviewEnabled && state.analysis.branchMoves && state.analysis.branchMoves.length > 0) {
           const activeBranch = state.analysis.branchMoves[state.analysis.currentBranchIndex];
           const targetDepth = parseInt(el.liveDepthInput.value, 10) || 18;
           if (activeBranch && (!activeBranch.classification || activeBranch.classification === 'theory') && msg.depth >= targetDepth) {

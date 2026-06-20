@@ -28,7 +28,9 @@ def _parse_san_sequence(moves_str: str) -> tuple[str, ...]:
 # Load ECO database from root
 _ECO_LOOKUP: dict[str, str] = {}
 _ECO_PREFIXES: set[tuple[str, ...]] = set()
-_ECO_FILE = Path(__file__).parent.parent / "eco_interpolated.json"
+_ECO_FILE = Path(__file__).parent / "eco_interpolated.json"
+if not _ECO_FILE.exists():
+    _ECO_FILE = Path(__file__).parent.parent / "eco_interpolated.json"
 
 if _ECO_FILE.exists():
     with open(_ECO_FILE, "r", encoding="utf-8") as f:

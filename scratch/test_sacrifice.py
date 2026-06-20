@@ -20,4 +20,3 @@ board.push_san("f6")
 print("FEN before 3. Nxe5:", board.fen())
 move_nxe5 = board.parse_san("Nxe5")
 print("3. Nxe5 -> sacrificed:", is_sacrifice(board, move_nxe5), "book:", is_book_move(board, move_nxe5))
-

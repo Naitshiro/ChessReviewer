@@ -308,7 +308,7 @@ export function highlightChartMove(moveIndex) {
  * @param {Array} branchMoves - Array of branch moves
  * @param {number} forkIndex - Index in main moves where branch started
  */
-export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex = null, overlayPriority = 'classification') {
+export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex = null, overlayPriority = 'classification', liveReviewEnabled = false) {
   const container = document.getElementById('move-list');
   if (!container) return;
 
@@ -331,7 +331,7 @@ export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex =
       currentRow.appendChild(_createEmptyCell(`move-cell-w-${m.move_number}`));
       currentRow.appendChild(_createEmptyCell(`move-cell-b-${m.move_number}`));
       return currentRow;
-    }, (row) => currentRow = row, lastMoveNum, overlayPriority);
+    }, (row) => currentRow = row, lastMoveNum, overlayPriority, liveReviewEnabled);
     lastMoveNum = m.move_number;
     rowElements[i] = currentRow;
   }
@@ -368,7 +368,7 @@ export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex =
         bCurrentRow.appendChild(_createEmptyCell(`b-move-cell-w-${m.move_number}`));
         bCurrentRow.appendChild(_createEmptyCell(`b-move-cell-b-${m.move_number}`));
         return bCurrentRow;
-      }, (row) => bCurrentRow = row, bLastMoveNum, overlayPriority);
+      }, (row) => bCurrentRow = row, bLastMoveNum, overlayPriority, liveReviewEnabled);
       bLastMoveNum = m.move_number;
     }
 
@@ -389,7 +389,7 @@ function _createEmptyCell(id) {
   return el;
 }
 
-function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setRowFn, lastMoveNum, overlayPriority = 'classification') {
+function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setRowFn, lastMoveNum, overlayPriority = 'classification', liveReviewEnabled = false) {
   if (m.color === 'white' || m.move_number !== lastMoveNum) {
     rowsArray.push(createRowFn());
   }
@@ -413,7 +413,7 @@ function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setR
     if (annotationObj) {
       badgeToRender = {
         symbol: annotationObj.symbol,
-        css: `badge-annotation-${m.color}`,
+        css: 'badge-annotation',
         label: annotationObj.label
       };
     } else if (meta) {
@@ -433,7 +433,7 @@ function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setR
     } else if (annotationObj) {
       badgeToRender = {
         symbol: annotationObj.symbol,
-        css: `badge-annotation-${m.color}`,
+        css: 'badge-annotation',
         label: annotationObj.label
       };
     }
@@ -451,7 +451,7 @@ function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setR
     badge.textContent = badgeToRender.symbol;
     badge.title = badgeToRender.label;
     cell.appendChild(badge);
-  } else if (m.classification === null || m.classification === undefined) {
+  } else if (liveReviewEnabled && (m.classification === null || m.classification === undefined)) {
     // Unclassified yet (waiting for engine)
     const spinner = document.createElement('span');
     spinner.className = 'w-2 h-2 rounded-full bg-indigo-500/50 animate-pulse mr-1 inline-block';
@@ -580,7 +580,7 @@ export function renderAnnotationsScorecard(moves) {
       <div class="flex justify-between items-center">
         <span class="flex items-center gap-2">
           <div class="flex gap-1">
-            <span class="move-badge badge-${classKey} font-bold">${nagStr}</span>
+            <span class="move-badge badge-annotation font-bold">${nagStr}</span>
           </div>
           <span class="text-[13px] truncate" title="${label}">${label}</span>
         </span>

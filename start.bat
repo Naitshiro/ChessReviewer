@@ -28,7 +28,7 @@ if not exist ".venv" (
 REM Download missing piece assets if they don't exist
 if not exist "frontend\assets\pieces\neo.svg" (
     echo  [SETUP] Downloading neo piece set and extensions...
-    python download_pieces.py
+    python scratch/download_pieces.py
 )
 
 REM Activate venv and start server

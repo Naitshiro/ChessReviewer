@@ -507,3 +507,20 @@ def build_accuracy_report(
         "white": _side_report(chess.WHITE),
         "black": _side_report(chess.BLACK),
     }
+
+
+def generate_null_move_fen(fen: str) -> str:
+    """
+    Flip the active turn character ('w' to 'b', or 'b' to 'w') and
+    clear any active en passant target square (replacing that field with a '-')
+    to maintain a structurally valid FEN string.
+    """
+    parts = fen.split()
+    if len(parts) < 4:
+        return fen
+    # Flip turn
+    parts[1] = 'b' if parts[1] == 'w' else 'w'
+    # Clear en passant target square
+    parts[3] = '-'
+    return ' '.join(parts)
+

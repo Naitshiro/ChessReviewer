@@ -22,7 +22,8 @@ import re
 from .config import STOCKFISH_PATH, ENGINE_THREADS, ENGINE_HASH_MB, ANALYSIS_DEPTH
 from .analysis import (
     win_prob, classify_move, is_sacrifice,
-    build_accuracy_report, cp_from_score, get_mate_moves
+    build_accuracy_report, cp_from_score, get_mate_moves,
+    generate_null_move_fen
 )
 from .openings import is_book_sequence, get_opening_name
 
@@ -194,6 +195,9 @@ class EngineManager:
         self._transport: Optional[chess.engine.BaseTransport] = None
         self._engine: Optional[chess.engine.Protocol] = None
         self._lock = asyncio.Lock()
+        self._threat_transport: Optional[chess.engine.BaseTransport] = None
+        self._threat_engine: Optional[chess.engine.Protocol] = None
+        self._threat_lock = asyncio.Lock()
         self._ready = False
         self._error: Optional[str] = None
 
@@ -213,6 +217,19 @@ class EngineManager:
                 "Threads": ENGINE_THREADS,
                 "Hash": ENGINE_HASH_MB,
             })
+            
+            # Start secondary Stockfish instance for threats
+            try:
+                self._threat_transport, self._threat_engine = await chess.engine.popen_uci(STOCKFISH_PATH)
+                await self._threat_engine.configure({
+                    "Threads": 1,
+                    "Hash": 64,
+                })
+            except Exception as te:
+                logger.error(f"Failed to start secondary threat Stockfish: {te}")
+                self._threat_transport = None
+                self._threat_engine = None
+
             self._ready = True
             self._error = None
             logger.info("Stockfish ready.")
@@ -232,6 +249,18 @@ class EngineManager:
                 f"Path tried: {STOCKFISH_PATH}. "
                 f"Please set 'stockfish_path' in config.json."
             )
+        # Also ensure the threat engine is running if possible
+        if self._ready and (self._threat_engine is None or self._threat_transport is None):
+            try:
+                self._threat_transport, self._threat_engine = await chess.engine.popen_uci(STOCKFISH_PATH)
+                await self._threat_engine.configure({
+                    "Threads": 1,
+                    "Hash": 64,
+                })
+            except Exception as te:
+                logger.error(f"Failed to restart secondary threat Stockfish: {te}")
+                self._threat_transport = None
+                self._threat_engine = None
 
     @property
     def status(self) -> dict:
@@ -251,9 +280,16 @@ class EngineManager:
                 await self._engine.quit()
             except Exception:
                 pass
+        if self._threat_engine:
+            try:
+                await self._threat_engine.quit()
+            except Exception:
+                pass
         self._ready = False
         self._engine = None
         self._transport = None
+        self._threat_engine = None
+        self._threat_transport = None
 
     # -----------------------------------------------------------------------
     # Batch Analysis (Review Mode)
@@ -667,3 +703,81 @@ class EngineManager:
         except Exception as e:
             logger.warning(f"Stream analysis error for FEN {fen}: {e}")
             raise
+
+    async def calculate_threats(self, fen: str, white_cp: float) -> list[dict]:
+        """
+        Calculate threat moves for the current position using the Null Move technique.
+        Returns a list of top threat moves if skipping the turn causes the evaluation
+        to drop by more than 1.5 points (150 centipawns) from the current player's perspective.
+        """
+        await self.ensure_ready()
+
+        # Determine current player's perspective
+        board = chess.Board(fen)
+        if board.is_check() or board.is_game_over():
+            return []
+
+        active_color = board.turn
+        current_eval_cp = white_cp if active_color == chess.WHITE else -white_cp
+
+        # Generate flipped Null Move FEN
+        flipped_fen = generate_null_move_fen(fen)
+        flipped_board = chess.Board(flipped_fen)
+
+        # Determine which engine to use
+        engine_to_use = self._threat_engine
+        lock_to_use = self._threat_lock
+        temp_transport = None
+
+        if not engine_to_use:
+            logger.info("Threat engine not persistent, using temporary Stockfish instance.")
+            temp_transport, engine_to_use = await chess.engine.popen_uci(STOCKFISH_PATH)
+            lock_to_use = None
+
+        try:
+            if lock_to_use:
+                async with lock_to_use:
+                    info_list = await engine_to_use.analyse(
+                        flipped_board,
+                        chess.engine.Limit(time=0.3),
+                        multipv=3
+                    )
+            else:
+                info_list = await engine_to_use.analyse(
+                    flipped_board,
+                    chess.engine.Limit(time=0.3),
+                    multipv=3
+                )
+        finally:
+            if temp_transport:
+                try:
+                    await engine_to_use.quit()
+                except Exception:
+                    pass
+
+        threats = []
+        for info in info_list:
+            multipv = info.get("multipv", 1)
+            score_obj = info.get("score")
+            pv = info.get("pv", [])
+            if not pv:
+                continue
+
+            # Extract relative score for opponent
+            cp = cp_from_score(score_obj.relative if score_obj else None)
+
+            # Drop in evaluation for current player: current_eval_cp + cp
+            eval_drop = current_eval_cp + cp
+
+            first_move = pv[0]
+            threats.append({
+                "from": chess.square_name(first_move.from_square),
+                "to": chess.square_name(first_move.to_square),
+                "multipv": multipv,
+                "score_cp": cp,
+                "eval_drop": eval_drop
+            })
+
+        # Ensure threat list is sorted by multipv ascending
+        threats.sort(key=lambda t: t["multipv"])
+        return threats

@@ -1,6 +1,0 @@
-- Manual move review (like moves rating but with white background and black foreground)
-- Stop the analysis
-- Eval bar 0.0 must be on white not black
-- Implementing pgn names, ranks, images, time, etc...
-- Implementing win / lost / draw icons
-- Potential issue on live engine with moves rating (brilliant, great, theory, ...)

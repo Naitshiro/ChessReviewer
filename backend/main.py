@@ -112,6 +112,10 @@ class ClassifyRequest(BaseModel):
     mate_played: Optional[int] = None
     is_book: Optional[bool] = False
 
+class ThreatRequest(BaseModel):
+    fen: str
+    current_eval_cp: float
+
 
 # ---------------------------------------------------------------------------
 # HTTP Routes
@@ -167,6 +171,17 @@ async def classify_live_move(req: ClassifyRequest):
         return {"classification": classification}
     except Exception as e:
         logger.exception("Error in /api/classify")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/threats")
+async def get_threats(req: ThreatRequest):
+    """Calculate and return a list of threat moves for the given position."""
+    try:
+        manager = await EngineManager.get_instance()
+        threats = await manager.calculate_threats(req.fen, req.current_eval_cp)
+        return {"threats": threats}
+    except Exception as e:
+        logger.exception("Error in /api/threats")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/import")

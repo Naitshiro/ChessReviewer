@@ -53,6 +53,11 @@ const CLASSIFICATION_MARKERS = {
   theory:     { class: 'marker-theory',     slice: 'markerSquare' },
 };
 
+const ANNOTATION_MARKERS = {
+  white: { class: 'marker-annotation-white', slice: 'markerSquare' },
+  black: { class: 'marker-annotation-black', slice: 'markerSquare' },
+};
+
 /**
  * BoardManager wraps cm-chessboard and exposes a clean interface
  * for the application state machine.
@@ -204,8 +209,7 @@ export class BoardManager {
       this._board.addMarker(CLASSIFICATION_MARKERS[classification], toSq);
       this.showClassificationBadge(toSq, classification, 'classification', moveColor);
     } else if (annotationObj) {
-      const classKey = annotationObj.classKey || 'theory';
-      const marker = CLASSIFICATION_MARKERS[classKey] || { class: 'marker-theory', slice: 'markerSquare' };
+      const marker = moveColor === 'black' ? ANNOTATION_MARKERS.black : ANNOTATION_MARKERS.white;
       this._board.addMarker(marker, fromSq);
       this._board.addMarker(marker, toSq);
       this.showClassificationBadge(toSq, annotationObj, 'annotation', moveColor);
@@ -337,6 +341,76 @@ export class BoardManager {
 
       if (line.from_sq && line.to_sq) {
         this._board.addArrow(arrowType, line.from_sq, line.to_sq);
+      }
+    }
+  }
+
+  /**
+   * Draw threat arrows for up to 3 threat moves.
+   * @param {Array<{from: string, to: string, multipv: number}>} threats
+   */
+  drawThreatArrows(threats) {
+    if (!this._board) return;
+    this.clearArrows();
+
+    const threatTypes = [
+      {class: 'threat-pv1', slice: 'arrowDefault'},
+      {class: 'threat-pv2', slice: 'arrowDefault'},
+      {class: 'threat-pv3', slice: 'arrowDefault'}
+    ];
+
+    // Draw in reverse order so multipv 1 (Highest Threat) is on top
+    const sorted = [...threats].sort((a, b) => b.multipv - a.multipv);
+    for (const threat of sorted) {
+      const idx = threat.multipv - 1; // 1-based to 0-based
+      const arrowType = threatTypes[Math.min(idx, threatTypes.length - 1)];
+
+      if (threat.from && threat.to) {
+        this._board.addArrow(arrowType, threat.from, threat.to);
+      }
+    }
+  }
+
+  /**
+   * Draw both engine suggestions and threat arrows simultaneously.
+   * @param {Array<{from_sq: string, to_sq: string, multipv: number}>} engineLines
+   * @param {Array<{from: string, to: string, multipv: number}>} threats
+   */
+  drawAllArrows(engineLines, threats) {
+    if (!this._board) return;
+    this.clearArrows();
+
+    // 1. Draw engine arrows
+    if (engineLines && engineLines.length > 0) {
+      let linesToDraw = [...engineLines];
+      const best = linesToDraw[0];
+      if (best.score_mate === 1 || best.score_mate === -1 || best.score_mate === 0) {
+        linesToDraw = [best];
+      }
+      const sorted = linesToDraw.sort((a, b) => (b.multipv || 1) - (a.multipv || 1));
+      for (const line of sorted) {
+        const pvIdx = (line.multipv || 1) - 1;
+        const arrowType = ARROW_TYPES[Math.min(pvIdx, ARROW_TYPES.length - 1)];
+        if (line.from_sq && line.to_sq) {
+          this._board.addArrow(arrowType, line.from_sq, line.to_sq);
+        }
+      }
+    }
+
+    // 2. Draw threat arrows
+    if (threats && threats.length > 0) {
+      const threatTypes = [
+        {class: 'threat-pv1', slice: 'arrowDefault'},
+        {class: 'threat-pv2', slice: 'arrowDefault'},
+        {class: 'threat-pv3', slice: 'arrowDefault'}
+      ];
+      const sorted = [...threats].sort((a, b) => b.multipv - a.multipv);
+      for (const threat of sorted) {
+        const idx = threat.multipv - 1;
+        const arrowType = threatTypes[Math.min(idx, threatTypes.length - 1)];
+        if (threat.from && threat.to) {
+          this._board.addArrow(arrowType, threat.from, threat.to);
+        }
       }
     }
   }
