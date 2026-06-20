@@ -35,7 +35,7 @@
   <link rel="stylesheet" href="styles.css?v=7" />
 </head>
 
-<body class="min-h-screen">
+<body class="min-h-screen flex flex-col">
 
   <!-- ═══════════════════════════════════════════════════════════════════
        HEADER
@@ -102,88 +102,32 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════════
-       PGN INPUT PANEL
-  ══════════════════════════════════════════════════════════════════════ -->
-  <div class="px-4 pt-4 pb-0">
-    <div class="glass-card p-4 max-w-5xl mx-auto">
-      <div class="flex flex-col gap-3">
 
-        <div class="flex items-start gap-3">
-          <!-- Textarea -->
-          <div class="flex-1">
-            <textarea
-              id="pgn-input"
-              placeholder="Paste PGN here… e.g.  1. e4 e5 2. Nf3 Nc6 3. Bb5  or a full PGN with headers"
-              rows="3"
-            ></textarea>
-          </div>
-
-          <!-- Controls -->
-          <div class="flex flex-col gap-2 flex-shrink-0 w-64">
-            <div class="flex gap-2">
-              <button id="import-btn" class="btn-primary flex-1 justify-center px-2 py-1.5 text-sm">
-                <span id="import-spinner" class="spinner hidden"></span>
-                <span>Import</span>
-              </button>
-              <button id="analyze-btn" class="btn-primary flex-1 justify-center px-2 py-1.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                <span id="loading-spinner" class="spinner hidden"></span>
-                <span id="analyze-btn-text">Analyze</span>
-                <svg id="analyze-btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="M5 12h14M12 5l7 7-7 7"/>
-                </svg>
-              </button>
-            </div>
-
-            <!-- Depth control -->
-            <div class="flex items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
-              <span>Depth</span>
-              <input id="depth-slider" type="range" min="8" max="30" value="18" class="flex-1" />
-              <span id="depth-value" class="font-mono w-4 text-right text-[var(--text-primary)]">18</span>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Progress Bar -->
-        <div id="analysis-progress-container" class="hidden mt-1 px-1">
-          <div class="flex justify-between text-xs text-[var(--text-muted)] mb-1.5">
-            <span id="analysis-progress-text">Analyzing moves...</span>
-            <span id="analysis-progress-pct" class="font-mono">0%</span>
-          </div>
-          <div class="w-full bg-[var(--bg-secondary)] rounded-full h-1.5 border border-[var(--border)] overflow-hidden">
-            <div id="analysis-progress-fill" class="bg-indigo-500 h-1.5 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════
        MAIN LAYOUT  (3 columns: eval-bar | board | dashboard)
   ══════════════════════════════════════════════════════════════════════ -->
-  <div id="main-layout" class="flex gap-4 px-4 py-4 max-w-5xl mx-auto">
+  <main id="main-layout" class="flex gap-6 px-4 py-4 w-full max-w-[1600px] mx-auto flex-1 min-h-0">
 
-    <!-- ─── LEFT/CENTER: Board Area ──────────────────────────────────── -->
-    <div class="flex flex-col gap-3 flex-1 min-w-0">
-
+    <!-- ─── LEFT/CENTER: Board Column ────────────────────────────────── -->
+    <div id="board-column" class="flex-1 flex flex-col justify-between items-center min-w-0 h-full py-1">
       <!-- Opening name -->
-      <div id="opening-name"></div>
+      <div id="opening-name" class="text-sm font-semibold truncate text-[var(--text-secondary)] self-start w-full px-2 min-h-[20px]"></div>
 
       <!-- Eval Bar + Board Row -->
-      <div id="board-area" class="flex gap-4 items-stretch justify-center">
+      <div id="board-area" class="flex gap-4 items-center justify-center flex-1 min-h-0 w-full">
         <!-- Evaluation Bar -->
-        <div id="left-panel" class="flex flex-col items-center flex-shrink-0">
-          <div id="eval-bar-container">
+        <div id="left-panel" class="flex flex-col items-center flex-shrink-0 h-full max-h-[640px]">
+          <div id="eval-bar-container" class="h-full">
             <div id="eval-bar-white" style="height: 50%;"></div>
             <span id="eval-bar-label" class="eval-bar-label" style="bottom: 8px; color: #21201d;">0.0</span>
           </div>
         </div>
 
-        <!-- Board -->
-        <div id="board-wrapper" class="flex-1 flex flex-col justify-center min-w-0">
+        <!-- Board Container (handles player cards and square board wrapper) -->
+        <div id="board-container" class="flex flex-col justify-center min-w-0">
           <!-- Top Player Card -->
-          <div class="flex items-center gap-2 mb-2 mr-auto bg-[var(--bg-card)] rounded-md pl-1.5 pr-3 py-1 border border-[var(--border)] shadow-sm">
+          <div class="flex items-center gap-2 mb-2 mr-auto bg-[var(--bg-card)] rounded-md pl-1.5 pr-3 py-1 border border-[var(--border)] shadow-sm shrink-0">
             <div id="top-player-avatar" class="w-7 h-7 rounded bg-[var(--bg-secondary)] flex items-center justify-center text-[18px] border border-[var(--border)]">
               ♚
             </div>
@@ -194,10 +138,13 @@
             </div>
           </div>
 
-          <div id="board"></div>
+          <!-- Square Board Wrapper -->
+          <div id="board-wrapper" class="relative aspect-square">
+            <div id="board"></div>
+          </div>
 
           <!-- Bottom Player Card -->
-          <div class="flex items-center gap-2 mt-2 mr-auto bg-[var(--bg-card)] rounded-md pl-1.5 pr-3 py-1 border border-[var(--border)] shadow-sm">
+          <div class="flex items-center gap-2 mt-2 mr-auto bg-[var(--bg-card)] rounded-md pl-1.5 pr-3 py-1 border border-[var(--border)] shadow-sm shrink-0">
             <div id="bottom-player-avatar" class="w-7 h-7 rounded bg-[var(--bg-secondary)] flex items-center justify-center text-[18px] border border-[var(--border)]">
               ♚
             </div>
@@ -327,9 +274,402 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- ─── RIGHT: Dashboard ───────────────────────────────────────────── -->
+    <div id="right-panel" class="flex flex-col gap-4 w-[360px] shrink-0 h-full min-h-0">
+
+      <!-- Live Engine Lines (Top 3) -->
+      <div id="live-engine-lines" class="glass-card p-3 flex flex-col gap-2 shrink-0 hidden">
+        <div class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Engine Lines</div>
+        <div id="engine-lines-container" class="flex flex-col gap-1.5 text-xs font-mono text-[var(--text-primary)]">
+          <!-- Lines will be injected here -->
+        </div>
+      </div>
+
+      <!-- Tabs Container -->
+      <div class="glass-card flex-1 min-h-0 overflow-hidden flex flex-col">
+        <div class="flex border-b border-[var(--border)] shrink-0">
+          <button id="tab-import"  class="tab-btn active">Import</button>
+          <button id="tab-summary" class="tab-btn">Summary</button>
+          <button id="tab-moves"   class="tab-btn">Moves</button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto min-h-0">
+          <!-- ── Import Panel ────────────────────────────────────────── -->
+          <div id="panel-import" class="p-3 flex flex-col gap-4 h-full justify-between">
+            <div class="flex flex-col gap-3 flex-1">
+              <div class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Import PGN or Moves</div>
+              <textarea
+                id="pgn-input"
+                placeholder="Paste PGN here… e.g. 1. e4 e5 2. Nf3 Nc6 3. Bb5 or a list of moves"
+                class="flex-1 min-h-[140px] resize-none"
+              ></textarea>
+              
+              <div class="flex items-center justify-between gap-2 text-xs text-[var(--text-muted)] mt-1">
+                <span>Depth</span>
+                <input id="depth-slider" type="range" min="8" max="30" value="18" class="flex-1" />
+                <span id="depth-value" class="font-mono w-4 text-right text-[var(--text-primary)]">18</span>
+              </div>
+            </div>
+
+            <div class="shrink-0 flex flex-col gap-2.5 pt-2 border-t border-[var(--border)]">
+              <div class="flex gap-2">
+                <button id="import-btn" class="btn-primary flex-1 justify-center px-2 py-2 text-sm">
+                  <span id="import-spinner" class="spinner hidden"></span>
+                  <span>Import Only</span>
+                </button>
+                <button id="analyze-btn" class="btn-primary flex-1 justify-center px-2 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                  <span id="loading-spinner" class="spinner hidden"></span>
+                  <span id="analyze-btn-text">Analyze</span>
+                  <svg id="analyze-btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Progress Bar -->
+              <div id="analysis-progress-container" class="hidden mt-1 px-1">
+                <div class="flex justify-between text-xs text-[var(--text-muted)] mb-1.5">
+                  <span id="analysis-progress-text">Analyzing moves...</span>
+                  <span id="analysis-progress-pct" class="font-mono">0%</span>
+                </div>
+                <div class="w-full bg-[var(--bg-secondary)] rounded-full h-1.5 border border-[var(--border)] overflow-hidden">
+                  <div id="analysis-progress-fill" class="bg-indigo-500 h-1.5 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Summary Panel ──────────────────────────────────────── -->
+          <div id="panel-summary" class="hidden p-3 flex flex-col gap-4">
+
+            <!-- Accuracy & Rating Layout -->
+            <div class="flex flex-col gap-3">
+              <!-- Accuracy Row -->
+              <div id="accuracy-row" class="flex justify-between items-center">
+                <span class="text-sm font-semibold text-[var(--text-muted)]">Accuracy</span>
+                <div class="flex gap-3">
+                  <div id="accuracy-white-box" class="w-[52px] py-0.5 bg-[#f8f9fa] text-black text-center font-bold text-[13px] rounded shadow-sm">—</div>
+                  <div id="accuracy-black-box" class="w-[52px] py-0.5 bg-[#1e293b] text-white text-center font-bold text-[13px] rounded border border-[var(--border)] shadow-sm">—</div>
+                </div>
+              </div>
+
+              <!-- Game Rating Row -->
+              <div id="rating-row" class="flex justify-between items-center hidden">
+                <span class="text-sm font-semibold text-[var(--text-muted)]">Game Rating</span>
+                <div class="flex gap-3">
+                  <div id="rating-white-box" class="w-[52px] py-0.5 bg-[#f8f9fa] text-black text-center font-bold text-[13px] rounded shadow-sm">—</div>
+                  <div id="rating-black-box" class="w-[52px] py-0.5 bg-[#1e293b] text-white text-center font-bold text-[13px] rounded border border-[var(--border)] shadow-sm">—</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Game Phases -->
+            <div id="game-phases-container" class="border-t border-[var(--border)] pt-3 hidden">
+              <div class="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2 flex justify-between items-center">
+                <span>Game Phases</span>
+                <div class="flex justify-between items-center w-[56px] mr-1">
+                  <div class="w-6 h-5 flex justify-center items-center bg-[#f8f9fa] text-black font-bold text-[10px] rounded">W</div>
+                  <div class="w-6 h-5 flex justify-center items-center bg-[#1e293b] text-white font-bold text-[10px] rounded border border-[var(--border)]">B</div>
+                </div>
+              </div>
+              <div class="flex flex-col gap-2 text-sm text-[var(--text-secondary)]">
+                <!-- Opening -->
+                <div class="flex justify-between items-center" id="phase-row-opening">
+                  <span>Opening</span>
+                  <div class="flex justify-between items-center w-[56px] mr-1">
+                    <div id="phase-badge-white-opening" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
+                    <div id="phase-badge-black-opening" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
+                  </div>
+                </div>
+                <!-- Middlegame -->
+                <div class="flex justify-between items-center" id="phase-row-middlegame">
+                  <span>Middlegame</span>
+                  <div class="flex justify-between items-center w-[56px] mr-1">
+                    <div id="phase-badge-white-middlegame" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
+                    <div id="phase-badge-black-middlegame" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
+                  </div>
+                </div>
+                <!-- Endgame -->
+                <div class="flex justify-between items-center" id="phase-row-endgame">
+                  <span>Endgame</span>
+                  <div class="flex justify-between items-center w-[56px] mr-1">
+                    <div id="phase-badge-white-endgame" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
+                    <div id="phase-badge-black-endgame" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Classification scorecards -->
+            <div class="border-t border-[var(--border)] pt-3">
+              <div class="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2 flex justify-between items-center">
+                <span>Classifications</span>
+                <div class="flex justify-between items-center w-[56px] mr-1">
+                  <div class="w-6 h-5 flex justify-center items-center bg-[#f8f9fa] text-black font-bold text-[10px] rounded">W</div>
+                  <div class="w-6 h-5 flex justify-center items-center bg-[#1e293b] text-white font-bold text-[10px] rounded border border-[var(--border)]">B</div>
+                </div>
+              </div>
+              <div id="scorecard-merged" class="flex flex-col gap-2 text-sm text-[var(--text-secondary)]">
+                <div class="text-[var(--text-muted)] text-xs italic text-center py-2">Analyze a game to see results.</div>
+              </div>
+            </div>
+
+            <!-- Annotations scorecards -->
+            <div class="border-t border-[var(--border)] pt-3" id="annotations-container" style="display: none;">
+              <div class="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2 flex justify-between items-center">
+                <span>Annotations</span>
+                <div class="flex justify-between items-center w-[56px] mr-1">
+                  <div class="w-6 h-5 flex justify-center items-center bg-[#f8f9fa] text-black font-bold text-[10px] rounded">W</div>
+                  <div class="w-6 h-5 flex justify-center items-center bg-[#1e293b] text-white font-bold text-[10px] rounded border border-[var(--border)]">B</div>
+                </div>
+              </div>
+              <div id="annotations-list" class="flex flex-col gap-2 text-sm text-[var(--text-secondary)]">
+              </div>
+            </div>
+
+            <!-- Legend Section inside summary panel -->
+            <div class="border-t border-[var(--border)] pt-4 mt-2">
+              <div class="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Move Legends</div>
+              <div class="flex flex-col gap-1.5">
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge badge-brilliant">!!</span> Brilliant
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A difficult to find sacrifice or game-changing move.</div>
+                </div>
+                
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge badge-great">!</span> Great Move
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">The only good move in a critical position.</div>
+                </div>
+                
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge badge-best">★</span> Best
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">The optimal move according to the engine.</div>
+                </div>
+                
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge badge-excellent">✦</span> Excellent
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A very strong move that maintains your advantage.</div>
+                </div>
+                
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge badge-good">✓</span> Good
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A solid move, though somewhat less optimal.</div>
+                </div>
+                
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge badge-theory" style="font-size: 14px;">⌕</span> Theory
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">An established opening theory move.</div>
+                </div>
+                
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge badge-inaccuracy">?!</span> Inaccuracy
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A suboptimal move that slightly worsens your position.</div>
+                </div>
+                
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge badge-mistake">?</span> Mistake
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A weak move that loses a significant advantage.</div>
+                </div>
+                
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge badge-miss">✗</span> Miss
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A move that misses a tactical opportunity or forced win.</div>
+                </div>
+                
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge badge-blunder">??</span> Blunder
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A terrible move that drastically worsens your position.</div>
+                </div>
+              </div>
+
+              <div class="mt-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Annotation Legends</div>
+              <div class="flex flex-col gap-1.5">
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">!!</span> Brilliant Move
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">An excellent and hard to find move.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">!</span> Good Move
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A good, strong move.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">!?</span> Speculative / Interesting
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">An interesting but perhaps not fully sound move.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">?!</span> Dubious Move
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A move that is questionable or slightly bad.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">?</span> Poor Move / Mistake
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A poor move that should be avoided.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">??</span> Blunder
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A terrible move that likely loses the game.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">□</span> Forced
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">The only legal or reasonable move.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">=</span> Balanced
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Even or quiet position with equal chances.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">∞</span> Unclear
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">The position is complex and unclear.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">⩲</span> White Slight Advantage
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">White has a slight advantage.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">⩱</span> Black Slight Advantage
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Black has a slight advantage.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">±</span> White Moderate Advantage
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">White has a moderate advantage.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">∓</span> Black Moderate Advantage
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Black has a moderate advantage.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">+-</span> White Decisive Advantage
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">White has a winning or crushing advantage.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">-+</span> Black Decisive Advantage
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Black has a winning or crushing advantage.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">⨀</span> Zugzwang
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player is forced to make a move that worsens their position.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">○</span> Space
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has a moderate space advantage.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">⟳</span> Development
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has a development advantage.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">↑</span> Initiative
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has the initiative.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">→</span> Attack
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has a strong attack.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">⯹</span> Compensation
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has sufficient compensation for a disadvantage.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">⇆</span> Counterplay
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has active counterplay.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">⨁</span> Time Trouble
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player is in severe time trouble.</div>
+                </div>
+                <div class="flex flex-col mb-1.5">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">N</span> Novelty
+                  </div>
+                  <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A new move that deviates from known theory.</div>
+                </div>
+              </div>
+              <div class="mt-2 pt-2 border-t border-[var(--border)] text-[10px] text-[var(--text-muted)] leading-4">
+                Drag a piece to a <em>different</em> square than the game move to enter live analysis mode.
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Moves Panel ─────────────────────────────────────────── -->
+          <div id="panel-moves" class="hidden p-2">
+            <div id="move-list" class="move-list">
+              <div class="text-center text-[var(--text-muted)] text-xs py-6 italic">
+                Paste a PGN inside the Import tab to load/analyze.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- Win Probability Chart -->
-      <div class="glass-card p-3">
+      <div class="glass-card p-3 shrink-0">
         <div class="text-xs text-[var(--text-muted)] mb-2 font-semibold uppercase tracking-wider">
           Win Probability
         </div>
@@ -339,358 +679,9 @@
       </div>
 
     </div>
-
-    <!-- ─── RIGHT: Dashboard ───────────────────────────────────────────── -->
-    <div id="right-panel" class="flex flex-col gap-3" style="width: 280px; flex-shrink: 0;">
-
-      <!-- Live Engine Lines (Top 3) -->
-      <div id="live-engine-lines" class="glass-card p-3 flex flex-col gap-2 hidden">
-        <div class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Engine Lines</div>
-        <div id="engine-lines-container" class="flex flex-col gap-1.5 text-xs font-mono text-[var(--text-primary)]">
-          <!-- Lines will be injected here -->
-        </div>
-      </div>
-
-      <!-- Tabs -->
-      <div class="glass-card overflow-hidden">
-        <div class="flex border-b border-[var(--border)]">
-          <button id="tab-summary" class="tab-btn active">Summary</button>
-          <button id="tab-moves"   class="tab-btn">Moves</button>
-        </div>
-
-        <!-- ── Summary Panel ──────────────────────────────────────── -->
-        <div id="panel-summary" class="p-3 flex flex-col gap-4">
-
-          <!-- Accuracy & Rating Layout -->
-          <div class="flex flex-col gap-3">
-            
-            <!-- Accuracy Row -->
-            <div id="accuracy-row" class="flex justify-between items-center">
-              <span class="text-sm font-semibold text-[var(--text-muted)]">Accuracy</span>
-              <div class="flex gap-3">
-                <div id="accuracy-white-box" class="w-[52px] py-0.5 bg-[#f8f9fa] text-black text-center font-bold text-[13px] rounded shadow-sm">—</div>
-                <div id="accuracy-black-box" class="w-[52px] py-0.5 bg-[#1e293b] text-white text-center font-bold text-[13px] rounded border border-[var(--border)] shadow-sm">—</div>
-              </div>
-            </div>
-
-            <!-- Game Rating Row -->
-            <div id="rating-row" class="flex justify-between items-center hidden">
-              <span class="text-sm font-semibold text-[var(--text-muted)]">Game Rating</span>
-              <div class="flex gap-3">
-                <div id="rating-white-box" class="w-[52px] py-0.5 bg-[#f8f9fa] text-black text-center font-bold text-[13px] rounded shadow-sm">—</div>
-                <div id="rating-black-box" class="w-[52px] py-0.5 bg-[#1e293b] text-white text-center font-bold text-[13px] rounded border border-[var(--border)] shadow-sm">—</div>
-              </div>
-            </div>
-
-          </div>
-
-          <!-- Game Phases -->
-          <div id="game-phases-container" class="border-t border-[var(--border)] pt-3 hidden">
-            <div class="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2 flex justify-between items-center">
-              <span>Game Phases</span>
-              <div class="flex justify-between items-center w-[56px] mr-1">
-                <div class="w-6 h-5 flex justify-center items-center bg-[#f8f9fa] text-black font-bold text-[10px] rounded">W</div>
-                <div class="w-6 h-5 flex justify-center items-center bg-[#1e293b] text-white font-bold text-[10px] rounded border border-[var(--border)]">B</div>
-              </div>
-            </div>
-            <div class="flex flex-col gap-2 text-sm text-[var(--text-secondary)]">
-              <!-- Opening -->
-              <div class="flex justify-between items-center" id="phase-row-opening">
-                <span>Opening</span>
-                <div class="flex justify-between items-center w-[56px] mr-1">
-                  <div id="phase-badge-white-opening" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
-                  <div id="phase-badge-black-opening" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
-                </div>
-              </div>
-              <!-- Middlegame -->
-              <div class="flex justify-between items-center" id="phase-row-middlegame">
-                <span>Middlegame</span>
-                <div class="flex justify-between items-center w-[56px] mr-1">
-                  <div id="phase-badge-white-middlegame" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
-                  <div id="phase-badge-black-middlegame" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
-                </div>
-              </div>
-              <!-- Endgame -->
-              <div class="flex justify-between items-center" id="phase-row-endgame">
-                <span>Endgame</span>
-                <div class="flex justify-between items-center w-[56px] mr-1">
-                  <div id="phase-badge-white-endgame" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
-                  <div id="phase-badge-black-endgame" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Classification scorecards -->
-          <div class="border-t border-[var(--border)] pt-3">
-            <div class="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2 flex justify-between items-center">
-              <span>Classifications</span>
-              <div class="flex justify-between items-center w-[56px] mr-1">
-                <div class="w-6 h-5 flex justify-center items-center bg-[#f8f9fa] text-black font-bold text-[10px] rounded">W</div>
-                <div class="w-6 h-5 flex justify-center items-center bg-[#1e293b] text-white font-bold text-[10px] rounded border border-[var(--border)]">B</div>
-              </div>
-            </div>
-            <div id="scorecard-merged" class="flex flex-col gap-2 text-sm text-[var(--text-secondary)]">
-              <div class="text-[var(--text-muted)] text-xs italic text-center py-2">Analyze a game to see results.</div>
-            </div>
-          </div>
-
-          <!-- Annotations scorecards -->
-          <div class="border-t border-[var(--border)] pt-3" id="annotations-container" style="display: none;">
-            <div class="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2 flex justify-between items-center">
-              <span>Annotations</span>
-              <div class="flex justify-between items-center w-[56px] mr-1">
-                <div class="w-6 h-5 flex justify-center items-center bg-[#f8f9fa] text-black font-bold text-[10px] rounded">W</div>
-                <div class="w-6 h-5 flex justify-center items-center bg-[#1e293b] text-white font-bold text-[10px] rounded border border-[var(--border)]">B</div>
-              </div>
-            </div>
-            <div id="annotations-list" class="flex flex-col gap-2 text-sm text-[var(--text-secondary)]">
-            </div>
-          </div>
-        </div>
-
-        <!-- ── Moves Panel ─────────────────────────────────────────── -->
-        <div id="panel-moves" class="hidden p-2">
-          <div id="move-list" class="move-list">
-            <div class="text-center text-[var(--text-muted)] text-xs py-6 italic">
-              Paste a PGN above and click Analyze.
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Legend card -->
-      <div class="glass-card p-3">
-        <div class="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2">Classifications</div>
-        <div class="flex flex-col gap-1">
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge badge-brilliant">!!</span> Brilliant
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A difficult to find sacrifice or game-changing move.</div>
-          </div>
-          
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge badge-great">!</span> Great Move
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">The only good move in a critical position.</div>
-          </div>
-          
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge badge-best">★</span> Best
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">The optimal move according to the engine.</div>
-          </div>
-          
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge badge-excellent">✦</span> Excellent
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A very strong move that maintains your advantage.</div>
-          </div>
-          
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge badge-good">✓</span> Good
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A solid move, though somewhat less optimal.</div>
-          </div>
-          
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge badge-theory" style="font-size: 14px;">⌕</span> Theory
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">An established opening theory move.</div>
-          </div>
-          
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge badge-inaccuracy">?!</span> Inaccuracy
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A suboptimal move that slightly worsens your position.</div>
-          </div>
-          
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge badge-mistake">?</span> Mistake
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A weak move that loses a significant advantage.</div>
-          </div>
-          
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge badge-miss">✗</span> Miss
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A move that misses a tactical opportunity or forced win.</div>
-          </div>
-          
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge badge-blunder">??</span> Blunder
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A terrible move that drastically worsens your position.</div>
-          </div>
-        </div>
-
-        <div class="mt-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2">Annotations</div>
-        <div class="flex flex-col gap-1">
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">!!</span> Brilliant Move
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">An excellent and hard to find move.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">!</span> Good Move
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A good, strong move.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">!?</span> Speculative / Interesting
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">An interesting but perhaps not fully sound move.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">?!</span> Dubious Move
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A move that is questionable or slightly bad.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">?</span> Poor Move / Mistake
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A poor move that should be avoided.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">??</span> Blunder
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A terrible move that likely loses the game.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">□</span> Forced
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">The only legal or reasonable move.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">=</span> Balanced
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Even or quiet position with equal chances.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">∞</span> Unclear
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">The position is complex and unclear.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">⩲</span> White Slight Advantage
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">White has a slight advantage.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">⩱</span> Black Slight Advantage
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Black has a slight advantage.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">±</span> White Moderate Advantage
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">White has a moderate advantage.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">∓</span> Black Moderate Advantage
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Black has a moderate advantage.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">+-</span> White Decisive Advantage
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">White has a winning or crushing advantage.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">-+</span> Black Decisive Advantage
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Black has a winning or crushing advantage.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">⨀</span> Zugzwang
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player is forced to make a move that worsens their position.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">○</span> Space
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has a moderate space advantage.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">⟳</span> Development
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has a development advantage.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">↑</span> Initiative
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has the initiative.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">→</span> Attack
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has a strong attack.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">⯹</span> Compensation
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has sufficient compensation for a disadvantage.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">⇆</span> Counterplay
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has active counterplay.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">⨁</span> Time Trouble
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player is in severe time trouble.</div>
-          </div>
-          <div class="flex flex-col mb-1.5">
-            <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-              <span class="move-badge text-white bg-[#1e293b] border border-[var(--border)] font-bold">N</span> Novelty
-            </div>
-            <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A new move that deviates from known theory.</div>
-          </div>
-        </div>
-        <div class="mt-2 pt-2 border-t border-[var(--border)] text-[10px] text-[var(--text-muted)] leading-4">
-          Drag a piece to a <em>different</em> square than the game move to enter live analysis mode.
-        </div>
-      </div>
-
-    </div>
     <!-- end right panel -->
 
-  </div>
+  </main>
   <!-- end main layout -->
 
   <!-- ═══════════════════════════════════════════════════════════════════

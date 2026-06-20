@@ -103,8 +103,10 @@ const el = {
   btnFlip: document.getElementById('btn-flip'),
   btnToggleOverlay: document.getElementById('btn-toggle-overlay'),
   backToReviewBtn: document.getElementById('back-to-review-btn'),
+  tabImport: document.getElementById('tab-import'),
   tabSummary: document.getElementById('tab-summary'),
   tabMoves: document.getElementById('tab-moves'),
+  panelImport: document.getElementById('panel-import'),
   panelSummary: document.getElementById('panel-summary'),
   panelMoves: document.getElementById('panel-moves'),
   engineDepthBadge: document.getElementById('engine-depth-badge'),
@@ -167,6 +169,7 @@ async function init() {
   // Enable interaction right away so user can play from blank board
   board.enableInteraction(() => true, _getLegalMoves);
   _triggerEvalBarRender();
+  _switchTab('import');
 }
 
 // ── Health Check ────────────────────────────────────────────────────────
@@ -246,6 +249,7 @@ function _bindControls() {
   });
 
   // Tabs
+  el.tabImport?.addEventListener('click', () => _switchTab('import'));
   el.tabSummary?.addEventListener('click', () => _switchTab('summary'));
   el.tabMoves?.addEventListener('click', () => _switchTab('moves'));
 
@@ -1514,11 +1518,13 @@ function _setMode(mode) {
 // ── Tabs ────────────────────────────────────────────────────────────────
 
 function _switchTab(tab) {
-  const isSummary = tab === 'summary';
-  el.tabSummary?.classList.toggle('active', isSummary);
-  el.tabMoves?.classList.toggle('active', !isSummary);
-  el.panelSummary?.classList.toggle('hidden', !isSummary);
-  el.panelMoves?.classList.toggle('hidden', isSummary);
+  const tabs = ['import', 'summary', 'moves'];
+  tabs.forEach(t => {
+    const tabBtn = el[`tab${t.charAt(0).toUpperCase() + t.slice(1)}`] || document.getElementById(`tab-${t}`);
+    const panelEl = el[`panel${t.charAt(0).toUpperCase() + t.slice(1)}`] || document.getElementById(`panel-${t}`);
+    if (tabBtn) tabBtn.classList.toggle('active', t === tab);
+    if (panelEl) panelEl.classList.toggle('hidden', t !== tab);
+  });
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────

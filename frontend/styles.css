@@ -46,13 +46,15 @@ html,
 body {
   margin: 0;
   padding: 0;
-  height: 100%;
+  height: 100vh;
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.5;
-  overflow-x: hidden;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 ::-webkit-scrollbar {
@@ -95,7 +97,6 @@ body {
 #eval-bar-container {
   width: 30px;
   height: 100%;
-  min-height: 400px;
   background: var(--eval-black);
   border-radius: 8px;
   overflow: hidden;
@@ -135,10 +136,19 @@ body {
 }
 
 /* ── Chess Board ─────────────────────────────────────────── */
+#board-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: min(calc(100vh - 240px), 640px);
+  min-width: 0;
+}
+
 #board-wrapper {
   position: relative;
   width: 100%;
-  max-width: 560px;
   aspect-ratio: 1;
 }
 
@@ -450,7 +460,8 @@ body {
 /* ── Move List ───────────────────────────────────────────── */
 #move-list {
   overflow-y: auto;
-  max-height: 350px;
+  flex: 1;
+  min-height: 0;
 }
 
 .move-row {
@@ -530,6 +541,11 @@ body {
   position: relative;
   height: 100px;
   width: 100%;
+}
+
+#eval-chart {
+  width: 100%;
+  height: 100%;
 }
 
 /* ── PGN Input ───────────────────────────────────────────── */
@@ -871,5 +887,40 @@ input[type=range]::-webkit-slider-thumb {
 
   #right-panel {
     width: 100% !important;
+  }
+}
+
+/* ── Full Screen Layout Overrides ───────────────────────── */
+@media (min-width: 901px) {
+  #main-layout {
+    height: calc(100vh - 57px - 32px); /* fits exactly in viewport height */
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  
+  #right-panel {
+    height: 100%;
+    min-height: 0;
+  }
+  
+  #eval-bar-container {
+    min-height: unset;
+  }
+  
+  #board-column {
+    height: 100%;
+    min-height: 0;
+  }
+  
+  #panel-summary {
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+  }
+  
+  #panel-moves {
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
   }
 }
