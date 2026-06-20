@@ -127,6 +127,18 @@ const el = {
   engineLinesContainer: document.getElementById('engine-lines-container'),
   engineSpinner: document.getElementById('engine-spinner'),
 
+  // Modals & Sidebar Nav
+  sidebarNavAnalysis: document.getElementById('sidebar-nav-analysis'),
+  sidebarNavImport: document.getElementById('sidebar-nav-import'),
+  sidebarNavSettings: document.getElementById('sidebar-nav-settings'),
+  sidebarNavAbout: document.getElementById('sidebar-nav-about'),
+  settingsModal: document.getElementById('settings-modal'),
+  aboutModal: document.getElementById('about-modal'),
+  closeSettings: document.getElementById('close-settings'),
+  closeAbout: document.getElementById('close-about'),
+  settingsDepth: document.getElementById('settings-depth'),
+  settingsTimeout: document.getElementById('settings-timeout'),
+
   // Player Cards
   topPlayerName: document.getElementById('top-player-name'),
   topPlayerElo: document.getElementById('top-player-elo'),
@@ -170,6 +182,16 @@ async function init() {
   board.enableInteraction(() => true, _getLegalMoves);
   _triggerEvalBarRender();
   _switchTab('import');
+
+  // Load and apply saved chessboard theme
+  const savedTheme = localStorage.getItem('chess_theme') || 'green';
+  const boardEl = document.getElementById('board');
+  if (boardEl) {
+    boardEl.className = 'theme-' + savedTheme;
+  }
+  document.querySelectorAll('.theme-select-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.theme === savedTheme);
+  });
 }
 
 // ── Health Check ────────────────────────────────────────────────────────
@@ -299,6 +321,85 @@ function _bindControls() {
   });
   el.liveTimeoutInput?.addEventListener('change', () => {
     if (state.liveEngineEnabled || state.liveReviewEnabled) _restartCurrentAnalysis();
+  });
+
+  // Sidebar navigation and Modals
+  el.sidebarNavAnalysis?.addEventListener('click', () => {
+    _switchTab('moves');
+  });
+
+  el.sidebarNavImport?.addEventListener('click', () => {
+    _switchTab('import');
+  });
+
+  el.sidebarNavSettings?.addEventListener('click', () => {
+    // Sync depth and timeout from current live settings inputs
+    if (el.settingsDepth && el.liveDepthInput) el.settingsDepth.value = el.liveDepthInput.value;
+    if (el.settingsTimeout && el.liveTimeoutInput) el.settingsTimeout.value = el.liveTimeoutInput.value;
+    
+    el.settingsModal?.classList.remove('hidden');
+  });
+
+  el.sidebarNavAbout?.addEventListener('click', () => {
+    el.aboutModal?.classList.remove('hidden');
+  });
+
+  // Modal close buttons
+  el.closeSettings?.addEventListener('click', () => {
+    el.settingsModal?.classList.add('hidden');
+  });
+
+  el.closeAbout?.addEventListener('click', () => {
+    el.aboutModal?.classList.add('hidden');
+  });
+
+  // Click outside to close modals
+  el.settingsModal?.addEventListener('click', (e) => {
+    if (e.target === el.settingsModal) el.settingsModal.classList.add('hidden');
+  });
+
+  el.aboutModal?.addEventListener('click', (e) => {
+    if (e.target === el.aboutModal) el.aboutModal.classList.add('hidden');
+  });
+
+  // Settings inputs sync
+  el.settingsDepth?.addEventListener('change', () => {
+    if (el.liveDepthInput) {
+      el.liveDepthInput.value = el.settingsDepth.value;
+      if (state.liveEngineEnabled || state.liveReviewEnabled) _restartCurrentAnalysis();
+    }
+  });
+
+  // Sync back to settings from bottom bar inputs
+  el.liveDepthInput?.addEventListener('change', () => {
+    if (el.settingsDepth) el.settingsDepth.value = el.liveDepthInput.value;
+  });
+
+  el.liveTimeoutInput?.addEventListener('change', () => {
+    if (el.settingsTimeout) el.settingsTimeout.value = el.liveTimeoutInput.value;
+  });
+
+  el.settingsTimeout?.addEventListener('change', () => {
+    if (el.liveTimeoutInput) {
+      el.liveTimeoutInput.value = el.settingsTimeout.value;
+      if (state.liveEngineEnabled || state.liveReviewEnabled) _restartCurrentAnalysis();
+    }
+  });
+
+  // Chessboard theme buttons click
+  document.querySelectorAll('.theme-select-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.theme-select-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const theme = btn.dataset.theme;
+      const boardEl = document.getElementById('board');
+      if (boardEl) {
+        boardEl.className = '';
+        boardEl.classList.add('theme-' + theme);
+      }
+      localStorage.setItem('chess_theme', theme);
+      showToast(`Chessboard theme changed to ${theme}`, 'success');
+    });
   });
 }
 
@@ -1525,6 +1626,19 @@ function _switchTab(tab) {
     if (tabBtn) tabBtn.classList.toggle('active', t === tab);
     if (panelEl) panelEl.classList.toggle('hidden', t !== tab);
   });
+
+  // Sync sidebar active state
+  if (el.sidebarNavAnalysis && el.sidebarNavImport) {
+    if (tab === 'import') {
+      el.sidebarNavImport.classList.add('active');
+      el.sidebarNavAnalysis.classList.remove('active');
+    } else {
+      el.sidebarNavAnalysis.classList.add('active');
+      el.sidebarNavImport.classList.remove('active');
+    }
+    el.sidebarNavSettings?.classList.remove('active');
+    el.sidebarNavAbout?.classList.remove('active');
+  }
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────

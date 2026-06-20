@@ -143,6 +143,7 @@ export function renderEvalBar(whiteCp, mateMoves = null, gameOver = false, winne
   }
 
   evalBarWhite.style.height = `${heightPct}%`;
+  evalBarWhite.style.setProperty('--eval-width', `${heightPct}%`);
 
   if (evalBarLabel) {
     evalBarLabel.textContent = labelText;

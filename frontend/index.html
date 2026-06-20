@@ -64,17 +64,17 @@
       <div class="sidebar-logo" title="ChessReviewer">♟</div>
 
       <!-- Nav Items -->
-      <button class="sidebar-nav-item active" title="Analysis">
+      <button id="sidebar-nav-analysis" class="sidebar-nav-item active" title="Analysis">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
         </svg>
       </button>
-      <button class="sidebar-nav-item" title="Import">
+      <button id="sidebar-nav-import" class="sidebar-nav-item" title="Import">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
         </svg>
       </button>
-      <button class="sidebar-nav-item" title="Settings">
+      <button id="sidebar-nav-settings" class="sidebar-nav-item" title="Settings">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
         </svg>
@@ -83,7 +83,7 @@
       <div class="sidebar-spacer"></div>
 
       <!-- Bottom branding -->
-      <button class="sidebar-nav-item" title="About">
+      <button id="sidebar-nav-about" class="sidebar-nav-item" title="About">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
         </svg>
@@ -111,6 +111,12 @@
                 class="hidden text-xs font-mono px-2 py-1 rounded bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border)]">
             depth —
           </span>
+          <button id="back-to-review-btn" class="hidden btn-exit-analysis flex items-center gap-1.5" title="Exit Live Analysis">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Exit Analysis
+          </button>
           <div id="mode-badge" class="mode-badge idle">
             <span id="badge-dot" class="badge-dot"></span>
             <span id="badge-text">Idle</span>
@@ -160,14 +166,6 @@
 
           <!-- Eval Bar + Board Row -->
           <div id="board-area" class="flex gap-3 items-center justify-center flex-1 min-h-0 w-full">
-            <!-- Evaluation Bar -->
-            <div id="left-panel" class="flex flex-col items-center flex-shrink-0 h-full max-h-[640px]">
-              <div id="eval-bar-container" class="h-full">
-                <div id="eval-bar-white" style="height: 50%;"></div>
-                <span id="eval-bar-label" class="eval-bar-label" style="bottom: 8px; color: #21201d;">0.0</span>
-              </div>
-            </div>
-
             <!-- Board Container -->
             <div id="board-container" class="flex flex-col justify-center min-w-0">
               <!-- Top Player Card -->
@@ -180,9 +178,20 @@
                 </div>
               </div>
 
-              <!-- Square Board Wrapper -->
-              <div id="board-wrapper" class="relative aspect-square">
-                <div id="board"></div>
+              <!-- Board and Eval Bar Row -->
+              <div class="board-eval-row flex gap-3 items-stretch justify-center w-full relative min-h-0">
+                <!-- Evaluation Bar -->
+                <div id="left-panel" class="flex flex-col items-center flex-shrink-0">
+                  <div id="eval-bar-container" class="h-full">
+                    <div id="eval-bar-white" style="height: 50%;"></div>
+                    <span id="eval-bar-label" class="eval-bar-label" style="bottom: 8px; color: #21201d;">0.0</span>
+                  </div>
+                </div>
+
+                <!-- Square Board Wrapper -->
+                <div id="board-wrapper" class="relative aspect-square flex-1 min-w-0">
+                  <div id="board"></div>
+                </div>
               </div>
 
               <!-- Bottom Player Card -->
@@ -197,15 +206,7 @@
             </div>
           </div>
 
-          <!-- Back-to-Review button -->
-          <div id="back-to-review-btn"
-               class="hidden btn-danger w-full justify-center text-sm"
-               style="cursor:pointer;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
-            </svg>
-            Back to Game Review
-          </div>
+
 
           <!-- Navigation Controls -->
           <div class="flex items-center justify-center gap-1.5 mt-1">
@@ -736,6 +737,102 @@
 
   </div>
   <!-- end app shell -->
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="font-bold text-base text-[var(--text-primary)]">Settings</h3>
+        <button id="close-settings" class="modal-close-btn">✕</button>
+      </div>
+      <div class="modal-body flex flex-col gap-5 p-4">
+        <!-- Chessboard Theme Option -->
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Chessboard Theme</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="theme-select-btn active" data-theme="green">
+              <span class="theme-preview bg-[#739552] border border-[#ebecd0]"></span>
+              Green (Default)
+            </button>
+            <button class="theme-select-btn" data-theme="blue">
+              <span class="theme-preview bg-[#8ca2ad] border border-[#dee3e6]"></span>
+              Blue (Lichess)
+            </button>
+            <button class="theme-select-btn" data-theme="wood">
+              <span class="theme-preview bg-[#b58863] border border-[#f0d9b5]"></span>
+              Wood
+            </button>
+            <button class="theme-select-btn" data-theme="dark">
+              <span class="theme-preview bg-[#1e1e1e] border border-[#3c3c3c]"></span>
+              Dark Glass
+            </button>
+          </div>
+        </div>
+
+        <!-- Engine Settings Option -->
+        <div class="flex flex-col gap-3 border-t border-[var(--border)] pt-4">
+          <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Live Engine Configuration</label>
+          
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-sm text-[var(--text-secondary)]">Analysis Depth</span>
+            <input id="settings-depth" type="number" min="8" max="30" value="18" class="w-16 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] outline-none text-center text-sm focus:border-[var(--accent-green)]" />
+          </div>
+
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-sm text-[var(--text-secondary)]">Search Timeout (seconds)</span>
+            <input id="settings-timeout" type="number" min="0" max="100" value="0" class="w-16 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] outline-none text-center text-sm focus:border-[var(--accent-green)]" />
+          </div>
+        </div>
+
+        <!-- Note about config.json -->
+        <div class="text-[10px] text-[var(--text-muted)] leading-relaxed bg-[var(--bg-primary)] p-2.5 rounded border border-[var(--border)]">
+          💡 CPU Threads and Hash table size configurations can be edited in <code class="font-mono text-[var(--text-secondary)]">config.json</code> in the project root folder.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- About Modal -->
+  <div id="about-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="font-bold text-base text-[var(--text-primary)]">About ChessReviewer</h3>
+        <button id="close-about" class="modal-close-btn">✕</button>
+      </div>
+      <div class="modal-body flex flex-col gap-4 p-4 text-sm leading-relaxed text-[var(--text-secondary)]">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-lg bg-[var(--accent-green)] flex items-center justify-center text-3xl shadow-lg shadow-green-950/20">♟</div>
+          <div>
+            <h4 class="font-bold text-[var(--text-primary)] text-base">ChessReviewer <span class="text-xs font-normal text-[var(--text-muted)]">v1.0.0</span></h4>
+            <p class="text-xs text-[var(--text-muted)]">Free Local Game Review & Analysis</p>
+          </div>
+        </div>
+
+        <p class="mt-2 text-xs">
+          ChessReviewer is a web application designed to bring advanced, commercial-grade chess game analysis directly to your local computer for free.
+        </p>
+
+        <div class="flex flex-col gap-1 bg-[var(--bg-primary)] p-3 rounded border border-[var(--border)] text-xs text-[var(--text-muted)] mt-1">
+          <div class="flex justify-between">
+            <span>Local Engine:</span>
+            <span class="font-mono text-[var(--text-secondary)]">Stockfish (UCI)</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Accuracy Formula:</span>
+            <span class="font-mono text-[var(--text-secondary)]">CAPS2 win probability</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Frontend:</span>
+            <span class="font-mono text-[var(--text-secondary)]">Vanilla HTML/JS + Tailwind</span>
+          </div>
+        </div>
+
+        <p class="text-xs text-[var(--text-muted)] mt-2">
+          Developed as an open alternative to premium chess sites. Check the README for how to import/export PGNs.
+        </p>
+      </div>
+    </div>
+  </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════
        TOAST CONTAINER

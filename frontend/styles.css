@@ -1076,15 +1076,23 @@ input[type=range]::-webkit-slider-thumb:hover {
     flex-direction: column !important;
   }
 
+  .board-eval-row {
+    flex-direction: column-reverse !important;
+    align-items: stretch;
+    gap: 8px !important;
+    width: 100%;
+  }
+
   #left-panel {
-    flex-direction: row !important;
-    align-items: center;
+    width: 100% !important;
+    height: 18px !important;
   }
 
   #eval-bar-container {
     width: 100% !important;
-    height: 24px !important;
+    height: 18px !important;
     min-height: unset;
+    border-radius: 4px;
   }
 
   #eval-bar-white {
@@ -1093,7 +1101,7 @@ input[type=range]::-webkit-slider-thumb:hover {
     top: 0;
     bottom: 0;
     height: auto !important;
-    width: var(--eval-width);
+    width: var(--eval-width, 50%) !important;
     border-radius: 3px 0 0 3px;
   }
 
@@ -1180,4 +1188,167 @@ input[type="number"]::-webkit-inner-spin-button {
   to {
     background: rgba(129, 182, 76, 0.35);
   }
+}
+
+/* ── Modals (Settings & About) ────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 14, 13, 0.8);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  transition: opacity 0.2s ease;
+}
+
+.modal-overlay.hidden {
+  display: none !important;
+  opacity: 0;
+}
+
+.modal-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 440px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  animation: modal-enter 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+@keyframes modal-enter {
+  from {
+    transform: scale(0.95) translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  transition: color 0.15s;
+  padding: 4px;
+  line-height: 1;
+}
+
+.modal-close-btn:hover {
+  color: var(--text-primary);
+}
+
+/* Theme buttons in Settings */
+.theme-select-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.theme-select-btn:hover {
+  border-color: var(--border-light);
+  color: var(--text-primary);
+  background: var(--bg-card);
+}
+
+.theme-select-btn.active {
+  border-color: var(--accent-green);
+  color: var(--text-primary);
+  background: rgba(129, 182, 76, 0.08);
+}
+
+.theme-preview {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+/* ── Chess Board Themes ───────────────────────────────────── */
+/* Green Theme (Default cm-chessboard is green, but let's be explicit) */
+#board.theme-green .cm-chessboard .board .square.white {
+  fill: #ebecd0 !important;
+}
+#board.theme-green .cm-chessboard .board .square.black {
+  fill: #739552 !important;
+}
+
+/* Blue Theme (Lichess style) */
+#board.theme-blue .cm-chessboard .board .square.white {
+  fill: #dee3e6 !important;
+}
+#board.theme-blue .cm-chessboard .board .square.black {
+  fill: #8ca2ad !important;
+}
+
+/* Wood Theme */
+#board.theme-wood .cm-chessboard .board .square.white {
+  fill: #f0d9b5 !important;
+}
+#board.theme-wood .cm-chessboard .board .square.black {
+  fill: #b58863 !important;
+}
+
+/* Dark Glass Theme */
+#board.theme-dark .cm-chessboard .board .square.white {
+  fill: #3c3c3c !important;
+}
+#board.theme-dark .cm-chessboard .board .square.black {
+  fill: #1e1e1e !important;
+}
+
+/* Exit Analysis Button */
+.btn-exit-analysis {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: rgba(129, 182, 76, 0.12);
+  border: 1px solid rgba(129, 182, 76, 0.4);
+  color: var(--accent-green);
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  line-height: 1.5;
+}
+
+.btn-exit-analysis:hover {
+  background: var(--accent-green);
+  color: #fff;
+  border-color: var(--accent-green);
+  box-shadow: 0 0 12px rgba(129, 182, 76, 0.4);
+}
+
+.btn-exit-analysis:active {
+  transform: scale(0.97);
 }
