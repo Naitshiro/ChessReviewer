@@ -257,7 +257,7 @@ function _bindControls() {
   el.liveEngineToggle?.addEventListener('change', (e) => {
     state.liveEngineEnabled = e.target.checked;
     if (el.liveEngineDot) {
-      el.liveEngineDot.style.background = state.liveEngineEnabled ? '#38bdf8' : '';
+      el.liveEngineDot.style.background = state.liveEngineEnabled ? '#81b64c' : '';
     }
     _handleLiveEngineToggle();
   });
@@ -266,7 +266,7 @@ function _bindControls() {
   el.liveReviewToggle?.addEventListener('change', (e) => {
     state.liveReviewEnabled = e.target.checked;
     if (el.liveReviewDot) {
-      el.liveReviewDot.style.background = state.liveReviewEnabled ? '#f59e0b' : '';
+      el.liveReviewDot.style.background = state.liveReviewEnabled ? '#f7c631' : '';
     }
     _handleLiveReviewToggle();
   });
@@ -275,7 +275,7 @@ function _bindControls() {
   el.bestMovesToggle?.addEventListener('change', (e) => {
     state.bestMovesEnabled = e.target.checked;
     if (el.bestMovesDot) {
-      el.bestMovesDot.style.background = state.bestMovesEnabled ? '#10b981' : '';
+      el.bestMovesDot.style.background = state.bestMovesEnabled ? '#98bc49' : '';
     }
     _redrawBoardArrows();
   });
@@ -284,7 +284,7 @@ function _bindControls() {
   el.threatToggle?.addEventListener('change', (e) => {
     state.threatsEnabled = e.target.checked;
     if (el.threatDot) {
-      el.threatDot.style.background = state.threatsEnabled ? '#ef4444' : '';
+      el.threatDot.style.background = state.threatsEnabled ? '#ca3431' : '';
     }
     if (state.threatsEnabled) {
       _fetchAndDrawThreats();
@@ -318,9 +318,9 @@ function _setToggleDisabled(toggleEl, dotEl, labelEl, disabled, colorCode) {
 function _handleLiveEngineToggle() {
   if (state.liveEngineEnabled) {
     // 1. Enable dependent toggles
-    _setToggleDisabled(el.bestMovesToggle, el.bestMovesDot, el.bestMovesLabel, false, '#10b981');
-    _setToggleDisabled(el.liveReviewToggle, el.liveReviewDot, el.liveReviewLabel, false, '#f59e0b');
-    _setToggleDisabled(el.threatToggle, el.threatDot, el.threatLabel, false, '#ef4444');
+    _setToggleDisabled(el.bestMovesToggle, el.bestMovesDot, el.bestMovesLabel, false, '#98bc49');
+    _setToggleDisabled(el.liveReviewToggle, el.liveReviewDot, el.liveReviewLabel, false, '#f7c631');
+    _setToggleDisabled(el.threatToggle, el.threatDot, el.threatLabel, false, '#ca3431');
 
     // 2. Restore state variables
     state.bestMovesEnabled = state.savedBestMovesEnabled;
@@ -333,9 +333,9 @@ function _handleLiveEngineToggle() {
     if (el.threatToggle) el.threatToggle.checked = state.threatsEnabled;
 
     // 4. Update dot backgrounds based on restored checkbox states
-    if (el.bestMovesDot) el.bestMovesDot.style.background = state.bestMovesEnabled ? '#10b981' : '';
-    if (el.liveReviewDot) el.liveReviewDot.style.background = state.liveReviewEnabled ? '#f59e0b' : '';
-    if (el.threatDot) el.threatDot.style.background = state.threatsEnabled ? '#ef4444' : '';
+    if (el.bestMovesDot) el.bestMovesDot.style.background = state.bestMovesEnabled ? '#98bc49' : '';
+    if (el.liveReviewDot) el.liveReviewDot.style.background = state.liveReviewEnabled ? '#f7c631' : '';
+    if (el.threatDot) el.threatDot.style.background = state.threatsEnabled ? '#ca3431' : '';
 
     // 5. Start WebSocket analysis and fetch threats/reviews as needed
     const fen = _getCurrentFen();
@@ -356,9 +356,9 @@ function _handleLiveEngineToggle() {
     state.threatsEnabled = false;
 
     // 3. Disable all dependent toggles visually and functionally
-    _setToggleDisabled(el.bestMovesToggle, el.bestMovesDot, el.bestMovesLabel, true, '#10b981');
-    _setToggleDisabled(el.liveReviewToggle, el.liveReviewDot, el.liveReviewLabel, true, '#f59e0b');
-    _setToggleDisabled(el.threatToggle, el.threatDot, el.threatLabel, true, '#ef4444');
+    _setToggleDisabled(el.bestMovesToggle, el.bestMovesDot, el.bestMovesLabel, true, '#98bc49');
+    _setToggleDisabled(el.liveReviewToggle, el.liveReviewDot, el.liveReviewLabel, true, '#f7c631');
+    _setToggleDisabled(el.threatToggle, el.threatDot, el.threatLabel, true, '#ca3431');
 
     // 4. Teardown websocket and clean up engine indicators
     _teardownWebSocket();
@@ -690,9 +690,9 @@ function _updatePlayerCards() {
   const renderAvatar = (el, color) => {
     if (!el) return;
     if (color === 'white') {
-      el.className = 'w-7 h-7 rounded bg-gray-200 flex items-center justify-center text-[18px] text-gray-900 border border-[var(--border)]';
+      el.className = 'player-avatar white-avatar';
     } else {
-      el.className = 'w-7 h-7 rounded bg-gray-900 flex items-center justify-center text-[18px] text-gray-200 border border-[var(--border)]';
+      el.className = 'player-avatar black-avatar';
     }
   };
 

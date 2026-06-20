@@ -195,23 +195,23 @@ export function renderEvalChart(moves) {
       labels,
       datasets: [{
         data: whiteProbs,
-        borderColor: '#6366f1',
+        borderColor: '#81b64c',
         borderWidth: 1.5,
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
           const { ctx: c, chartArea } = chart;
           if (!chartArea) return 'transparent';
           const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-          gradient.addColorStop(0, 'rgba(99, 102, 241, 0.3)');
-          gradient.addColorStop(0.5, 'rgba(99, 102, 241, 0.05)');
-          gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+          gradient.addColorStop(0, 'rgba(129, 182, 76, 0.3)');
+          gradient.addColorStop(0.5, 'rgba(129, 182, 76, 0.05)');
+          gradient.addColorStop(1, 'rgba(129, 182, 76, 0)');
           return gradient;
         },
         fill: true,
         tension: 0.3,
         pointRadius: 0,
         pointHoverRadius: 4,
-        pointHoverBackgroundColor: '#6366f1',
+        pointHoverBackgroundColor: '#81b64c',
       }],
     },
     plugins: [{
@@ -256,7 +256,7 @@ export function renderEvalChart(moves) {
           max: 100,
           display: true,
           ticks: {
-            color: '#475569',
+            color: '#6b6966',
             font: { size: 9 },
             maxTicksLimit: 5,
             callback: v => `${v}%`,
@@ -270,11 +270,11 @@ export function renderEvalChart(moves) {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: 'rgba(22, 22, 31, 0.95)',
-          borderColor: 'rgba(99, 102, 241, 0.3)',
+          backgroundColor: 'rgba(60, 58, 55, 0.95)',
+          borderColor: 'rgba(129, 182, 76, 0.3)',
           borderWidth: 1,
-          titleColor: '#94a3b8',
-          bodyColor: '#f1f5f9',
+          titleColor: '#989795',
+          bodyColor: '#ffffff',
           padding: 8,
           callbacks: {
             title: items => items[0]?.label || '',
@@ -343,7 +343,8 @@ export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex =
   if (branchMoves && branchMoves.length > 0 && forkIndex !== null) {
     const branchContainer = document.createElement('div');
     // Subtle background to distinguish branch, no left margin so columns align perfectly
-    branchContainer.className = 'branch-container bg-indigo-900/20 my-1 py-1 rounded';
+    branchContainer.className = 'branch-container my-1 py-1 rounded';
+    branchContainer.style.background = 'rgba(60, 58, 55, 0.5)';
     const branchRows = [];
     let bCurrentRow = null;
     let bLastMoveNum = -1;
@@ -454,7 +455,7 @@ function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setR
   } else if (liveReviewEnabled && (m.classification === null || m.classification === undefined)) {
     // Unclassified yet (waiting for engine)
     const spinner = document.createElement('span');
-    spinner.className = 'w-2 h-2 rounded-full bg-indigo-500/50 animate-pulse mr-1 inline-block';
+    spinner.className = 'w-2 h-2 rounded-full bg-[#81b64c]/50 animate-pulse mr-1 inline-block';
     cell.appendChild(spinner);
   }
 
@@ -635,18 +636,18 @@ function _renderSideAccuracy(side, data) {
 }
 
 function _accuracyColor(pct) {
-  if (pct >= 90) return '#22c55e';
-  if (pct >= 75) return '#84cc16';
-  if (pct >= 60) return '#eab308';
-  if (pct >= 45) return '#f97316';
-  return '#ef4444';
+  if (pct >= 90) return '#98bc49';
+  if (pct >= 75) return '#97af8b';
+  if (pct >= 60) return '#f7c631';
+  if (pct >= 45) return '#e6912c';
+  return '#ca3431';
 }
 
 function _classColor(cls) {
   const map = {
-    brilliant: '#05b0cd', great: '#818cf8', best: '#22c55e',
-    excellent: '#4ade80', good: '#a3e635', inaccuracy: '#eab308',
-    mistake: '#f97316', miss: '#f43f5e', blunder: '#ef4444', theory: '#af835f',
+    brilliant: '#26c2a3', great: '#5c8bb0', best: '#98bc49',
+    excellent: '#98bc49', good: '#97af8b', inaccuracy: '#f7c631',
+    mistake: '#e6912c', miss: '#ca3431', blunder: '#ca3431', theory: '#d4a76a',
   };
   return map[cls] || 'var(--text-primary)';
 }

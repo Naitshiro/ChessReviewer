@@ -1,37 +1,57 @@
 /* ============================================================
-   ChessReviewer — Custom CSS
-   Complements Tailwind CSS v3 CDN utilities.
+   ChessReviewer — Chess.com-Style Theme
+   Complete redesign matching chess.com's dark warm aesthetic.
    ============================================================ */
 
 /* ── Google Font ─────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
-/* ── CSS Variables ───────────────────────────────────────── */
+/* ── CSS Variables — Chess.com Palette ───────────────────── */
 :root {
-  --bg-primary: #09090f;
-  --bg-secondary: #111118;
-  --bg-card: #16161f;
-  --bg-card-hover: #1e1e2a;
-  --border: #252535;
-  --border-light: #2e2e42;
+  /* Backgrounds — warm charcoal tones */
+  --bg-primary: #262421;
+  --bg-secondary: #302e2b;
+  --bg-card: #3c3a37;
+  --bg-card-hover: #4a4845;
+  --bg-sidebar: #1a1917;
 
-  --accent-emerald: #22c55e;
-  --accent-cyan: #06b6d4;
-  --accent-blue: #3b82f6;
-  --accent-indigo: #6366f1;
-  --accent-yellow: #eab308;
-  --accent-orange: #f97316;
-  --accent-red: #ef4444;
-  --accent-pink: #ec4899;
+  /* Borders */
+  --border: #3c3a37;
+  --border-light: #4a4845;
 
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #475569;
+  /* Accent colors */
+  --accent-green: #81b64c;
+  --accent-green-hover: #95c862;
+  --accent-green-dark: #6fa03e;
 
+  /* Classification colors (chess.com standard) */
+  --accent-brilliant: #26c2a3;
+  --accent-great: #5c8bb0;
+  --accent-best: #98bc49;
+  --accent-excellent: #98bc49;
+  --accent-good: #97af8b;
+  --accent-inaccuracy: #f7c631;
+  --accent-mistake: #e6912c;
+  --accent-miss: #ca3431;
+  --accent-blunder: #ca3431;
+  --accent-theory: #d4a76a;
+
+  --accent-red: #ca3431;
+  --accent-orange: #e6912c;
+  --accent-yellow: #f7c631;
+  --accent-cyan: #26c2a3;
+
+  /* Text */
+  --text-primary: #ffffff;
+  --text-secondary: #989795;
+  --text-muted: #6b6966;
+
+  /* Eval bar */
   --eval-white: #ffffff;
   --eval-black: #21201d;
 
-  --font-sans: 'Outfit', system-ui, sans-serif;
+  /* Fonts */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
 
@@ -58,8 +78,8 @@ body {
 }
 
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -68,20 +88,101 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: var(--border-light);
-  border-radius: 2px;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #4a4a6a;
+  background: #5a5855;
 }
 
-/* ── Glassmorphism Card ──────────────────────────────────── */
+/* ── Sidebar ─────────────────────────────────────────────── */
+.app-sidebar {
+  width: 52px;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  gap: 4px;
+  flex-shrink: 0;
+  z-index: 60;
+}
+
+.sidebar-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: var(--accent-green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: #fff;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s;
+}
+
+.sidebar-logo:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 16px rgba(129, 182, 76, 0.4);
+}
+
+.sidebar-nav-item {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+  background: transparent;
+  border: none;
+}
+
+.sidebar-nav-item:hover {
+  background: var(--bg-card);
+  color: var(--text-secondary);
+}
+
+.sidebar-nav-item.active {
+  background: var(--bg-card);
+  color: var(--accent-green);
+}
+
+.sidebar-nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  background: var(--accent-green);
+  border-radius: 0 2px 2px 0;
+}
+
+.sidebar-spacer {
+  flex: 1;
+}
+
+/* ── App Layout ──────────────────────────────────────────── */
+.app-shell {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Dark Card (replaces glassmorphism) ──────────────────── */
 .glass-card {
-  background: rgba(22, 22, 31, 0.85);
+  background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  border-radius: 8px;
 }
 
 .glass-card-hover {
@@ -90,7 +191,13 @@ body {
 
 .glass-card-hover:hover {
   border-color: var(--border-light);
-  background: rgba(30, 30, 42, 0.9);
+  background: var(--bg-card);
+}
+
+/* ── Header (within main content area) ───────────────────── */
+header {
+  background: var(--bg-secondary) !important;
+  border-color: var(--border) !important;
 }
 
 /* ── Evaluation Bar ──────────────────────────────────────── */
@@ -98,7 +205,7 @@ body {
   width: 30px;
   height: 100%;
   background: var(--eval-black);
-  border-radius: 8px;
+  border-radius: 4px;
   overflow: hidden;
   position: relative;
   flex-shrink: 0;
@@ -116,7 +223,7 @@ body {
   right: 0;
   background: var(--eval-white);
   transition: height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: 0 0 7px 7px;
+  border-radius: 0 0 3px 3px;
 }
 
 #eval-bar-label {
@@ -157,10 +264,11 @@ body {
   height: 100%;
 }
 
-/* cm-chessboard overrides */
+/* cm-chessboard overrides — chess.com green scheme */
 .cm-chessboard {
   border-radius: 4px;
   overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 .cm-chessboard .board .square.white {
@@ -173,43 +281,43 @@ body {
 
 /* Custom square classification highlights */
 .cm-chessboard .marker.marker-brilliant {
-  fill: rgba(6, 182, 212, 0.45) !important;
+  fill: rgba(38, 194, 163, 0.45) !important;
 }
 
 .cm-chessboard .marker.marker-great {
-  fill: rgba(129, 140, 248, 0.45) !important;
+  fill: rgba(92, 139, 176, 0.45) !important;
 }
 
 .cm-chessboard .marker.marker-best {
-  fill: rgba(34, 197, 94, 0.45) !important;
+  fill: rgba(152, 188, 73, 0.45) !important;
 }
 
 .cm-chessboard .marker.marker-excellent {
-  fill: rgba(74, 222, 128, 0.45) !important;
+  fill: rgba(152, 188, 73, 0.35) !important;
 }
 
 .cm-chessboard .marker.marker-good {
-  fill: rgba(163, 230, 53, 0.35) !important;
+  fill: rgba(151, 175, 139, 0.35) !important;
 }
 
 .cm-chessboard .marker.marker-inaccuracy {
-  fill: rgba(234, 179, 8, 0.45) !important;
+  fill: rgba(247, 198, 49, 0.45) !important;
 }
 
 .cm-chessboard .marker.marker-mistake {
-  fill: rgba(249, 115, 22, 0.45) !important;
+  fill: rgba(230, 145, 44, 0.45) !important;
 }
 
 .cm-chessboard .marker.marker-blunder {
-  fill: rgba(239, 68, 68, 0.5) !important;
+  fill: rgba(202, 52, 49, 0.5) !important;
 }
 
 .cm-chessboard .marker.marker-miss {
-  fill: rgba(244, 63, 94, 0.45) !important;
+  fill: rgba(202, 52, 49, 0.45) !important;
 }
 
 .cm-chessboard .marker.marker-theory {
-  fill: rgba(181, 136, 99, 0.45) !important;
+  fill: rgba(212, 167, 106, 0.45) !important;
 }
 
 .cm-chessboard .marker.marker-annotation-white {
@@ -236,35 +344,37 @@ body {
   overflow: visible !important;
   z-index: 10;
   pointer-events: none;
-  /* Let mouse clicks pass to the board underneath */
   user-select: none;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
-  animation: badge-pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  animation: badge-pop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 @keyframes badge-pop {
-  from {
-    transform: scale(0.6);
+  0% {
+    transform: scale(0.3);
     opacity: 0;
   }
-
-  to {
+  60% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
     transform: scale(1);
     opacity: 1;
   }
 }
 
 /* Specific colors for board badges */
-.board-class-badge.badge-brilliant { background: #05b0cd; font-size: 19px; color: white !important; }
-.board-class-badge.badge-great { background: #818cf8; font-size: 22px; color: white !important; }
-.board-class-badge.badge-best { background: #22c55e; font-size: 20px; color: white !important; }
-.board-class-badge.badge-excellent { background: #4ade80; font-size: 20px; color: white !important; }
-.board-class-badge.badge-good { background: #a3e635; font-size: 22px; color: white !important; }
-.board-class-badge.badge-inaccuracy { background: #eab308; font-size: 19px; color: white !important; }
-.board-class-badge.badge-mistake { background: #f97316; font-size: 22px; color: white !important; }
-.board-class-badge.badge-miss { background: #f43f5e; font-size: 20px; color: white !important; }
-.board-class-badge.badge-blunder { background: #ef4444; font-size: 19px; color: white !important; }
-.board-class-badge.badge-theory { background: #af835f; font-size: 19px; color: white !important; }
+.board-class-badge.badge-brilliant { background: #26c2a3; font-size: 19px; color: white !important; }
+.board-class-badge.badge-great { background: #5c8bb0; font-size: 22px; color: white !important; }
+.board-class-badge.badge-best { background: #98bc49; font-size: 20px; color: white !important; }
+.board-class-badge.badge-excellent { background: #98bc49; font-size: 20px; color: white !important; }
+.board-class-badge.badge-good { background: #97af8b; font-size: 22px; color: white !important; }
+.board-class-badge.badge-inaccuracy { background: #f7c631; font-size: 19px; color: white !important; }
+.board-class-badge.badge-mistake { background: #e6912c; font-size: 22px; color: white !important; }
+.board-class-badge.badge-miss { background: #ca3431; font-size: 20px; color: white !important; }
+.board-class-badge.badge-blunder { background: #ca3431; font-size: 19px; color: white !important; }
+.board-class-badge.badge-theory { background: #d4a76a; font-size: 19px; color: white !important; }
 
 /* Solid annotation badges for board */
 .board-class-badge.solid-annotation-white {
@@ -280,83 +390,111 @@ body {
 }
 
 /* Custom arrow colors for engine lines */
-/* Best Move (PV 1) - arrow-info */
 .cm-chessboard .arrow-info .arrow-head {
-  fill: #22c55e !important;
+  fill: #98bc49 !important;
   fill-rule: nonzero;
 }
 
 .cm-chessboard .arrow-info .arrow-line {
-  stroke: #22c55e !important;
+  stroke: #98bc49 !important;
   stroke-linecap: round;
   stroke-width: 13px !important;
   opacity: 0.85 !important;
 }
 
-/* Second Best (PV 2) - arrow-success */
 .cm-chessboard .arrow-success .arrow-head {
-  fill: #4ade80 !important;
+  fill: #b0cc7a !important;
   fill-rule: nonzero;
 }
 
 .cm-chessboard .arrow-success .arrow-line {
-  stroke: #4ade80 !important;
+  stroke: #b0cc7a !important;
   stroke-linecap: round;
   stroke-width: 9px !important;
   opacity: 0.65 !important;
 }
 
-/* Third Best (PV 3) - arrow-danger */
 .cm-chessboard .arrow-danger .arrow-head {
-  fill: #86efac !important;
+  fill: #c8dca0 !important;
   fill-rule: nonzero;
 }
 
 .cm-chessboard .arrow-danger .arrow-line {
-  stroke: #86efac !important;
+  stroke: #c8dca0 !important;
   stroke-linecap: round;
   stroke-width: 6px !important;
   opacity: 0.45 !important;
 }
 
 /* Threat Assessment Arrows */
-/* multipv 1 (Highest Threat) - thick and opaque red */
 .cm-chessboard .threat-pv1 .arrow-head {
-  fill: #ef4444 !important;
+  fill: #ca3431 !important;
   fill-rule: nonzero;
 }
 
 .cm-chessboard .threat-pv1 .arrow-line {
-  stroke: #ef4444 !important;
+  stroke: #ca3431 !important;
   stroke-linecap: round;
   stroke-width: 13px !important;
   opacity: 0.85 !important;
 }
 
-/* multipv 2 - medium thickness and medium opacity red */
 .cm-chessboard .threat-pv2 .arrow-head {
-  fill: #f87171 !important;
+  fill: #e05a57 !important;
   fill-rule: nonzero;
 }
 
 .cm-chessboard .threat-pv2 .arrow-line {
-  stroke: #f87171 !important;
+  stroke: #e05a57 !important;
   stroke-linecap: round;
   stroke-width: 9px !important;
   opacity: 0.65 !important;
 }
 
-/* multipv 3 - thin and lower opacity red */
 .cm-chessboard .threat-pv3 .arrow-head {
-  fill: #fca5a5 !important;
+  fill: #f09896 !important;
   fill-rule: nonzero;
 }
 
 .cm-chessboard .threat-pv3 .arrow-line {
-  stroke: #fca5a5 !important;
+  stroke: #f09896 !important;
   stroke-linecap: round;
   stroke-width: 6px !important;
   opacity: 0.45 !important;
+}
+
+/* ── Player Cards (chess.com bar style) ──────────────────── */
+.player-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg-secondary);
+  border-radius: 4px;
+  border: none;
+  width: 100%;
+  max-width: min(calc(100vh - 240px), 640px);
+}
+
+.player-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.player-avatar.white-avatar {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.player-avatar.black-avatar {
+  background: #333;
+  color: #f0f0f0;
 }
 
 /* ── Mode Badge ──────────────────────────────────────────── */
@@ -366,7 +504,7 @@ body {
   gap: 6px;
   padding: 4px 12px;
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -374,33 +512,30 @@ body {
 }
 
 #mode-badge.review {
-  background: rgba(34, 197, 94, 0.12);
-  border: 1px solid rgba(34, 197, 94, 0.3);
-  color: var(--accent-emerald);
+  background: rgba(129, 182, 76, 0.15);
+  border: 1px solid rgba(129, 182, 76, 0.3);
+  color: var(--accent-green);
 }
 
 #mode-badge.analysis {
-  background: rgba(6, 182, 212, 0.12);
-  border: 1px solid rgba(6, 182, 212, 0.3);
+  background: rgba(38, 194, 163, 0.12);
+  border: 1px solid rgba(38, 194, 163, 0.3);
   color: var(--accent-cyan);
   animation: pulse-badge 2s ease-in-out infinite;
 }
 
 #mode-badge.idle {
-  background: rgba(71, 85, 105, 0.15);
-  border: 1px solid rgba(71, 85, 105, 0.3);
+  background: rgba(107, 105, 102, 0.15);
+  border: 1px solid rgba(107, 105, 102, 0.3);
   color: var(--text-muted);
 }
 
 @keyframes pulse-badge {
-
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.2);
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(38, 194, 163, 0.2);
   }
-
   50% {
-    box-shadow: 0 0 0 6px rgba(6, 182, 212, 0);
+    box-shadow: 0 0 0 6px rgba(38, 194, 163, 0);
   }
 }
 
@@ -416,15 +551,8 @@ body {
 }
 
 @keyframes blink-dot {
-
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.3;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 
 /* ── Move Classification Badges ──────────────────────────── */
@@ -434,22 +562,22 @@ body {
   justify-content: center;
   width: 20px;
   height: 20px;
-  border-radius: 4px;
-  font-size: 11px;
+  border-radius: 50%;
+  font-size: 10px;
   font-weight: 700;
   flex-shrink: 0;
 }
 
-.badge-brilliant { background: #113440; color: #05b0cd; }
-.badge-great { background: #242446; color: #818cf8; }
-.badge-best { background: #173729; color: #22c55e; }
-.badge-excellent { background: #1c322a; color: #4ade80; }
-.badge-good { background: #29331f; color: #a3e635; }
-.badge-inaccuracy { background: #3f3418; color: #eab308; }
-.badge-mistake { background: #42271a; color: #f97316; }
-.badge-miss { background: #411d29; color: #f43f5e; }
-.badge-blunder { background: #401e24; color: #ef4444; }
-.badge-theory { background: #2c2526; color: #af835f; }
+.badge-brilliant { background: #26c2a3; color: #fff; }
+.badge-great { background: #5c8bb0; color: #fff; }
+.badge-best { background: #98bc49; color: #fff; }
+.badge-excellent { background: #98bc49; color: #fff; }
+.badge-good { background: #97af8b; color: #fff; }
+.badge-inaccuracy { background: #f7c631; color: #fff; }
+.badge-mistake { background: #e6912c; color: #fff; }
+.badge-miss { background: #ca3431; color: #fff; }
+.badge-blunder { background: #ca3431; color: #fff; }
+.badge-theory { background: #d4a76a; color: #fff; }
 
 .badge-annotation {
   background: #1e293b !important;
@@ -470,13 +598,13 @@ body {
   gap: 4px;
   align-items: center;
   padding: 2px 4px;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .move-row:hover {
-  background: var(--bg-card-hover);
+  background: var(--bg-card);
 }
 
 .move-num {
@@ -491,12 +619,12 @@ body {
   align-items: center;
   gap: 5px;
   padding: 3px 6px;
-  border-radius: 5px;
+  border-radius: 4px;
   font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.12s, color 0.12s;
   user-select: none;
 }
 
@@ -505,8 +633,8 @@ body {
 }
 
 .move-item.active {
-  background: rgba(99, 102, 241, 0.4);
-  border: 1px solid rgba(99, 102, 241, 0.8);
+  background: rgba(129, 182, 76, 0.35);
+  border: 1px solid rgba(129, 182, 76, 0.7);
   color: #fff;
   font-weight: 600;
 }
@@ -551,9 +679,9 @@ body {
 /* ── PGN Input ───────────────────────────────────────────── */
 #pgn-input {
   width: 100%;
-  background: var(--bg-secondary);
+  background: var(--bg-primary);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   color: var(--text-primary);
   font-family: var(--font-mono);
   font-size: 12px;
@@ -566,7 +694,8 @@ body {
 }
 
 #pgn-input:focus {
-  border-color: var(--accent-indigo);
+  border-color: var(--accent-green);
+  box-shadow: 0 0 0 2px rgba(129, 182, 76, 0.15);
 }
 
 #pgn-input::placeholder {
@@ -579,26 +708,45 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 18px;
-  background: linear-gradient(135deg, #4f46e5, #7c3aed);
-  color: white;
+  padding: 10px 20px;
+  background: var(--accent-green);
+  color: #ffffff;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   white-space: nowrap;
+  text-transform: none;
+  letter-spacing: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.5s ease;
+}
+
+.btn-primary:hover::after {
+  transform: translateX(100%);
 }
 
 .btn-primary:hover {
+  background: var(--accent-green-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4);
+  box-shadow: 0 4px 12px rgba(129, 182, 76, 0.3);
 }
 
 .btn-primary:active {
   transform: translateY(0);
+  box-shadow: none;
 }
 
 .btn-primary:disabled {
@@ -606,6 +754,10 @@ body {
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+.btn-primary:disabled::after {
+  display: none;
 }
 
 .btn-secondary {
@@ -617,12 +769,12 @@ body {
   background: var(--bg-card);
   color: var(--text-secondary);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   white-space: nowrap;
 }
 
@@ -642,10 +794,10 @@ body {
   align-items: center;
   gap: 5px;
   padding: 6px 12px;
-  background: rgba(239, 68, 68, 0.12);
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  border-radius: 8px;
+  background: rgba(202, 52, 49, 0.15);
+  color: #ca3431;
+  border: 1px solid rgba(202, 52, 49, 0.3);
+  border-radius: 6px;
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 600;
@@ -654,8 +806,8 @@ body {
 }
 
 .btn-danger:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(202, 52, 49, 0.25);
+  border-color: rgba(202, 52, 49, 0.5);
 }
 
 /* ── Nav Controls ────────────────────────────────────────── */
@@ -667,17 +819,20 @@ body {
   justify-content: center;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 4px;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.12s;
   flex-shrink: 0;
 }
 
 .nav-btn:hover {
   background: var(--bg-card-hover);
-  border-color: var(--border-light);
   color: var(--text-primary);
+}
+
+.nav-btn:active {
+  transform: scale(0.94);
 }
 
 .nav-btn:disabled {
@@ -688,7 +843,7 @@ body {
 /* ── Tabs ────────────────────────────────────────────────── */
 .tab-btn {
   flex: 1;
-  padding: 8px;
+  padding: 10px 8px;
   text-align: center;
   font-size: 12px;
   font-weight: 600;
@@ -698,15 +853,21 @@ body {
   color: var(--text-muted);
   border-bottom: 2px solid transparent;
   transition: all 0.2s;
+  background: transparent;
+  border-top: none;
+  border-left: none;
+  border-right: none;
 }
 
 .tab-btn:hover {
   color: var(--text-secondary);
+  background: var(--bg-card);
 }
 
 .tab-btn.active {
-  color: var(--accent-indigo);
-  border-bottom-color: var(--accent-indigo);
+  color: var(--accent-green);
+  border-bottom-color: var(--accent-green);
+  background: transparent;
 }
 
 /* ── Classification Scorecard ────────────────────────────── */
@@ -753,7 +914,7 @@ body {
 
 .toast {
   padding: 10px 16px;
-  border-radius: 8px;
+  border-radius: 6px;
   font-size: 13px;
   font-weight: 500;
   display: flex;
@@ -762,24 +923,25 @@ body {
   pointer-events: all;
   animation: toast-in 0.3s ease;
   max-width: 320px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 .toast.success {
-  background: rgba(22, 163, 74, 0.9);
+  background: rgba(129, 182, 76, 0.95);
   color: white;
-  border: 1px solid #15803d;
+  border: 1px solid var(--accent-green-dark);
 }
 
 .toast.error {
-  background: rgba(185, 28, 28, 0.9);
+  background: rgba(202, 52, 49, 0.95);
   color: white;
-  border: 1px solid #991b1b;
+  border: 1px solid #a82b29;
 }
 
 .toast.info {
-  background: rgba(30, 58, 138, 0.9);
+  background: rgba(60, 58, 55, 0.95);
   color: white;
-  border: 1px solid #1e40af;
+  border: 1px solid var(--border-light);
 }
 
 @keyframes toast-in {
@@ -787,7 +949,6 @@ body {
     opacity: 0;
     transform: translateY(8px) scale(0.95);
   }
-
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -826,9 +987,14 @@ input[type=range]::-webkit-slider-thumb {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--accent-indigo);
+  background: var(--accent-green);
   cursor: pointer;
-  box-shadow: 0 0 6px rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 6px rgba(129, 182, 76, 0.5);
+  transition: transform 0.15s;
+}
+
+input[type=range]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
 }
 
 /* ── Opening name tag ────────────────────────────────────── */
@@ -844,8 +1010,66 @@ input[type=range]::-webkit-slider-thumb {
   transition: opacity 0.3s;
 }
 
+/* ── Panel Section Headers (chess.com style) ─────────────── */
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  border-radius: 8px 8px 0 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.panel-header-icon {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-green);
+}
+
+/* ── Toggle switches — chess.com style ───────────────────── */
+.toggle-switch {
+  position: relative;
+  width: 40px;
+  height: 24px;
+}
+
+.toggle-switch input:checked + div {
+  background: var(--accent-green) !important;
+  border-color: var(--accent-green) !important;
+}
+
+/* ── Engine Setup Banner ─────────────────────────────────── */
+#engine-setup-banner .max-w-5xl {
+  border-color: rgba(247, 198, 49, 0.3);
+  background: rgba(60, 58, 55, 0.8);
+}
+
+/* ── CTA Button Pulse (Design Spell) ─────────────────────── */
+@keyframes cta-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(129, 182, 76, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(129, 182, 76, 0);
+  }
+}
+
+.btn-cta-pulse {
+  animation: cta-pulse 2.5s ease-in-out infinite;
+}
+
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 900px) {
+  .app-sidebar {
+    display: none;
+  }
 
   #main-layout,
   #board-area {
@@ -870,7 +1094,7 @@ input[type=range]::-webkit-slider-thumb {
     bottom: 0;
     height: auto !important;
     width: var(--eval-width);
-    border-radius: 7px 0 0 7px;
+    border-radius: 3px 0 0 3px;
   }
 
   #eval-bar-label {
@@ -888,39 +1112,72 @@ input[type=range]::-webkit-slider-thumb {
   #right-panel {
     width: 100% !important;
   }
+
+  .player-card {
+    max-width: 100%;
+  }
 }
 
 /* ── Full Screen Layout Overrides ───────────────────────── */
 @media (min-width: 901px) {
   #main-layout {
-    height: calc(100vh - 57px - 32px); /* fits exactly in viewport height */
+    height: calc(100vh - 57px - 32px);
     box-sizing: border-box;
     overflow: hidden;
   }
-  
+
   #right-panel {
     height: 100%;
     min-height: 0;
   }
-  
+
   #eval-bar-container {
     min-height: unset;
   }
-  
+
   #board-column {
     height: 100%;
     min-height: 0;
   }
-  
+
   #panel-summary {
     overflow-y: auto;
     flex: 1;
     min-height: 0;
   }
-  
+
   #panel-moves {
     overflow-y: auto;
     flex: 1;
     min-height: 0;
+  }
+}
+
+/* ── Number input styling ────────────────────────────────── */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* ── Smooth move list scroll (Design Spell) ──────────────── */
+#move-list {
+  scroll-behavior: smooth;
+}
+
+.move-item.active {
+  animation: move-highlight-in 0.2s ease-out;
+}
+
+@keyframes move-highlight-in {
+  from {
+    background: rgba(129, 182, 76, 0.6);
+  }
+  to {
+    background: rgba(129, 182, 76, 0.35);
   }
 }
