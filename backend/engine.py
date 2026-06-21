@@ -67,6 +67,23 @@ def get_non_pawn_material(board: chess.Board) -> int:
         total += len(board.pieces(piece_type, chess.BLACK)) * val
     return total
 
+def extract_clock_from_node(node: chess.pgn.GameNode) -> Optional[str]:
+    """Extract clock time from a PGN node and format as m:ss or h:mm:ss."""
+    try:
+        clk_seconds = node.clock()
+        if clk_seconds is not None:
+            total_seconds = max(0, int(round(clk_seconds)))
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            seconds = total_seconds % 60
+            if hours > 0:
+                return f"{hours}:{minutes:02d}:{seconds:02d}"
+            else:
+                return f"{minutes}:{seconds:02d}"
+    except Exception:
+        pass
+    return None
+
 def parse_pgn_game(pgn_text: str) -> dict:
     """Parse a PGN string and return the game structure without Stockfish analysis."""
     pgn_text = preprocess_pgn_nags(pgn_text)
@@ -86,6 +103,7 @@ def parse_pgn_game(pgn_text: str) -> dict:
     move_colors: list[chess.Color] = []
     move_numbers: list[int] = []
     move_nags: list[list[int]] = []
+    move_clks: list[Optional[str]] = []
 
     for node in pgn.mainline():
         boards_before.append(board.copy())
@@ -100,6 +118,7 @@ def parse_pgn_game(pgn_text: str) -> dict:
         move_colors.append(color)
         move_numbers.append(move_num)
         move_nags.append(list(node.nags))
+        move_clks.append(extract_clock_from_node(node))
 
         board.push(move)
         fens.append(board.fen())
@@ -115,6 +134,7 @@ def parse_pgn_game(pgn_text: str) -> dict:
         san = move_sans[i]
         move_num = move_numbers[i]
         nags = move_nags[i]
+        clk = move_clks[i]
 
         if move_num <= 12:
             phase = "opening"
@@ -154,6 +174,7 @@ def parse_pgn_game(pgn_text: str) -> dict:
             "is_sacrifice": sacrificed,
             "opening": get_opening_name(fens[i]),
             "phase": phase,
+            "clk": clk,
         })
 
     headers = dict(pgn.headers)
@@ -335,6 +356,7 @@ class EngineManager:
         move_colors: list[chess.Color] = []
         move_numbers: list[int] = []
         move_nags: list[list[int]] = []
+        move_clks: list[Optional[str]] = []
 
         for node in pgn.mainline():
             boards_before.append(board.copy())  # board state BEFORE the move
@@ -349,6 +371,7 @@ class EngineManager:
             move_colors.append(color)
             move_numbers.append(move_num)
             move_nags.append(list(node.nags))
+            move_clks.append(extract_clock_from_node(node))
 
             board.push(move)
             fens.append(board.fen())
@@ -541,6 +564,7 @@ class EngineManager:
                 "is_sacrifice": sacrificed,
                 "opening": get_opening_name(fens[i]),
                 "phase": phase,
+                "clk": move_clks[i],
             })
 
         # --- Build accuracy report ---

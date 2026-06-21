@@ -146,10 +146,16 @@ const el = {
   topPlayerElo: document.getElementById('top-player-elo'),
   topPlayerTitle: document.getElementById('top-player-title'),
   topPlayerAvatar: document.getElementById('top-player-avatar'),
+  topPlayerCaptured: document.getElementById('top-player-captured'),
+  topPlayerClock: document.getElementById('top-player-clock'),
+  topPlayerFlag: document.getElementById('top-player-flag'),
   bottomPlayerName: document.getElementById('bottom-player-name'),
   bottomPlayerElo: document.getElementById('bottom-player-elo'),
   bottomPlayerTitle: document.getElementById('bottom-player-title'),
   bottomPlayerAvatar: document.getElementById('bottom-player-avatar'),
+  bottomPlayerCaptured: document.getElementById('bottom-player-captured'),
+  bottomPlayerClock: document.getElementById('bottom-player-clock'),
+  bottomPlayerFlag: document.getElementById('bottom-player-flag'),
 
   // Chess.com elements
   chesscomUsername: document.getElementById('chesscom-username'),
@@ -875,6 +881,216 @@ function _loadGameAnalysis(data) {
 
 // ── Player Cards ────────────────────────────────────────────────────────
 
+function getFlagEmoji(countryCode) {
+  if (!countryCode || countryCode.length !== 2) return '';
+  const codePoints = countryCode
+    .toUpperCase()
+    .split('')
+    .map(char => 127397 + char.charCodeAt(0));
+  return String.fromCodePoint(...codePoints);
+}
+
+function _calculateCapturedPieces(fen) {
+  const starting = {
+    w: { p: 8, n: 2, b: 2, r: 2, q: 1 },
+    b: { p: 8, n: 2, b: 2, r: 2, q: 1 }
+  };
+  
+  const current = {
+    w: { p: 0, n: 0, b: 0, r: 0, q: 0 },
+    b: { p: 0, n: 0, b: 0, r: 0, q: 0 }
+  };
+  
+  const boardPart = (fen || '').split(' ')[0];
+  for (const char of boardPart) {
+    if (char === '/') continue;
+    if (/[0-9]/.test(char)) continue;
+    
+    const isWhite = char === char.toUpperCase();
+    const type = char.toLowerCase();
+    const color = isWhite ? 'w' : 'b';
+    
+    if (current[color] && current[color][type] !== undefined) {
+      current[color][type]++;
+    }
+  }
+  
+  const captured = {
+    w: {}, // White pieces captured by Black
+    b: {}  // Black pieces captured by White
+  };
+  
+  for (const type of ['p', 'n', 'b', 'r', 'q']) {
+    captured.w[type] = Math.max(0, starting.w[type] - current.w[type]);
+    captured.b[type] = Math.max(0, starting.b[type] - current.b[type]);
+  }
+  
+  const values = { p: 1, n: 3, b: 3, r: 5, q: 9 };
+  let whiteVal = 0;
+  let blackVal = 0;
+  for (const type of ['p', 'n', 'b', 'r', 'q']) {
+    whiteVal += current.w[type] * values[type];
+    blackVal += current.b[type] * values[type];
+  }
+  
+  return { captured, whiteVal, blackVal };
+}
+
+function _getClockTimesForMove(idx) {
+  let whiteClk = null;
+  let blackClk = null;
+  const reviewMoves = state.game.moves;
+  
+  if (!reviewMoves || reviewMoves.length === 0) {
+    return { white: null, black: null };
+  }
+  
+  const maxIdx = Math.min(idx, reviewMoves.length - 1);
+  for (let k = 0; k <= maxIdx; k++) {
+    const m = reviewMoves[k];
+    if (m && m.clk) {
+      if (m.color === 'white') {
+        whiteClk = m.clk;
+      } else {
+        blackClk = m.clk;
+      }
+    }
+  }
+  
+  if (!whiteClk || !blackClk) {
+    for (let k = 0; k < reviewMoves.length; k++) {
+      const m = reviewMoves[k];
+      if (m && m.clk) {
+        if (m.color === 'white' && !whiteClk) whiteClk = m.clk;
+        if (m.color === 'black' && !blackClk) blackClk = m.clk;
+      }
+    }
+  }
+  
+  return { white: whiteClk, black: blackClk };
+}
+
+function _updatePlayerClocksAndCaptured(idx) {
+  let fen = state.game.initialFen;
+  if (state.mode === MODE.REVIEW) {
+    if (idx >= 0 && state.game.moves[idx]) {
+      fen = state.game.moves[idx].fen_after;
+    }
+  } else if (state.mode === MODE.ANALYSIS) {
+    const branchIdx = state.analysis.currentBranchIndex;
+    if (branchIdx >= 0 && state.analysis.branchMoves[branchIdx]) {
+      fen = state.analysis.branchMoves[branchIdx].fen_after;
+    } else {
+      fen = state.analysis.forkFen || state.game.initialFen;
+    }
+  }
+  
+  const { captured, whiteVal, blackVal } = _calculateCapturedPieces(fen);
+  
+  const getPiecesHtml = (pCount, color) => {
+    const symbols = color === 'white' 
+      ? { p: '♙', n: '♘', b: '♗', r: '♖', q: '♕' }
+      : { p: '♟', n: '♞', b: '♝', r: '♜', q: '♛' };
+    
+    let html = '';
+    // Show in standard sorted order: Pawns, then Bishops, then Knights, then Rooks, then Queens
+    const types = ['p', 'b', 'n', 'r', 'q'];
+    for (const type of types) {
+      const count = pCount[type] || 0;
+      if (count > 0) {
+        html += `<span class="captured-piece-group font-sans font-bold leading-none select-none tracking-[-0.05em] mr-1" style="font-size: 14px; vertical-align: middle;">`;
+        for (let i = 0; i < count; i++) {
+          html += symbols[type];
+        }
+        html += `</span>`;
+      }
+    }
+    return html;
+  };
+  
+  // White pieces captured by Black (displayed on Black's card)
+  const whiteCapturedHtml = getPiecesHtml(captured.w, 'white');
+  // Black pieces captured by White (displayed on White's card)
+  const blackCapturedHtml = getPiecesHtml(captured.b, 'black');
+  
+  let whiteDiffHtml = '';
+  let blackDiffHtml = '';
+  if (whiteVal > blackVal) {
+    whiteDiffHtml = `<span class="material-diff text-[10px] font-bold text-[var(--text-secondary)] ml-1 bg-white/10 px-1 py-0.5 rounded leading-none" style="vertical-align: middle;">+${whiteVal - blackVal}</span>`;
+  } else if (blackVal > whiteVal) {
+    blackDiffHtml = `<span class="material-diff text-[10px] font-bold text-[var(--text-secondary)] ml-1 bg-white/10 px-1 py-0.5 rounded leading-none" style="vertical-align: middle;">+${blackVal - whiteVal}</span>`;
+  }
+  
+  if (state.boardOrientation === 'white') {
+    if (el.topPlayerCaptured) el.topPlayerCaptured.innerHTML = whiteCapturedHtml + blackDiffHtml;
+    if (el.bottomPlayerCaptured) el.bottomPlayerCaptured.innerHTML = blackCapturedHtml + whiteDiffHtml;
+  } else {
+    if (el.topPlayerCaptured) el.topPlayerCaptured.innerHTML = blackCapturedHtml + whiteDiffHtml;
+    if (el.bottomPlayerCaptured) el.bottomPlayerCaptured.innerHTML = whiteCapturedHtml + blackDiffHtml;
+  }
+  
+  const hasClocks = state.game.moves.some(m => m.clk != null);
+  if (!hasClocks) {
+    if (el.topPlayerClock) el.topPlayerClock.classList.add('hidden');
+    if (el.bottomPlayerClock) el.bottomPlayerClock.classList.add('hidden');
+  } else {
+    if (el.topPlayerClock) el.topPlayerClock.classList.remove('hidden');
+    if (el.bottomPlayerClock) el.bottomPlayerClock.classList.remove('hidden');
+    
+    const clkTimes = _getClockTimesForMove(idx);
+    let topTime = '';
+    let bottomTime = '';
+    let topIsActive = false;
+    let bottomIsActive = false;
+    
+    let activeSide = 'white';
+    try {
+      const c = new Chess(fen);
+      if (c.isGameOver()) {
+        activeSide = null;
+      } else {
+        activeSide = c.turn() === 'w' ? 'white' : 'black';
+      }
+    } catch (e) {
+      activeSide = null;
+    }
+    
+    if (state.boardOrientation === 'white') {
+      topTime = clkTimes.black || '5:00';
+      bottomTime = clkTimes.white || '5:00';
+      topIsActive = (activeSide === 'black');
+      bottomIsActive = (activeSide === 'white');
+    } else {
+      topTime = clkTimes.white || '5:00';
+      bottomTime = clkTimes.black || '5:00';
+      topIsActive = (activeSide === 'white');
+      bottomIsActive = (activeSide === 'black');
+    }
+    
+    const activeClockSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="w-3.5 h-3.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>`;
+    
+    if (el.topPlayerClock) {
+      if (topIsActive) {
+        el.topPlayerClock.innerHTML = `${activeClockSvg} <span>${topTime}</span>`;
+        el.topPlayerClock.classList.add('active');
+      } else {
+        el.topPlayerClock.innerHTML = `<span>${topTime}</span>`;
+        el.topPlayerClock.classList.remove('active');
+      }
+    }
+    
+    if (el.bottomPlayerClock) {
+      if (bottomIsActive) {
+        el.bottomPlayerClock.innerHTML = `${activeClockSvg} <span>${bottomTime}</span>`;
+        el.bottomPlayerClock.classList.add('active');
+      } else {
+        el.bottomPlayerClock.innerHTML = `<span>${bottomTime}</span>`;
+        el.bottomPlayerClock.classList.remove('active');
+      }
+    }
+  }
+}
+
 function _updatePlayerCards() {
   if (!state.game.metadata) return;
   const m = state.game.metadata;
@@ -896,11 +1112,11 @@ function _updatePlayerCards() {
     bottom = { name: blackName, elo: blackElo, title: blackTitle, color: 'black' };
   }
 
-  const renderAvatar = (el, playerUsername, color) => {
-    if (!el) return;
-    el.className = color === 'white' ? 'player-avatar white-avatar' : 'player-avatar black-avatar';
-    el.style.backgroundImage = 'none';
-    el.textContent = '♚';
+  const renderAvatar = (avatarEl, flagEl, playerUsername, color) => {
+    if (!avatarEl) return;
+    avatarEl.style.backgroundImage = 'none';
+    avatarEl.textContent = '♚';
+    if (flagEl) flagEl.textContent = '';
 
     const rawUsername = (playerUsername || '').trim();
     if (!rawUsername || rawUsername === 'White' || rawUsername === 'Black' || rawUsername === '?' || rawUsername.includes(' ')) {
@@ -909,12 +1125,15 @@ function _updatePlayerCards() {
 
     const cacheKey = rawUsername.toLowerCase();
     if (state.avatarCache[cacheKey] !== undefined) {
-      const avatarUrl = state.avatarCache[cacheKey];
-      if (avatarUrl) {
-        el.style.backgroundImage = `url(${avatarUrl})`;
-        el.style.backgroundSize = 'cover';
-        el.style.backgroundPosition = 'center';
-        el.textContent = '';
+      const cached = state.avatarCache[cacheKey];
+      if (cached) {
+        if (cached.avatar) {
+          avatarEl.style.backgroundImage = `url(${cached.avatar})`;
+          avatarEl.textContent = '';
+        }
+        if (flagEl && cached.flag) {
+          flagEl.textContent = cached.flag;
+        }
       }
       return;
     }
@@ -927,18 +1146,27 @@ function _updatePlayerCards() {
         return res.json();
       })
       .then(data => {
-        if (data.avatar) {
-          state.avatarCache[cacheKey] = data.avatar;
-          _updatePlayerCards(); // Refresh display
+        let flag = '';
+        if (data.country) {
+          const parts = data.country.split('/');
+          const countryCode = parts[parts.length - 1];
+          if (countryCode && countryCode.length === 2) {
+            flag = getFlagEmoji(countryCode);
+          }
         }
+        state.avatarCache[cacheKey] = {
+          avatar: data.avatar || null,
+          flag: flag || null
+        };
+        _updatePlayerCards(); // Refresh display
       })
       .catch(err => {
         console.warn(`Failed to fetch Chess.com avatar for ${rawUsername}:`, err);
       });
   };
 
-  renderAvatar(el.topPlayerAvatar, top.name, top.color);
-  renderAvatar(el.bottomPlayerAvatar, bottom.name, bottom.color);
+  renderAvatar(el.topPlayerAvatar, el.topPlayerFlag, top.name, top.color);
+  renderAvatar(el.bottomPlayerAvatar, el.bottomPlayerFlag, bottom.name, bottom.color);
 
   if (el.topPlayerName) el.topPlayerName.textContent = top.name;
   if (el.topPlayerElo) el.topPlayerElo.textContent = top.elo;
@@ -953,6 +1181,13 @@ function _updatePlayerCards() {
     el.bottomPlayerTitle.textContent = bottom.title;
     bottom.title ? el.bottomPlayerTitle.classList.remove('hidden') : el.bottomPlayerTitle.classList.add('hidden');
   }
+
+  // Also trigger clocks and captured pieces rendering
+  let activeIndex = state.review.currentIndex;
+  if (state.mode === MODE.ANALYSIS) {
+    activeIndex = state.analysis.currentBranchIndex;
+  }
+  _updatePlayerClocksAndCaptured(activeIndex);
 }
 
 function _triggerEvalBarRender() {
@@ -1053,6 +1288,7 @@ function _navigateToBranch(idx) {
   if (state.threatsEnabled) {
     _fetchAndDrawThreats();
   }
+  _updatePlayerClocksAndCaptured(state.analysis.forkIndex);
 }
 
 function _getAnnotationSymbol(m) {
@@ -1132,6 +1368,7 @@ export function navigateTo(index) {
   if (state.threatsEnabled) {
     _fetchAndDrawThreats();
   }
+  _updatePlayerClocksAndCaptured(clampedIndex);
 }
 
 function _onMoveClick(type, index) {
@@ -1156,6 +1393,7 @@ function _onMoveClick(type, index) {
 
     _startWebSocketAnalysis(m.fen_after);
     setActiveMoveInList('branch', index);
+    _updatePlayerClocksAndCaptured(state.analysis.forkIndex);
   }
 }
 
@@ -1327,6 +1565,7 @@ function _handleBoardMove(from, to, promotion) {
     if (state.threatsEnabled) {
       _fetchAndDrawThreats();
     }
+    _updatePlayerClocksAndCaptured(state.analysis.forkIndex);
   } else if (state.mode === MODE.ANALYSIS) {
     // Already in analysis mode — user is exploring further
     const chess = state.analysis.chess;
@@ -1390,6 +1629,7 @@ function _handleBoardMove(from, to, promotion) {
     if (state.threatsEnabled) {
       _fetchAndDrawThreats();
     }
+    _updatePlayerClocksAndCaptured(state.analysis.forkIndex);
   }
 }
 

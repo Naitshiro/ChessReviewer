@@ -169,13 +169,20 @@
             <!-- Board Container -->
             <div id="board-container" class="flex flex-col justify-center min-w-0">
               <!-- Top Player Card -->
-              <div class="player-card mb-1.5">
-                <div id="top-player-avatar" class="player-avatar black-avatar">♚</div>
-                <div class="flex items-center gap-1.5 text-sm min-w-0">
-                  <span id="top-player-title" class="hidden text-[10px] bg-amber-500/20 text-amber-500 px-1 py-0.5 rounded uppercase tracking-wider font-bold"></span>
-                  <span id="top-player-name" class="font-semibold text-[var(--text-primary)] truncate max-w-[150px] sm:max-w-[200px]">Black</span>
-                  <span id="top-player-elo" class="text-[var(--text-muted)] text-xs"></span>
+              <div class="player-card mb-1.5 flex justify-between items-center w-full">
+                <div class="flex items-center gap-2 flex-1 min-w-0">
+                  <div id="top-player-avatar" class="player-avatar black-avatar font-bold">♚</div>
+                  <div class="flex flex-col min-w-0">
+                    <div class="flex items-center gap-1.5 text-sm min-w-0">
+                      <span id="top-player-title" class="hidden text-[10px] bg-[#e53e3e] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"></span>
+                      <span id="top-player-name" class="font-semibold text-[var(--text-primary)] truncate max-w-[150px] sm:max-w-[200px]">Black</span>
+                      <span id="top-player-elo" class="text-[var(--text-secondary)] text-xs"></span>
+                      <span id="top-player-flag" class="text-sm select-none"></span>
+                    </div>
+                    <div id="top-player-captured" class="flex items-center flex-wrap gap-0.5 mt-0.5 text-xs text-[var(--text-muted)] min-h-[16px]"></div>
+                  </div>
                 </div>
+                <div id="top-player-clock" class="player-clock hidden"></div>
               </div>
 
               <!-- Board and Eval Bar Row -->
@@ -195,13 +202,20 @@
               </div>
 
               <!-- Bottom Player Card -->
-              <div class="player-card mt-1.5">
-                <div id="bottom-player-avatar" class="player-avatar white-avatar">♚</div>
-                <div class="flex items-center gap-1.5 text-sm min-w-0">
-                  <span id="bottom-player-title" class="hidden text-[10px] bg-amber-500/20 text-amber-500 px-1 py-0.5 rounded uppercase tracking-wider font-bold"></span>
-                  <span id="bottom-player-name" class="font-semibold text-[var(--text-primary)] truncate max-w-[150px] sm:max-w-[200px]">White</span>
-                  <span id="bottom-player-elo" class="text-[var(--text-muted)] text-xs"></span>
+              <div class="player-card mt-1.5 flex justify-between items-center w-full">
+                <div class="flex items-center gap-2 flex-1 min-w-0">
+                  <div id="bottom-player-avatar" class="player-avatar white-avatar font-bold">♚</div>
+                  <div class="flex flex-col min-w-0">
+                    <div class="flex items-center gap-1.5 text-sm min-w-0">
+                      <span id="bottom-player-title" class="hidden text-[10px] bg-[#e53e3e] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"></span>
+                      <span id="bottom-player-name" class="font-semibold text-[var(--text-primary)] truncate max-w-[150px] sm:max-w-[200px]">White</span>
+                      <span id="bottom-player-elo" class="text-[var(--text-secondary)] text-xs"></span>
+                      <span id="bottom-player-flag" class="text-sm select-none"></span>
+                    </div>
+                    <div id="bottom-player-captured" class="flex items-center flex-wrap gap-0.5 mt-0.5 text-xs text-[var(--text-muted)] min-h-[16px]"></div>
+                  </div>
                 </div>
+                <div id="bottom-player-clock" class="player-clock hidden"></div>
               </div>
             </div>
           </div>

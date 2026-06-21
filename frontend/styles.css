@@ -434,9 +434,10 @@ header {
 .player-card {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  padding: 6px 10px;
-  background: var(--bg-secondary);
+  padding: 4px 6px;
+  background: transparent;
   border-radius: 4px;
   border: none;
   width: 100%;
@@ -444,24 +445,57 @@ header {
 }
 
 .player-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 3px;
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 24px;
   flex-shrink: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .player-avatar.white-avatar {
-  background: #f0f0f0;
-  color: #333;
+  background-color: #ebecd0;
+  color: #739552;
 }
 
 .player-avatar.black-avatar {
-  background: #333;
-  color: #f0f0f0;
+  background-color: #302e2b;
+  color: #989795;
+}
+
+.player-clock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 90px;
+  height: 38px;
+  padding: 0 12px;
+  background: #272522;
+  color: #c3c2c1;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 16px;
+  border-radius: 3px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+  user-select: none;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.player-clock.active {
+  background: #ffffff;
+  color: #272522;
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.15);
+}
+
+.player-clock svg {
+  stroke: currentColor;
 }
 
 /* ── Mode Badge ──────────────────────────────────────────── */
