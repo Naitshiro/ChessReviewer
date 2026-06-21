@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 18 19">
+  <g id="annotation_unclear">
+    <path class="icon-shadow" opacity="0.3" d="M9,.5a9,9,0,1,0,9,9A9,9,0,0,0,9,.5Z"></path>
+    <path class="icon-background" fill="#000000" d="M9,0a9,9,0,1,0,9,9A9,9,0,0,0,9,0Z"></path>
+    <g class="icon-component-shadow" opacity="0.2">
+      <path d="M 9,9.5 C 7.5,7.5 5,7.5 5,9.5 C 5,11.5 7.5,11.5 9,9.5 C 10.5,7.5 13,7.5 13,9.5 C 13,11.5 10.5,11.5 9,9.5 Z" stroke="#000000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+    </g>
+    <g>
+      <path class="icon-component" d="M 9,9 C 7.5,7 5,7 5,9 C 5,11 7.5,11 9,9 C 10.5,7 13,7 13,9 C 13,11 10.5,11 9,9 Z" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+    </g>
+  </g>
+</svg>

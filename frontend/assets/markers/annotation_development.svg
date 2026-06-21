@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 18 19">
+  <g id="annotation_development">
+    <path class="icon-shadow" opacity="0.3" d="M9,.5a9,9,0,1,0,9,9A9,9,0,0,0,9,.5Z"></path>
+    <path class="icon-background" fill="#000000" d="M9,0a9,9,0,1,0,9,9A9,9,0,0,0,9,0Z"></path>
+    <!-- Shadow -->
+    <g class="icon-component-shadow" opacity="0.2" transform="translate(0,0.5) rotate(90 9 9)">
+      <path d="M 12.3,7.1 A 3.8,3.8 0 1,1 9,5.2" fill="none" stroke="#000000" stroke-width="2.2" stroke-linecap="round" />
+      <path d="M 7.7,3.4 L 9.5,5.2 L 7.7,7.0" stroke="#000000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+    </g>
+    <!-- Foreground -->
+    <g transform="rotate(90 9 9)">
+      <path class="icon-component" d="M 12.3,7.1 A 3.8,3.8 0 1,1 9,5.2" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" />
+      <path class="icon-component" d="M 7.7,3.4 L 9.5,5.2 L 7.7,7.0" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+    </g>
+  </g>
+</svg>
