@@ -51,6 +51,32 @@ FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 async def lifespan(app: FastAPI):
     """Initialize Stockfish on startup, shut it down on shutdown."""
     logger.info("ChessReviewer starting up...")
+    
+    # Auto-generate white versions of annotation SVGs if they don't exist
+    try:
+        import glob
+        from pathlib import Path
+        markers_dir = Path(__file__).parent.parent / "frontend" / "assets" / "markers"
+        if markers_dir.exists():
+            for filepath in markers_dir.glob("annotation_*.svg"):
+                if filepath.name.endswith("_white.svg"):
+                    continue
+                white_path = filepath.parent / f"{filepath.stem}_white.svg"
+                if not white_path.exists():
+                    content = filepath.read_text(encoding="utf-8")
+                    content_white = content
+                    content_white = content_white.replace('class="icon-background" fill="#000000"', 'class="icon-background" fill="#ffffff"')
+                    content_white = content_white.replace('class="icon-background" fill="#000"', 'class="icon-background" fill="#ffffff"')
+                    content_white = content_white.replace('fill="#fff"', 'fill="#000000"')
+                    content_white = content_white.replace('fill="#ffffff"', 'fill="#000000"')
+                    content_white = content_white.replace('stroke="#fff"', 'stroke="#000000"')
+                    content_white = content_white.replace('stroke="#ffffff"', 'stroke="#000000"')
+                    content_white = content_white.replace(f'id="{filepath.stem}"', f'id="{filepath.stem}_white"')
+                    white_path.write_text(content_white, encoding="utf-8")
+                    logger.info(f"Auto-generated white SVG: {white_path.name}")
+    except Exception as e:
+        logger.error(f"Failed to auto-generate white SVGs: {e}")
+
     try:
         await EngineManager.get_instance()
     except Exception as e:

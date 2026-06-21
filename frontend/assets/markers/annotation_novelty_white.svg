@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 18 19">
+  <g id="annotation_novelty_white">
+    <path class="icon-shadow" opacity="0.3" d="M9,.5a9,9,0,1,0,9,9A9,9,0,0,0,9,.5Z"></path>
+    <path class="icon-background" fill="#000000" d="M9,0a9,9,0,1,0,9,9A9,9,0,0,0,9,0Z"></path>
+    <!-- Shadow -->
+    <g class="icon-component-shadow" opacity="0.2">
+      <path d="M 6,13.5 L 6,6.5 L 12,13.5 L 12,6.5" stroke="#000000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+    </g>
+    <!-- Foreground -->
+    <g>
+      <path class="icon-component" d="M 6,13 L 6,6 L 12,13 L 12,6" stroke="#000000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+    </g>
+  </g>
+</svg>

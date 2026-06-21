@@ -266,32 +266,23 @@ export class BoardManager {
     const y = boardTop + row * squareSize - (badgeSize / 2);
 
     // Create DOM element
-    const badge = document.createElement('div');
+    const badge = document.createElement('img');
     badge.id = 'board-class-badge';
     badge.style.width = `${badgeSize}px`;
     badge.style.height = `${badgeSize}px`;
     badge.style.left = `${x}px`;
     badge.style.top = `${y}px`;
+    badge.className = 'board-class-badge';
 
     if (type === 'classification') {
-      badge.className = `board-class-badge badge-${text}`;
-      const symbols = {
-        brilliant: '!!',
-        great: '!',
-        best: '★',
-        excellent: '✦',
-        good: '✓',
-        inaccuracy: '?!',
-        mistake: '?',
-        miss: '✗',
-        blunder: '??',
-        theory: '⌕',
-      };
-      badge.textContent = symbols[text] || '';
+      badge.src = `assets/markers/${text}.svg`;
+      badge.alt = text;
     } else {
-      badge.className = `board-class-badge solid-annotation-${moveColor} font-bold`;
-      badge.style.fontSize = `${badgeSize * 0.65}px`; // scale character relative to badge size
-      badge.textContent = text.symbol || text;
+      badge.src = `assets/markers/${text.svg}`;
+      badge.alt = text.label || text;
+      if (moveColor === 'white') {
+        badge.style.filter = 'invert(1)';
+      }
     }
 
     wrapper.appendChild(badge);

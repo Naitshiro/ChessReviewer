@@ -331,22 +331,14 @@ header {
 /* Board Classification Badge overlays */
 .board-class-badge {
   position: absolute;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-sans);
-  font-weight: 900;
-  font-size: 11px;
-  color: white;
-  line-height: 1 !important;
-  white-space: nowrap !important;
-  overflow: visible !important;
+  display: block;
   z-index: 10;
   pointer-events: none;
   user-select: none;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
   animation: badge-pop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 @keyframes badge-pop {
@@ -362,31 +354,6 @@ header {
     transform: scale(1);
     opacity: 1;
   }
-}
-
-/* Specific colors for board badges */
-.board-class-badge.badge-brilliant { background: #26c2a3; font-size: 19px; color: white !important; }
-.board-class-badge.badge-great { background: #5c8bb0; font-size: 22px; color: white !important; }
-.board-class-badge.badge-best { background: #98bc49; font-size: 20px; color: white !important; }
-.board-class-badge.badge-excellent { background: #98bc49; font-size: 20px; color: white !important; }
-.board-class-badge.badge-good { background: #97af8b; font-size: 22px; color: white !important; }
-.board-class-badge.badge-inaccuracy { background: #f7c631; font-size: 19px; color: white !important; }
-.board-class-badge.badge-mistake { background: #e6912c; font-size: 22px; color: white !important; }
-.board-class-badge.badge-miss { background: #ca3431; font-size: 20px; color: white !important; }
-.board-class-badge.badge-blunder { background: #ca3431; font-size: 19px; color: white !important; }
-.board-class-badge.badge-theory { background: #d4a76a; font-size: 19px; color: white !important; }
-
-/* Solid annotation badges for board */
-.board-class-badge.solid-annotation-white {
-  background: #ffffff !important;
-  color: #000000 !important;
-  border: 1px solid var(--border);
-}
-
-.board-class-badge.solid-annotation-black {
-  background: #000000 !important;
-  color: #ffffff !important;
-  border: 1px solid var(--border);
 }
 
 /* Custom arrow colors for engine lines */
@@ -566,6 +533,13 @@ header {
   font-size: 10px;
   font-weight: 700;
   flex-shrink: 0;
+}
+
+img.move-badge {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  display: block;
 }
 
 .badge-brilliant { background: #26c2a3; color: #fff; }

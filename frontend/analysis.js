@@ -14,16 +14,16 @@
 // ── Classification metadata ─────────────────────────────────────────────
 
 export const CLASS_META = {
-  brilliant: { symbol: '!!', label: 'Brilliant', css: 'badge-brilliant' },
-  great: { symbol: '!', label: 'Great', css: 'badge-great' },
-  best: { symbol: '★', label: 'Best', css: 'badge-best' },
-  excellent: { symbol: '✦', label: 'Excellent', css: 'badge-excellent' },
-  good: { symbol: '✓', label: 'Good', css: 'badge-good' },
-  inaccuracy: { symbol: '?!', label: 'Inaccuracy', css: 'badge-inaccuracy' },
-  mistake: { symbol: '?', label: 'Mistake', css: 'badge-mistake' },
-  miss: { symbol: '✗', label: 'Miss', css: 'badge-miss' },
-  blunder: { symbol: '??', label: 'Blunder', css: 'badge-blunder' },
-  theory: { symbol: '⌕', label: 'Theory', css: 'badge-theory' },
+  brilliant: { symbol: '!!', label: 'Brilliant', css: 'badge-brilliant', svg: 'brilliant.svg' },
+  great: { symbol: '!', label: 'Great', css: 'badge-great', svg: 'great.svg' },
+  best: { symbol: '★', label: 'Best', css: 'badge-best', svg: 'best.svg' },
+  excellent: { symbol: '✦', label: 'Excellent', css: 'badge-excellent', svg: 'excellent.svg' },
+  good: { symbol: '✓', label: 'Good', css: 'badge-good', svg: 'good.svg' },
+  inaccuracy: { symbol: '?!', label: 'Inaccuracy', css: 'badge-inaccuracy', svg: 'inaccuracy.svg' },
+  mistake: { symbol: '?', label: 'Mistake', css: 'badge-mistake', svg: 'mistake.svg' },
+  miss: { symbol: '✗', label: 'Miss', css: 'badge-miss', svg: 'miss.svg' },
+  blunder: { symbol: '??', label: 'Blunder', css: 'badge-blunder', svg: 'blunder.svg' },
+  theory: { symbol: '⌕', label: 'Theory', css: 'badge-theory', svg: 'theory.svg' },
 };
 
 // Classification display order for the scorecard
@@ -33,42 +33,42 @@ const SCORE_ORDER = [
 ];
 
 export const COMPREHENSIVE_NAG_MAP = {
-  1: { symbol: "!", label: "Good Move", classKey: "good" },
-  2: { symbol: "?", label: "Mistake", classKey: "mistake" },
-  3: { symbol: "!!", label: "Brilliant Move", classKey: "brilliant" },
-  4: { symbol: "??", label: "Blunder", classKey: "blunder" },
-  5: { symbol: "!?", label: "Interesting", classKey: "excellent" },
-  6: { symbol: "?!", label: "Dubious Move", classKey: "inaccuracy" },
-  7: { symbol: "□", label: "Forced", classKey: "best" },
-  10: { symbol: "=", label: "Balanced", classKey: "theory" },
-  11: { symbol: "=", label: "Balanced", classKey: "theory" },
-  12: { symbol: "=", label: "Balanced", classKey: "theory" },
-  13: { symbol: "∞", label: "Unclear", classKey: "theory" },
-  14: { symbol: "⩲", label: "Slight advantage", classKey: "theory" },
-  15: { symbol: "⩱", label: "Slight advantage", classKey: "theory" },
-  16: { symbol: "±", label: "Moderate advantage", classKey: "theory" },
-  17: { symbol: "∓", label: "Moderate advantage", classKey: "theory" },
-  18: { symbol: "+-", label: "Decisive advantage", classKey: "theory" },
-  20: { symbol: "+-", label: "Decisive advantage", classKey: "theory" },
-  19: { symbol: "-+", label: "Decisive advantage", classKey: "theory" },
-  21: { symbol: "-+", label: "Decisive advantage", classKey: "theory" },
-  22: { symbol: "⨀", label: "Zugzwang", classKey: "theory" },
-  23: { symbol: "⨀", label: "Zugzwang", classKey: "theory" },
-  26: { symbol: "○", label: "Space", classKey: "theory" },
-  27: { symbol: "○", label: "Space", classKey: "theory" },
-  32: { symbol: "⟳", label: "Development", classKey: "theory" },
-  33: { symbol: "⟳", label: "Development", classKey: "theory" },
-  36: { symbol: "↑", label: "Initiative" },
-  37: { symbol: "↑", label: "Initiative" },
-  40: { symbol: "→", label: "Attack" },
-  41: { symbol: "→", label: "Attack" },
-  44: { symbol: "⯹", label: "Compensation" },
-  45: { symbol: "⯹", label: "Compensation" },
-  130: { symbol: "⇆", label: "Counterplay" },
-  131: { symbol: "⇆", label: "Counterplay" },
-  136: { symbol: "⨁", label: "Time trouble" },
-  137: { symbol: "⨁", label: "Time trouble" },
-  146: { symbol: "N", label: "Novelty" }
+  1: { symbol: "!", label: "Good Move", classKey: "good", svg: "annotation_good.svg" },
+  2: { symbol: "?", label: "Mistake", classKey: "mistake", svg: "annotation_mistake.svg" },
+  3: { symbol: "!!", label: "Brilliant Move", classKey: "brilliant", svg: "annotation_brilliant.svg" },
+  4: { symbol: "??", label: "Blunder", classKey: "blunder", svg: "annotation_blunder.svg" },
+  5: { symbol: "!?", label: "Interesting", classKey: "excellent", svg: "annotation_interesting.svg" },
+  6: { symbol: "?!", label: "Dubious Move", classKey: "inaccuracy", svg: "annotation_dubious.svg" },
+  7: { symbol: "□", label: "Forced", classKey: "best", svg: "annotation_forced.svg" },
+  10: { symbol: "=", label: "Balanced", classKey: "theory", svg: "annotation_balanced.svg" },
+  11: { symbol: "=", label: "Balanced", classKey: "theory", svg: "annotation_balanced.svg" },
+  12: { symbol: "=", label: "Balanced", classKey: "theory", svg: "annotation_balanced.svg" },
+  13: { symbol: "∞", label: "Unclear", classKey: "theory", svg: "annotation_unclear.svg" },
+  14: { symbol: "⩲", label: "Slight advantage", classKey: "theory", svg: "annotation_white_slight_advantage.svg" },
+  15: { symbol: "⩱", label: "Slight advantage", classKey: "theory", svg: "annotation_black_slight_advantage.svg" },
+  16: { symbol: "±", label: "Moderate advantage", classKey: "theory", svg: "annotation_white_moderate_advantage.svg" },
+  17: { symbol: "∓", label: "Moderate advantage", classKey: "theory", svg: "annotation_black_moderate_advantage.svg" },
+  18: { symbol: "+-", label: "Decisive advantage", classKey: "theory", svg: "annotation_white_decisive_advantage.svg" },
+  20: { symbol: "+-", label: "Decisive advantage", classKey: "theory", svg: "annotation_white_decisive_advantage.svg" },
+  19: { symbol: "-+", label: "Decisive advantage", classKey: "theory", svg: "annotation_black_decisive_advantage.svg" },
+  21: { symbol: "-+", label: "Decisive advantage", classKey: "theory", svg: "annotation_black_decisive_advantage.svg" },
+  22: { symbol: "⨀", label: "Zugzwang", classKey: "theory", svg: "annotation_zugzwang.svg" },
+  23: { symbol: "⨀", label: "Zugzwang", classKey: "theory", svg: "annotation_zugzwang.svg" },
+  26: { symbol: "○", label: "Space", classKey: "theory", svg: "annotation_space.svg" },
+  27: { symbol: "○", label: "Space", classKey: "theory", svg: "annotation_space.svg" },
+  32: { symbol: "⟳", label: "Development", classKey: "theory", svg: "annotation_development.svg" },
+  33: { symbol: "⟳", label: "Development", classKey: "theory", svg: "annotation_development.svg" },
+  36: { symbol: "↑", label: "Initiative", svg: "annotation_initiative.svg" },
+  37: { symbol: "↑", label: "Initiative", svg: "annotation_initiative.svg" },
+  40: { symbol: "→", label: "Attack", svg: "annotation_attack.svg" },
+  41: { symbol: "→", label: "Attack", svg: "annotation_attack.svg" },
+  44: { symbol: "⯹", label: "Compensation", svg: "annotation_compensation.svg" },
+  45: { symbol: "⯹", label: "Compensation", svg: "annotation_compensation.svg" },
+  130: { symbol: "⇆", label: "Counterplay", svg: "annotation_counterplay.svg" },
+  131: { symbol: "⇆", label: "Counterplay", svg: "annotation_counterplay.svg" },
+  136: { symbol: "⨁", label: "Time trouble", svg: "annotation_time_trouble.svg" },
+  137: { symbol: "⨁", label: "Time trouble", svg: "annotation_time_trouble.svg" },
+  146: { symbol: "N", label: "Novelty", svg: "annotation_novelty.svg" }
 };
 
 export function getMateMoves(plies, color) {
@@ -415,13 +415,13 @@ function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setR
     if (annotationObj) {
       badgeToRender = {
         symbol: annotationObj.symbol,
-        css: 'badge-annotation',
+        svg: annotationObj.svg,
         label: annotationObj.label
       };
     } else if (meta) {
       badgeToRender = {
         symbol: meta.symbol,
-        css: meta.css,
+        svg: meta.svg,
         label: meta.label
       };
     }
@@ -429,13 +429,13 @@ function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setR
     if (meta) {
       badgeToRender = {
         symbol: meta.symbol,
-        css: meta.css,
+        svg: meta.svg,
         label: meta.label
       };
     } else if (annotationObj) {
       badgeToRender = {
         symbol: annotationObj.symbol,
-        css: 'badge-annotation',
+        svg: annotationObj.svg,
         label: annotationObj.label
       };
     }
@@ -448,10 +448,14 @@ function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setR
   cell.id = `${type}-move-item-${index}`;
 
   if (badgeToRender) {
-    const badge = document.createElement('span');
-    badge.className = `move-badge ${badgeToRender.css}`;
-    badge.textContent = badgeToRender.symbol;
+    const badge = document.createElement('img');
+    badge.className = 'move-badge';
+    badge.src = `assets/markers/${badgeToRender.svg}`;
     badge.title = badgeToRender.label;
+    badge.alt = badgeToRender.symbol;
+    if (badgeToRender.svg && badgeToRender.svg.startsWith('annotation_') && m.color === 'white') {
+      badge.style.filter = 'invert(1)';
+    }
     cell.appendChild(badge);
   } else if (liveReviewEnabled && (m.classification === null || m.classification === undefined)) {
     // Unclassified yet (waiting for engine)
@@ -530,7 +534,7 @@ export function renderScorecard(accuracy, depthUsed = null) {
       return `
         <div class="flex justify-between items-center">
           <span class="flex items-center gap-2">
-            <span class="move-badge ${meta.css}">${meta.symbol}</span>
+            <img class="move-badge" src="assets/markers/${meta.svg}" title="${meta.label}" alt="${meta.symbol}" />
             ${meta.label}
           </span>
           <div class="flex justify-between items-center w-[56px] mr-1 text-[13px] font-bold">
@@ -556,7 +560,7 @@ export function renderAnnotationsScorecard(moves) {
         const nagObj = COMPREHENSIVE_NAG_MAP[nagCode];
         if (nagObj) {
           const key = `${nagObj.symbol}_${nagObj.label}`;
-          if (!counts[key]) counts[key] = { symbol: nagObj.symbol, label: nagObj.label, classKey: nagObj.classKey, white: 0, black: 0 };
+          if (!counts[key]) counts[key] = { symbol: nagObj.symbol, label: nagObj.label, classKey: nagObj.classKey, svg: nagObj.svg, white: 0, black: 0 };
           counts[key][m.color]++;
         }
       }
@@ -577,12 +581,12 @@ export function renderAnnotationsScorecard(moves) {
     const bCount = data.black;
     const nagStr = data.symbol;
     const label = data.label;
-    const classKey = data.classKey || 'theory';
+    const svgFile = data.svg || 'annotation_balanced.svg';
     return `
       <div class="flex justify-between items-center">
         <span class="flex items-center gap-2">
           <div class="flex gap-1">
-            <span class="move-badge badge-annotation font-bold">${nagStr}</span>
+            <img class="move-badge" src="assets/markers/${svgFile}" title="${label}" alt="${nagStr}" />
           </div>
           <span class="text-[13px] truncate" title="${label}">${label}</span>
         </span>
@@ -623,9 +627,10 @@ function _renderSideAccuracy(side, data) {
         const badgeClass = data.phases[phase];
         if (badgeClass && CLASS_META[badgeClass]) {
           const meta = CLASS_META[badgeClass];
-          badgeEl.textContent = meta.symbol;
-          badgeEl.removeAttribute('style');
-          badgeEl.className = `move-badge ${meta.css}`;
+          badgeEl.innerHTML = `<img class="move-badge" src="assets/markers/${meta.svg}" title="${meta.label}" alt="${meta.symbol}" />`;
+          badgeEl.style.border = 'none';
+          badgeEl.style.background = 'transparent';
+          badgeEl.className = 'move-badge';
         } else {
           badgeEl.textContent = "—";
           badgeEl.removeAttribute('style');
