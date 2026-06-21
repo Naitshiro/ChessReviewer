@@ -69,12 +69,15 @@ def game_accuracy(deltas: list[float]) -> float:
         else:
             move_accs.append(0.0)
             
-    # Harsher penalty for games with many bad moves: square the average, or apply an exponent.
+    # Harsher penalty for games with many bad moves: apply a dynamic exponent based on error counts.
     avg_acc = sum(move_accs) / len(move_accs)
-    # Applying an exponent pulls lower scores down significantly while keeping high scores high.
-    # 0.99 ^ 2 = 0.98. 0.80 ^ 2 = 0.64.
+    
+    num_major = sum(1 for d in deltas if d >= 0.20)
+    num_minor = sum(1 for d in deltas if 0.10 <= d < 0.20)
+    exponent = 1.04 + 0.192 * num_major + 0.06 * num_minor
+
     normalized = (avg_acc / 100.0)
-    final_acc = (normalized ** 1.5) * 100.0
+    final_acc = (normalized ** exponent) * 100.0
     return max(0.0, min(100.0, final_acc))
 
 
@@ -245,7 +248,9 @@ def classify_move(
         delta = 0.0
         
     # Brilliant check first so that a brilliant theory move gets the 'brilliant' badge
-    if (sacrificed and p_played >= 0.45 and (cp_best - cp_played) <= 50.0):
+    # But only if we are not continuing an already existing winning mating sequence.
+    is_continuing_mate = (mate_best is not None and mate_best > 0)
+    if not is_continuing_mate and (sacrificed and p_played >= 0.45 and (cp_best - cp_played) <= 50.0):
         return "brilliant"
 
     if is_book:
@@ -265,25 +270,25 @@ def classify_move(
             if mate_best > 0 and mate_played > 0:
                 # We had mate, and we still have mate.
                 # A perfect move reduces the mate distance by exactly 1 move.
-                if mate_played <= mate_best - 1:
+                optimal_mate = mate_best - 1
+                diff = mate_played - optimal_mate
+                if diff <= 0:
                     return "best"
-                elif mate_played == mate_best:
+                elif 1 <= diff <= 7:
                     return "excellent"
-                elif mate_played == mate_best + 1:
-                    return "good"
                 else:
-                    return "inaccuracy"
+                    return "good"
             elif mate_best < 0 and mate_played < 0:
                 # We are getting mated.
                 # Closer to 0 means a faster mate for the opponent (worse for us).
-                if mate_played <= mate_best:
+                optimal_defense = mate_best + 1
+                diff = mate_played - optimal_defense
+                if diff <= 0:
                     return "best"
-                elif mate_played == mate_best + 1:
+                elif 1 <= diff <= 7:
                     return "excellent"
-                elif mate_played == mate_best + 2:
-                    return "good"
                 else:
-                    return "inaccuracy"
+                    return "good"
             elif mate_best > 0 and mate_played < 0:
                 # We had forced mate, but blundered into getting mated.
                 return "blunder"
@@ -366,20 +371,15 @@ def cp_from_score(score: Optional["chess.engine.Score"], mate_score: int = 10000
     return float(cp)
 
 
-def get_mate_moves(plies: Optional[int], color: chess.Color) -> Optional[int]:
+def get_mate_moves(score_mate: Optional[int], color: chess.Color) -> Optional[int]:
     """
-    Convert raw plies to mate (from White's perspective) into the number of full MOVES
+    Convert score_mate (from White's perspective, in moves) into the number of full MOVES
     to mate from the perspective of the given color.
     Positive means `color` is delivering mate. Negative means `color` is getting mated.
     """
-    if plies is None:
+    if score_mate is None:
         return None
-    rel_plies = plies if color == chess.WHITE else -plies
-    if rel_plies > 0:
-        return math.ceil(rel_plies / 2.0)
-    elif rel_plies < 0:
-        return -math.ceil(abs(rel_plies) / 2.0)
-    return 0
+    return score_mate if color == chess.WHITE else -score_mate
 
 
 def accuracy_to_rating(accuracy: float) -> int:

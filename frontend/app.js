@@ -52,6 +52,7 @@ const state = {
   },
 
   overlayPriority: 'classification', // 'classification' or 'annotation'
+  avatarCache: {},                   // username -> avatarUrl
 
   review: {
     currentIndex: -1,   // -1 = at initial position, 0 = after first move
@@ -71,6 +72,7 @@ const state = {
     intervalId: null,
     isPlaying: false,
   },
+  chesscomGames: [],
 };
 
 // ── DOM References ──────────────────────────────────────────────────────
@@ -148,6 +150,17 @@ const el = {
   bottomPlayerElo: document.getElementById('bottom-player-elo'),
   bottomPlayerTitle: document.getElementById('bottom-player-title'),
   bottomPlayerAvatar: document.getElementById('bottom-player-avatar'),
+
+  // Chess.com elements
+  chesscomUsername: document.getElementById('chesscom-username'),
+  chesscomFetchBtn: document.getElementById('chesscom-fetch-btn'),
+  chesscomSpinner: document.getElementById('chesscom-spinner'),
+  chesscomGamesList: document.getElementById('chesscom-games-list'),
+
+  // FEN elements
+  fenInput: document.getElementById('fen-input'),
+  fenLoadBtn: document.getElementById('fen-load-btn'),
+  fenSpinner: document.getElementById('fen-spinner'),
 };
 
 // ── Board ───────────────────────────────────────────────────────────────
@@ -228,9 +241,15 @@ function _bindControls() {
   el.importBtn?.addEventListener('click', importPgn);
   el.analyzeBtn?.addEventListener('click', submitAnalysis);
 
-  // PGN input — submit on Ctrl+Enter
+  // PGN input — submit on Ctrl+Enter, dynamic analysis button state
   el.pgnInput?.addEventListener('keydown', e => {
     if (e.ctrlKey && e.key === 'Enter') importPgn();
+  });
+  el.pgnInput?.addEventListener('input', () => {
+    const val = el.pgnInput.value.trim();
+    if (el.analyzeBtn) {
+      el.analyzeBtn.disabled = !val || isValidFen(val);
+    }
   });
 
   // Navigation buttons
@@ -400,6 +419,24 @@ function _bindControls() {
       localStorage.setItem('chess_theme', theme);
       showToast(`Chessboard theme changed to ${theme}`, 'success');
     });
+  });
+
+  // Chess.com Loader bindings
+  el.chesscomFetchBtn?.addEventListener('click', fetchChesscomGames);
+  el.chesscomUsername?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') fetchChesscomGames();
+  });
+  el.chesscomGamesList?.addEventListener('click', e => {
+    const card = e.target.closest('.chesscom-game-card');
+    if (!card) return;
+    const index = parseInt(card.dataset.index, 10);
+    selectChesscomGame(index);
+  });
+
+  // FEN Loader bindings
+  el.fenLoadBtn?.addEventListener('click', loadFen);
+  el.fenInput?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') loadFen();
   });
 }
 
@@ -584,11 +621,77 @@ function _triggerMoveListRender() {
   }
 }
 
+function isValidFen(fen) {
+  if (!fen) return false;
+  try {
+    new Chess(fen);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function loadFen() {
+  stopAutoplay();
+  const fen = el.fenInput?.value?.trim();
+  if (!fen) {
+    showToast('Please enter a FEN string.', 'error');
+    return;
+  }
+
+  if (!isValidFen(fen)) {
+    showToast('Invalid FEN string.', 'error');
+    return;
+  }
+
+  if (el.fenLoadBtn) el.fenLoadBtn.disabled = true;
+  if (el.fenSpinner) el.fenSpinner.classList.remove('hidden');
+
+  try {
+    const data = {
+      metadata: {
+        event: 'Custom Position',
+        site: 'Local',
+        date: new Date().toISOString().split('T')[0],
+        round: '?',
+        white: 'Custom Position',
+        black: 'Custom Position',
+        result: '*',
+        white_elo: '',
+        black_elo: '',
+        white_title: '',
+        black_title: '',
+        depth_used: 0
+      },
+      moves: [],
+      accuracy: {
+        white: 100,
+        black: 100
+      },
+      initial_fen: fen
+    };
+    _loadGameAnalysis(data);
+    showToast('FEN Position Loaded!', 'success');
+    _switchTab('moves');
+  } catch (e) {
+    showToast(`Failed to load FEN: ${e.message}`, 'error');
+    console.error(e);
+  } finally {
+    if (el.fenLoadBtn) el.fenLoadBtn.disabled = false;
+    if (el.fenSpinner) el.fenSpinner.classList.add('hidden');
+  }
+}
+
 async function importPgn() {
   stopAutoplay();
   const pgn = el.pgnInput?.value?.trim();
   if (!pgn) {
     showToast('Please paste a PGN or list of moves.', 'error');
+    return;
+  }
+
+  if (isValidFen(pgn)) {
+    showToast('This is a FEN string. Please use the FEN Position field below to load custom positions.', 'warning', 6000);
     return;
   }
 
@@ -634,6 +737,11 @@ async function submitAnalysis() {
   const pgn = el.pgnInput?.value?.trim();
   if (!pgn) {
     showToast('Please paste a PGN or list of moves.', 'error');
+    return;
+  }
+
+  if (isValidFen(pgn)) {
+    showToast('Batch analysis is not supported for static FEN positions. Use the FEN field to load the position, and then use the Live Engine.', 'warning', 6000);
     return;
   }
 
@@ -788,17 +896,49 @@ function _updatePlayerCards() {
     bottom = { name: blackName, elo: blackElo, title: blackTitle, color: 'black' };
   }
 
-  const renderAvatar = (el, color) => {
+  const renderAvatar = (el, playerUsername, color) => {
     if (!el) return;
-    if (color === 'white') {
-      el.className = 'player-avatar white-avatar';
-    } else {
-      el.className = 'player-avatar black-avatar';
+    el.className = color === 'white' ? 'player-avatar white-avatar' : 'player-avatar black-avatar';
+    el.style.backgroundImage = 'none';
+    el.textContent = '♚';
+
+    const rawUsername = (playerUsername || '').trim();
+    if (!rawUsername || rawUsername === 'White' || rawUsername === 'Black' || rawUsername === '?' || rawUsername.includes(' ')) {
+      return;
     }
+
+    const cacheKey = rawUsername.toLowerCase();
+    if (state.avatarCache[cacheKey] !== undefined) {
+      const avatarUrl = state.avatarCache[cacheKey];
+      if (avatarUrl) {
+        el.style.backgroundImage = `url(${avatarUrl})`;
+        el.style.backgroundSize = 'cover';
+        el.style.backgroundPosition = 'center';
+        el.textContent = '';
+      }
+      return;
+    }
+
+    state.avatarCache[cacheKey] = null; // Mark as pending
+
+    fetch(`https://api.chess.com/pub/player/${encodeURIComponent(rawUsername)}`)
+      .then(res => {
+        if (!res.ok) throw new Error("Not found");
+        return res.json();
+      })
+      .then(data => {
+        if (data.avatar) {
+          state.avatarCache[cacheKey] = data.avatar;
+          _updatePlayerCards(); // Refresh display
+        }
+      })
+      .catch(err => {
+        console.warn(`Failed to fetch Chess.com avatar for ${rawUsername}:`, err);
+      });
   };
 
-  renderAvatar(el.topPlayerAvatar, top.color);
-  renderAvatar(el.bottomPlayerAvatar, bottom.color);
+  renderAvatar(el.topPlayerAvatar, top.name, top.color);
+  renderAvatar(el.bottomPlayerAvatar, bottom.name, bottom.color);
 
   if (el.topPlayerName) el.topPlayerName.textContent = top.name;
   if (el.topPlayerElo) el.topPlayerElo.textContent = top.elo;
@@ -1144,14 +1284,13 @@ function _handleBoardMove(from, to, promotion) {
     const cpSecond = (state.liveEngineEnabled && state.analysis.latestLines?.[1])
       ? (state.analysis.latestLines[1].score_cp || cpBest)
       : cpBest;
+    const mateBestPlies = (state.liveEngineEnabled && state.analysis.latestLines?.[0])
+      ? state.analysis.latestLines[0].score_mate
+      : (idx + 1 < state.game.moves.length ? state.game.moves[idx + 1].score_mate : null);
 
     _enterAnalysisMode(fen, idx);
     state.analysis.chess.move(moveResult.san);
     board.setPosition(newFen, false);
-
-    const mateBestPlies = (state.liveEngineEnabled && state.analysis.latestLines?.[0])
-      ? state.analysis.latestLines[0].score_mate
-      : (idx + 1 < state.game.moves.length ? state.game.moves[idx + 1].score_mate : null);
 
     const mateBestMoves = getMateMoves(mateBestPlies, moveResult.color === 'w' ? 'white' : 'black');
 
@@ -1785,6 +1924,122 @@ function _uciPvToSan(fen, uciMoves) {
     return sanMoves.join(' ');
   } catch (e) {
     return uciMoves.join(' ');
+  }
+}
+
+// ── Chess.com Game Loading ──────────────────────────────────
+
+async function fetchChesscomGames() {
+  const username = el.chesscomUsername?.value?.trim();
+  if (!username) {
+    showToast('Please enter a Chess.com username.', 'error');
+    return;
+  }
+
+  // Show spinner, disable buttons
+  if (el.chesscomFetchBtn) el.chesscomFetchBtn.disabled = true;
+  if (el.chesscomSpinner) el.chesscomSpinner.classList.remove('hidden');
+
+  try {
+    const res = await fetch(`${API_BASE}/api/chesscom/games?username=${encodeURIComponent(username)}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+      throw new Error(err.detail || 'Failed to fetch games.');
+    }
+    const data = await res.json();
+    if (data.status !== 'ok' || !data.games) {
+      throw new Error('Invalid response format.');
+    }
+    state.chesscomGames = data.games;
+    renderChesscomGames(data.games, username);
+    if (data.games.length === 0) {
+      showToast('No recent games found for this user in their latest active month.', 'info');
+    } else {
+      showToast(`Loaded ${data.games.length} Chess.com games.`, 'success');
+    }
+  } catch (e) {
+    showToast(`Failed to fetch Chess.com games: ${e.message}`, 'error', 6000);
+    console.error(e);
+  } finally {
+    if (el.chesscomFetchBtn) el.chesscomFetchBtn.disabled = false;
+    if (el.chesscomSpinner) el.chesscomSpinner.classList.add('hidden');
+  }
+}
+
+function renderChesscomGames(games, username) {
+  if (!el.chesscomGamesList) return;
+
+  if (games.length === 0) {
+    el.chesscomGamesList.innerHTML = '<div class="text-[11px] text-[var(--text-muted)] italic text-center py-2">No games found.</div>';
+    el.chesscomGamesList.classList.remove('hidden');
+    return;
+  }
+
+  const getGameOutcome = (game, user) => {
+    const isWhite = game.white.username.toLowerCase() === user.toLowerCase();
+    const player = isWhite ? game.white : game.black;
+    const opponent = isWhite ? game.black : game.white;
+    const drawResults = ['draw', 'stalemate', 'repetition', 'insufficient', 'agreed', '50moves', 'time-vs-insufficient'];
+    if (player.result === 'win') return 'W';
+    if (drawResults.includes(player.result) || drawResults.includes(opponent.result)) return 'D';
+    return 'L';
+  };
+
+  const outcomeClasses = {
+    'W': 'bg-[var(--accent-green)] text-white',
+    'L': 'bg-[var(--accent-red)] text-white',
+    'D': 'bg-[#6b6966] text-white'
+  };
+
+  let html = '';
+  games.forEach((game, index) => {
+    const isWhite = game.white.username.toLowerCase() === username.toLowerCase();
+    const userColor = isWhite ? 'White' : 'Black';
+    const opponent = isWhite ? game.black : game.white;
+    const outcome = getGameOutcome(game, username);
+    const outcomeClass = outcomeClasses[outcome] || 'bg-neutral-600 text-white';
+
+    const dateObj = new Date(game.end_time * 1000);
+    const formattedDate = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const ratedText = game.rated ? '<span class="text-[var(--text-muted)]">•</span><span class="text-[var(--accent-theory)] font-semibold">Rated</span>' : '';
+    const timeControlText = game.time_class || 'Blitz';
+
+    html += `
+      <div class="chesscom-game-card p-2.5 rounded bg-[var(--bg-secondary)] border border-[var(--border)] hover:bg-[var(--bg-card-hover)] hover:border-[var(--border-light)] transition-all cursor-pointer flex items-center justify-between gap-3 text-xs" data-index="${index}">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <span class="w-6 h-6 flex items-center justify-center font-bold rounded text-[11px] shrink-0 ${outcomeClass}">
+            ${outcome}
+          </span>
+          <div class="flex flex-col min-w-0">
+            <div class="font-medium text-[var(--text-primary)] truncate">
+              vs <span class="font-bold text-[var(--accent-green-hover)]">${opponent.username}</span> <span class="text-[var(--text-muted)]">(${opponent.rating})</span>
+            </div>
+            <div class="text-[10px] text-[var(--text-secondary)] flex items-center gap-1.5 mt-0.5">
+              <span class="capitalize">${timeControlText}</span>
+              <span class="text-[var(--text-muted)]">•</span>
+              <span>as ${userColor}</span>
+              ${ratedText}
+            </div>
+          </div>
+        </div>
+        <div class="text-[10px] text-[var(--text-muted)] font-mono shrink-0">
+          ${formattedDate}
+        </div>
+      </div>
+    `;
+  });
+
+  el.chesscomGamesList.innerHTML = html;
+  el.chesscomGamesList.classList.remove('hidden');
+}
+
+function selectChesscomGame(index) {
+  const game = state.chesscomGames[index];
+  if (!game) return;
+  if (el.pgnInput) {
+    el.pgnInput.value = game.pgn;
+    if (el.analyzeBtn) el.analyzeBtn.disabled = false;
+    showToast('Chess.com game PGN loaded into input!', 'success');
   }
 }
 

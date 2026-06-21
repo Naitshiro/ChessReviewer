@@ -71,12 +71,9 @@ export const COMPREHENSIVE_NAG_MAP = {
   146: { symbol: "N", label: "Novelty", svg: "annotation_novelty.svg" }
 };
 
-export function getMateMoves(plies, color) {
-  if (plies === null || plies === undefined) return null;
-  const relPlies = color === 'white' ? plies : -plies;
-  if (relPlies > 0) return Math.ceil(relPlies / 2.0);
-  if (relPlies < 0) return -Math.ceil(Math.abs(relPlies) / 2.0);
-  return 0;
+export function getMateMoves(scoreMate, color) {
+  if (scoreMate === null || scoreMate === undefined) return null;
+  return color === 'white' ? scoreMate : -scoreMate;
 }
 
 // ── Evaluation Bar ──────────────────────────────────────────────────────

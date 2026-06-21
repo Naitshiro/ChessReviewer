@@ -33,6 +33,7 @@ from .engine import EngineManager, parse_pgn_game
 from .config import ANALYSIS_DEPTH
 from .openings import is_book_sequence
 from .analysis import classify_move, is_sacrifice, win_prob
+from .chesscom import fetch_chesscom_games
 
 logging.basicConfig(
     level=logging.INFO,
@@ -248,6 +249,19 @@ async def analyze(req: AnalyzeRequest):
             yield json.dumps({"type": "error", "detail": f"Analysis failed: {str(e)}"}) + "\n"
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+@app.get("/api/chesscom/games")
+async def get_chesscom_games(username: str):
+    """Fetch the latest 15 games for a Chess.com user."""
+    try:
+        games = await asyncio.to_thread(fetch_chesscom_games, username.strip())
+        return {"status": "ok", "games": games}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Error in /api/chesscom/games")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ---------------------------------------------------------------------------

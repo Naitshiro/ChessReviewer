@@ -348,13 +348,15 @@
 
             <div class="flex-1 overflow-y-auto min-h-0">
               <!-- ── Import Panel ──────────────────────────────────── -->
-              <div id="panel-import" class="p-3 flex flex-col gap-4 h-full justify-between">
-                <div class="flex flex-col gap-3 flex-1">
+              <div id="panel-import" class="p-3 flex flex-col gap-5">
+                
+                <!-- Section 1: Import PGN / Moves -->
+                <div class="flex flex-col gap-3">
                   <div class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Import PGN or Moves</div>
                   <textarea
                     id="pgn-input"
-                    placeholder="Paste PGN here… e.g. 1. e4 e5 2. Nf3 Nc6 3. Bb5 or a list of moves"
-                    class="flex-1 min-h-[140px] resize-none"
+                    placeholder="Paste PGN here… e.g. 1. e4 e5 2. Nf3 Nc6"
+                    class="min-h-[100px] resize-none"
                   ></textarea>
                   
                   <div class="flex items-center justify-between gap-2 text-xs text-[var(--text-muted)] mt-1">
@@ -362,18 +364,16 @@
                     <input id="depth-slider" type="range" min="8" max="30" value="18" class="flex-1" />
                     <span id="depth-value" class="font-mono w-4 text-right text-[var(--text-primary)]">18</span>
                   </div>
-                </div>
 
-                <div class="shrink-0 flex flex-col gap-2.5 pt-2 border-t border-[var(--border)]">
-                  <div class="flex gap-2">
-                    <button id="import-btn" class="btn-secondary flex-1 justify-center px-2 py-2.5 text-sm">
+                  <div class="flex gap-2 mt-1">
+                    <button id="import-btn" class="btn-secondary flex-1 justify-center px-2 py-2 text-xs">
                       <span id="import-spinner" class="spinner hidden"></span>
-                      <span>Import Only</span>
+                      <span>Import PGN</span>
                     </button>
-                    <button id="analyze-btn" class="btn-primary btn-cta-pulse flex-1 justify-center px-2 py-2.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <button id="analyze-btn" class="btn-primary btn-cta-pulse flex-1 justify-center px-2 py-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                       <span id="loading-spinner" class="spinner hidden"></span>
-                      <span id="analyze-btn-text">Analyze</span>
-                      <svg id="analyze-btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <span id="analyze-btn-text">Analyze PGN</span>
+                      <svg id="analyze-btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                         <path d="M5 12h14M12 5l7 7-7 7"/>
                       </svg>
                     </button>
@@ -390,6 +390,44 @@
                     </div>
                   </div>
                 </div>
+
+                <!-- Section 2: Load FEN Position -->
+                <div class="border-t border-[var(--border)] pt-3 flex flex-col gap-3">
+                  <div class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Load FEN Position</div>
+                  <div class="flex gap-2">
+                    <input
+                      id="fen-input"
+                      type="text"
+                      placeholder="Paste FEN here… e.g. 8/8/8/8/4k3/8/8/4K3 w - - 0 1"
+                      class="flex-1 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2.5 py-1.5 text-xs text-[var(--text-primary)] outline-none placeholder-[var(--text-muted)] focus:border-[var(--accent-green)] transition-all"
+                    />
+                    <button id="fen-load-btn" class="btn-secondary px-3 py-1.5 text-xs flex items-center justify-center gap-1.5 shrink-0">
+                      <span id="fen-spinner" class="spinner hidden"></span>
+                      <span>Load FEN</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Section 3: Load from Chess.com -->
+                <div class="border-t border-[var(--border)] pt-3 flex flex-col gap-3">
+                  <div class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Load from Chess.com</div>
+                  <div class="flex gap-2">
+                    <input
+                      id="chesscom-username"
+                      type="text"
+                      placeholder="Chess.com Username"
+                      class="flex-1 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2.5 py-1.5 text-xs text-[var(--text-primary)] outline-none placeholder-[var(--text-muted)] focus:border-[var(--accent-green)] transition-all"
+                    />
+                    <button id="chesscom-fetch-btn" class="btn-secondary px-3 py-1.5 text-xs flex items-center justify-center gap-1.5 shrink-0">
+                      <span id="chesscom-spinner" class="spinner hidden"></span>
+                      <span>Fetch Games</span>
+                    </button>
+                  </div>
+                  <div id="chesscom-games-list" class="max-h-[160px] overflow-y-auto flex flex-col gap-1.5 mt-1 hidden">
+                    <!-- Chess.com game cards will be injected here -->
+                  </div>
+                </div>
+
               </div>
 
               <!-- ── Summary Panel ─────────────────────────────────── -->
@@ -842,7 +880,7 @@
   <!-- ═══════════════════════════════════════════════════════════════════
        MAIN APP (ES Module)
   ══════════════════════════════════════════════════════════════════════ -->
-  <script type="module" src="app.js?v=9"></script>
+  <script type="module" src="app.js?v=10"></script>
 
 </body>
 </html>
