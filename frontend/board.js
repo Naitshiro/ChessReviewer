@@ -48,9 +48,11 @@ const CLASSIFICATION_MARKERS = {
   good:       { class: 'marker-good',       slice: 'markerSquare' },
   inaccuracy: { class: 'marker-inaccuracy', slice: 'markerSquare' },
   mistake:    { class: 'marker-mistake',    slice: 'markerSquare' },
-  miss:       { class: 'marker-miss',       slice: 'markerSquare' },
   blunder:    { class: 'marker-blunder',    slice: 'markerSquare' },
   theory:     { class: 'marker-theory',     slice: 'markerSquare' },
+  winner:     { class: 'marker-winner',     slice: 'markerSquare' },
+  loser:      { class: 'marker-loser',      slice: 'markerSquare' },
+  draw:       { class: 'marker-draw',       slice: 'markerSquare' },
 };
 
 const ANNOTATION_MARKERS = {
@@ -70,7 +72,7 @@ export class BoardManager {
     this._interactive = false;
     this._orientation = COLOR.white;
     this._currentFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-    this._activeBadge = null; // { square, text, type, color }
+    this._activeBadges = []; // Array of { square, text, type, color }
   }
 
   /**
@@ -222,16 +224,70 @@ export class BoardManager {
 
   // ── Classification Badges ─────────────────────────────────────────────
 
-  showClassificationBadge(square, text, type = 'classification', moveColor = 'white') {
-    // Keep track of active badge state
-    this._activeBadge = { square, text, type, color: moveColor };
+  showClassificationBadges(badges) {
+    // badges is an array of { square, text, type, color }
+    this._activeBadges = badges;
+    this._renderActiveBadges();
+  }
 
-    // Find wrapper (must be relative positioned)
+  showClassificationBadge(square, text, type = 'classification', moveColor = 'white') {
+    this.showClassificationBadges([{ square, text, type, color: moveColor }]);
+  }
+
+  addOutcomeBadges(outcomeBadges) {
+    const formatted = outcomeBadges.map(ob => ({
+      square: ob.square,
+      text: ob.text,
+      type: 'outcome',
+      color: 'white'
+    }));
+    this._activeBadges = (this._activeBadges || []).concat(formatted);
+    this._renderActiveBadges();
+  }
+
+  addOutcomeMarkers(outcome, wKing, bKing) {
+    if (!this._board) return;
+    if (outcome === '1-0') {
+      if (wKing) this._board.addMarker(CLASSIFICATION_MARKERS.winner, wKing);
+      if (bKing) this._board.addMarker(CLASSIFICATION_MARKERS.loser, bKing);
+      this.addOutcomeBadges([
+        { square: wKing, text: 'winner' },
+        { square: bKing, text: 'loser' }
+      ]);
+    } else if (outcome === '0-1') {
+      if (wKing) this._board.addMarker(CLASSIFICATION_MARKERS.loser, wKing);
+      if (bKing) this._board.addMarker(CLASSIFICATION_MARKERS.winner, bKing);
+      this.addOutcomeBadges([
+        { square: wKing, text: 'loser' },
+        { square: bKing, text: 'winner' }
+      ]);
+    } else if (outcome === '1/2-1/2' || outcome === 'draw' || outcome === 'D') {
+      if (wKing) this._board.addMarker(CLASSIFICATION_MARKERS.draw, wKing);
+      if (bKing) this._board.addMarker(CLASSIFICATION_MARKERS.draw, bKing);
+      this.addOutcomeBadges([
+        { square: wKing, text: 'draw' },
+        { square: bKing, text: 'draw' }
+      ]);
+    }
+  }
+
+  clearClassificationBadge() {
+    this._activeBadges = [];
+    document.querySelectorAll('.board-class-badge').forEach(el => el.remove());
+  }
+
+  _redrawActiveBadge() {
+    this._renderActiveBadges();
+  }
+
+  _renderActiveBadges() {
     const wrapper = document.getElementById('board-wrapper');
     if (!wrapper) return;
 
-    // Remove any existing badge first
-    document.querySelectorAll('#board-class-badge').forEach(el => el.remove());
+    // Remove any existing badges first
+    document.querySelectorAll('.board-class-badge').forEach(el => el.remove());
+
+    if (!this._activeBadges || this._activeBadges.length === 0) return;
 
     const boardEl = document.getElementById(this._elementId);
     if (!boardEl) return;
@@ -240,63 +296,51 @@ export class BoardManager {
     const wrapperRect = wrapper.getBoundingClientRect();
 
     const squareSize = boardRect.width / 8;
-    const badgeSize = Math.max(26, Math.min(36, squareSize * 0.45)); // Responsive sizing (min 26px, max 36px)
+    const badgeSize = Math.max(26, Math.min(36, squareSize * 0.45));
 
-    // File (a-h -> 0-7) and Rank (1-8 -> 0-7)
-    const file = square.charCodeAt(0) - 97;
-    const rank = parseInt(square.charAt(1), 10) - 1;
+    for (const badgeData of this._activeBadges) {
+      const { square, text, type, color } = badgeData;
+      if (!square) continue;
 
-    let col = file;
-    let row = rank;
+      const file = square.charCodeAt(0) - 97;
+      const rank = parseInt(square.charAt(1), 10) - 1;
 
-    // Flip coordinates if board is black orientation
-    if (this._orientation === 'black' || this._orientation === COLOR.black) {
-      col = 7 - file;
-      row = rank;
-    } else {
-      col = file;
-      row = 7 - rank;
-    }
+      let col = file;
+      let row = rank;
 
-    // Coordinates relative to wrapper
-    const boardLeft = boardRect.left - wrapperRect.left;
-    const boardTop = boardRect.top - wrapperRect.top;
-
-    const x = boardLeft + col * squareSize + squareSize - (badgeSize / 2);
-    const y = boardTop + row * squareSize - (badgeSize / 2);
-
-    // Create DOM element
-    const badge = document.createElement('img');
-    badge.id = 'board-class-badge';
-    badge.style.width = `${badgeSize}px`;
-    badge.style.height = `${badgeSize}px`;
-    badge.style.left = `${x}px`;
-    badge.style.top = `${y}px`;
-    badge.className = 'board-class-badge';
-
-    if (type === 'classification') {
-      badge.src = `assets/markers/${text}.svg`;
-      badge.alt = text;
-    } else {
-      badge.src = `assets/markers/${text.svg}`;
-      badge.alt = text.label || text;
-      if (moveColor === 'white') {
-        badge.style.filter = 'invert(1)';
+      if (this._orientation === 'black' || this._orientation === COLOR.black) {
+        col = 7 - file;
+        row = rank;
+      } else {
+        col = file;
+        row = 7 - rank;
       }
-    }
 
-    wrapper.appendChild(badge);
-  }
+      const boardLeft = boardRect.left - wrapperRect.left;
+      const boardTop = boardRect.top - wrapperRect.top;
 
-  clearClassificationBadge() {
-    this._activeBadge = null;
-    document.querySelectorAll('#board-class-badge').forEach(el => el.remove());
-  }
+      const x = boardLeft + col * squareSize + squareSize - (badgeSize / 2);
+      const y = boardTop + row * squareSize - (badgeSize / 2);
 
-  _redrawActiveBadge() {
-    if (this._activeBadge) {
-      const { square, text, type, color } = this._activeBadge;
-      this.showClassificationBadge(square, text, type, color);
+      const badge = document.createElement('img');
+      badge.style.width = `${badgeSize}px`;
+      badge.style.height = `${badgeSize}px`;
+      badge.style.left = `${x}px`;
+      badge.style.top = `${y}px`;
+      badge.className = 'board-class-badge';
+
+      if (type === 'classification' || type === 'outcome') {
+        badge.src = `assets/markers/${text}.svg`;
+        badge.alt = text;
+      } else {
+        badge.src = `assets/markers/${text.svg}`;
+        badge.alt = text.label || text;
+        if (color === 'white') {
+          badge.style.filter = 'invert(1)';
+        }
+      }
+
+      wrapper.appendChild(badge);
     }
   }
 

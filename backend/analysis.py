@@ -243,6 +243,7 @@ def classify_move(
     Returns:
         Classification string.
     """
+
     # Force delta to 0.0 if the user played the exact move the engine recommended
     if is_engine_top_choice:
         delta = 0.0
@@ -321,9 +322,6 @@ def classify_move(
                 # We found a mate that the engine didn't see initially.
                 return "best"
 
-    # 2. Brilliant (!!): strict special case
-    # (Already handled at the top to override theory)
-
     # Great (!): only move that doesn't lose the advantage
     if (delta < 0.02
             and cp_best > 0.0
@@ -341,14 +339,9 @@ def classify_move(
         return "good"
     if delta < 0.10:
         return "inaccuracy"
+
     if delta < 0.20:
         return "mistake"
-    
-    # If delta >= 0.20, it's a major error.
-    # Miss: Missed opportunity
-    # It's a Miss if the player missed the *only* good move (reverse of Great move check)
-    if cp_best > 0.0 and cp_second <= 0.0:
-        return "miss"
         
     return "blunder"
 
@@ -435,7 +428,7 @@ def build_accuracy_report(
         }
     """
     labels = ["brilliant", "great", "best", "excellent", "good",
-              "theory", "inaccuracy", "mistake", "miss", "blunder"]
+              "theory", "inaccuracy", "mistake", "blunder"]
 
     def _side_report(color: bool) -> dict:
         records = [r for r in move_records if r["color"] == color]

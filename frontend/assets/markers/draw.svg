@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 18 19">
+  <g id="draw">
+    <path class="icon-shadow" opacity="0.3" d="M9,.5a9,9,0,1,0,9,9A9,9,0,0,0,9,.5Z"></path>
+    <path class="icon-background" fill="#7E8F9F" d="M9,0a9,9,0,1,0,9,9A9,9,0,0,0,9,0Z"></path>
+    
+    <!-- Text Shadow (offset slightly down for drop shadow effect) -->
+    <text x="9" y="9.5" 
+          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" 
+          font-size="11.5" 
+          font-weight="bold" 
+          fill="#000" 
+          opacity="0.25"
+          dominant-baseline="central"
+          text-anchor="middle">½</text>
+          
+    <!-- Main Text Component -->
+    <text x="9" y="9.0" 
+          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" 
+          font-size="11.5" 
+          font-weight="bold" 
+          fill="#fff" 
+          dominant-baseline="central"
+          text-anchor="middle">½</text>
+  </g>
+</svg>

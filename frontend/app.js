@@ -19,13 +19,14 @@ import {
   renderScorecard, renderAnnotationsScorecard, showToast, setEvalText,
   CLASS_META, getMateMoves, COMPREHENSIVE_NAG_MAP
 } from './analysis.js?v=7';
+import { TrainingModule } from './training.js';
 
 // ── Constants ───────────────────────────────────────────────────────────
 
 const API_BASE = '';   // Same origin
 const WS_URL = `ws://${location.host}/ws/analyze`;
 
-const MODE = { IDLE: 'idle', REVIEW: 'review', ANALYSIS: 'analysis' };
+const MODE = { IDLE: 'idle', REVIEW: 'review', ANALYSIS: 'analysis', TRAINING: 'training' };
 
 /** Normalize FEN to first 4 fields (strips halfmove/fullmove counters) */
 const normFen = fen => (fen || '').split(' ').slice(0, 4).join(' ');
@@ -134,6 +135,7 @@ const el = {
   sidebarNavImport: document.getElementById('sidebar-nav-import'),
   sidebarNavSettings: document.getElementById('sidebar-nav-settings'),
   sidebarNavAbout: document.getElementById('sidebar-nav-about'),
+  sidebarNavTraining: document.getElementById('sidebar-nav-training'),
   settingsModal: document.getElementById('settings-modal'),
   aboutModal: document.getElementById('about-modal'),
   closeSettings: document.getElementById('close-settings'),
@@ -201,6 +203,18 @@ async function init() {
   board.enableInteraction(() => true, _getLegalMoves);
   _triggerEvalBarRender();
   _switchTab('import');
+
+  // Initialize training module
+  TrainingModule.init(board, _setMode, _triggerEvalBarRender, (pgn) => {
+    if (el.pgnInput) {
+      el.pgnInput.value = pgn;
+    }
+    _switchTab('import');
+    if (el.analyzeBtn) {
+      el.analyzeBtn.disabled = false;
+    }
+    submitAnalysis();
+  });
 
   // Load and apply saved chessboard theme
   const savedTheme = localStorage.getItem('chess_theme') || 'green';
@@ -367,6 +381,10 @@ function _bindControls() {
 
   el.sidebarNavAbout?.addEventListener('click', () => {
     el.aboutModal?.classList.remove('hidden');
+  });
+
+  el.sidebarNavTraining?.addEventListener('click', () => {
+    _switchTab('training');
   });
 
   // Modal close buttons
@@ -588,11 +606,53 @@ function _drawMarkersForMove(from, to, m) {
   board.addLastMoveMarkers(from, to, classification, annotationObj, m.color);
 }
 
+function _findKingSquares(fen) {
+  if (!fen) return { w: null, b: null };
+  const boardPart = fen.split(' ')[0];
+  const rows = boardPart.split('/');
+  let whiteKingSquare = null;
+  let blackKingSquare = null;
+  
+  const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+  
+  for (let r = 0; r < 8; r++) {
+    const rowStr = rows[r];
+    const rank = 8 - r;
+    let fileIdx = 0;
+    
+    for (let c = 0; c < rowStr.length; c++) {
+      const char = rowStr[c];
+      if (isNaN(char)) {
+        const sq = files[fileIdx] + rank;
+        if (char === 'K') {
+          whiteKingSquare = sq;
+        } else if (char === 'k') {
+          blackKingSquare = sq;
+        }
+        fileIdx++;
+      } else {
+        fileIdx += parseInt(char, 10);
+      }
+    }
+  }
+  
+  return { w: whiteKingSquare, b: blackKingSquare };
+}
+
 function _redrawCurrentMoveOverlay() {
   if (state.mode === MODE.REVIEW) {
     if (state.review.currentIndex >= 0) {
       const m = state.game.moves[state.review.currentIndex];
       _drawMarkersForMove(m.uci.slice(0, 2), m.uci.slice(2, 4), m);
+      
+      // If we are at the final move of the game, add outcome highlights & badges to the kings
+      if (state.review.currentIndex === state.game.moves.length - 1 && state.game.metadata) {
+        const result = state.game.metadata.result;
+        if (result && result !== '*') {
+          const kings = _findKingSquares(m.fen_after);
+          board.addOutcomeMarkers(result, kings.w, kings.b);
+        }
+      }
     }
   } else if (state.mode === MODE.ANALYSIS) {
     const idx = state.analysis.currentBranchIndex;
@@ -1474,6 +1534,10 @@ function _validateReviewMove(from, to) {
 
 function _handleBoardMove(from, to, promotion) {
   stopAutoplay();
+  if (state.mode === MODE.TRAINING) {
+    TrainingModule.handleMove(from, to, promotion);
+    return;
+  }
   if (state.mode === MODE.IDLE) {
     state.game.initialFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
     state.game.moves = [];
@@ -1998,6 +2062,36 @@ function _setMode(mode) {
 // ── Tabs ────────────────────────────────────────────────────────────────
 
 function _switchTab(tab) {
+  if (tab === 'training') {
+    if (state.mode === MODE.ANALYSIS) {
+      exitAnalysisMode();
+    }
+    document.getElementById('review-dashboard')?.classList.add('hidden');
+    document.getElementById('training-dashboard')?.classList.remove('hidden');
+    _setMode(MODE.TRAINING);
+    TrainingModule.switchMode('hub');
+    
+    el.sidebarNavTraining?.classList.add('active');
+    el.sidebarNavAnalysis?.classList.remove('active');
+    el.sidebarNavImport?.classList.remove('active');
+    el.sidebarNavSettings?.classList.remove('active');
+    el.sidebarNavAbout?.classList.remove('active');
+    return;
+  }
+
+  document.getElementById('training-dashboard')?.classList.add('hidden');
+  document.getElementById('review-dashboard')?.classList.remove('hidden');
+
+  if (state.mode === MODE.TRAINING) {
+    _setMode(state.game.moves.length > 0 ? MODE.REVIEW : MODE.IDLE);
+    if (state.mode === MODE.REVIEW) {
+      navigateTo(state.review.currentIndex);
+    } else {
+      board.setPosition('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+      board.disableInteraction();
+    }
+  }
+
   const tabs = ['import', 'summary', 'moves'];
   tabs.forEach(t => {
     const tabBtn = el[`tab${t.charAt(0).toUpperCase() + t.slice(1)}`] || document.getElementById(`tab-${t}`);
@@ -2015,6 +2109,7 @@ function _switchTab(tab) {
       el.sidebarNavAnalysis.classList.add('active');
       el.sidebarNavImport.classList.remove('active');
     }
+    el.sidebarNavTraining?.classList.remove('active');
     el.sidebarNavSettings?.classList.remove('active');
     el.sidebarNavAbout?.classList.remove('active');
   }
@@ -2024,7 +2119,9 @@ function _switchTab(tab) {
 
 function _getLegalMoves(square) {
   let fen;
-  if (state.mode === MODE.IDLE) {
+  if (state.mode === MODE.TRAINING) {
+    fen = TrainingModule.getFenForLegalMoves();
+  } else if (state.mode === MODE.IDLE) {
     fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
   } else if (state.mode === MODE.REVIEW) {
     const idx = state.review.currentIndex;

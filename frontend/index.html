@@ -79,6 +79,12 @@
           <circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
         </svg>
       </button>
+      <button id="sidebar-nav-training" class="sidebar-nav-item" title="Training">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+          <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"/>
+        </svg>
+      </button>
 
       <div class="sidebar-spacer"></div>
 
@@ -342,6 +348,7 @@
             </div>
           </div>
 
+        <div id="review-dashboard" class="flex flex-col flex-1 min-h-0 gap-3">
           <!-- Tabs Container -->
           <div class="glass-card flex-1 min-h-0 overflow-hidden flex flex-col">
             <!-- Panel Header (chess.com style) -->
@@ -591,13 +598,6 @@
                     
                     <div class="flex flex-col mb-1.5">
                       <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/miss.svg" alt="✗"> Miss
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A move that misses a tactical opportunity or forced win.</div>
-                    </div>
-                    
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
                         <img class="move-badge" src="assets/markers/blunder.svg" alt="??"> Blunder
                       </div>
                       <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A terrible move that drastically worsens your position.</div>
@@ -777,6 +777,253 @@
               <canvas id="eval-chart"></canvas>
             </div>
           </div>
+        </div> <!-- end review-dashboard -->
+
+        <!-- ── Training Dashboard ───────────────────────────────── -->
+        <div id="training-dashboard" class="glass-card flex-1 min-h-0 overflow-hidden flex flex-col hidden">
+          <!-- Training Header -->
+          <div class="panel-header flex items-center justify-between gap-3 px-3.5 py-2.5 bg-[var(--bg-secondary)] border-b border-[var(--border)] shrink-0">
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-sm tracking-tight text-[var(--text-primary)]" id="training-header-title">Training Hub</span>
+            </div>
+            <button id="btn-training-back" class="hidden text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors flex items-center gap-1">
+              ✕ Exit Mode
+            </button>
+          </div>
+
+          <div class="flex-1 overflow-y-auto min-h-0 p-3 flex flex-col">
+            
+            <!-- 1. Training Hub Menu -->
+            <div id="training-menu" class="flex flex-col gap-3">
+              <div class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1">Select a Training Module</div>
+              
+              <button id="menu-btn-puzzles" class="training-menu-card">
+                <span class="card-icon">🧩</span>
+                <span class="card-content">
+                  <span class="card-title">Tactics Training</span>
+                  <span class="card-desc">Solve daily or curated chess puzzles</span>
+                </span>
+              </button>
+
+              <button id="menu-btn-openings" class="training-menu-card">
+                <span class="card-icon">📖</span>
+                <span class="card-content">
+                  <span class="card-title">Opening Trainer</span>
+                  <span class="card-desc">Practice and memorize opening theory</span>
+                </span>
+              </button>
+
+              <button id="menu-btn-engine" class="training-menu-card">
+                <span class="card-icon">🤖</span>
+                <span class="card-content">
+                  <span class="card-title">Play vs Engine</span>
+                  <span class="card-desc">Face Stockfish with scaled ELO ratings</span>
+                </span>
+              </button>
+
+              <button id="menu-btn-coordinates" class="training-menu-card">
+                <span class="card-icon">🎯</span>
+                <span class="card-content">
+                  <span class="card-title">Coordinate Trainer</span>
+                  <span class="card-desc">Find chess squares on a 30s timer</span>
+                </span>
+              </button>
+            </div>
+
+            <!-- 2. Tactics Panel -->
+            <div id="training-panel-puzzles" class="hidden flex flex-col gap-4 flex-1">
+              <div class="flex flex-col gap-2.5">
+                <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Select Puzzle Source</label>
+                <div class="flex gap-2">
+                  <button id="btn-puzzle-daily" class="btn-primary flex-1 py-2 text-xs">Lichess Daily</button>
+                  <button id="btn-puzzle-curated" class="btn-secondary flex-1 py-2 text-xs">Offline List</button>
+                </div>
+              </div>
+
+              <div id="puzzle-select-container" class="hidden flex flex-col gap-1.5">
+                <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Choose Puzzle</label>
+                <select id="select-curated-puzzles" class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent-green)]">
+                  <!-- curations injected here -->
+                </select>
+              </div>
+
+              <div id="puzzle-active-info" class="hidden border-t border-[var(--border)] pt-3 flex flex-col gap-3">
+                <div class="flex justify-between items-center bg-[var(--bg-primary)] p-2.5 rounded border border-[var(--border)]">
+                  <div class="flex flex-col">
+                    <span id="puzzle-title" class="font-bold text-xs text-[var(--text-primary)]">Philidor's Legacy</span>
+                    <span id="puzzle-theme" class="text-[10px] text-[var(--text-muted)] mt-0.5">Smothered Mate</span>
+                  </div>
+                  <span id="puzzle-rating" class="font-mono text-xs font-bold text-[var(--accent-green)] bg-[var(--accent-green)]/15 px-2 py-0.5 rounded">1500 ELO</span>
+                </div>
+
+                <p id="puzzle-desc" class="text-xs text-[var(--text-secondary)] leading-relaxed italic"></p>
+                
+                <div id="puzzle-feedback" class="text-center py-2 px-3 rounded text-xs font-semibold select-none min-h-[32px] flex items-center justify-center">
+                  Click Start to begin
+                </div>
+
+                <div class="flex gap-2 mt-1">
+                  <button id="btn-puzzle-action" class="btn-primary flex-1 py-2 text-xs">Start Puzzle</button>
+                  <button id="btn-puzzle-hint" class="btn-secondary flex-1 py-2 text-xs" disabled>Get Hint</button>
+                  <button id="btn-puzzle-reveal" class="btn-secondary flex-1 py-2 text-xs" disabled>Solution</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. Opening Trainer Panel -->
+            <div id="training-panel-openings" class="hidden flex flex-col gap-4 flex-1">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Choose Opening</label>
+                <select id="select-opening" class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent-green)]">
+                  <!-- openings injected here -->
+                </select>
+              </div>
+
+              <div class="flex flex-col gap-2">
+                <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Play Side</label>
+                <div class="flex gap-2">
+                  <button id="btn-opening-side-white" class="btn-primary flex-1 py-1.5 text-xs">As White</button>
+                  <button id="btn-opening-side-black" class="btn-secondary flex-1 py-1.5 text-xs">As Black</button>
+                </div>
+              </div>
+
+              <div class="border-t border-[var(--border)] pt-3 flex flex-col gap-3 flex-1 min-h-0">
+                <div id="opening-info" class="bg-[var(--bg-primary)] p-2.5 rounded border border-[var(--border)] flex flex-col gap-1">
+                  <span id="opening-title" class="font-bold text-xs">Ruy Lopez</span>
+                  <span id="opening-desc" class="text-[10px] text-[var(--text-muted)] leading-relaxed">Practice the classical Spanish opening.</span>
+                </div>
+
+                <div id="opening-feedback" class="text-center py-1.5 px-3 rounded text-xs font-semibold select-none min-h-[30px] flex items-center justify-center bg-[var(--bg-primary)] border border-[var(--border)]">
+                  Click Start to practice
+                </div>
+
+                <div id="opening-moves-container" class="hidden flex flex-col gap-1.5 flex-1 min-h-0">
+                  <span class="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Theory Moves</span>
+                  <div id="opening-moves-list" class="flex-1 overflow-y-auto bg-[var(--bg-primary)] border border-[var(--border)] rounded p-2 font-mono text-xs text-[var(--text-secondary)] leading-6">
+                    <!-- moves injected here -->
+                  </div>
+                </div>
+
+                <button id="btn-opening-start" class="btn-primary w-full py-2 text-xs">Start Training</button>
+              </div>
+            </div>
+
+            <!-- 4. Play vs Engine Panel -->
+            <div id="training-panel-engine" class="hidden flex flex-col gap-4 flex-1">
+              <div class="flex flex-col gap-1">
+                <div class="flex justify-between items-center">
+                  <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Engine ELO</label>
+                  <span id="engine-elo-display" class="font-mono text-xs font-bold text-[var(--accent-green)] bg-[var(--accent-green)]/15 px-2 py-0.5 rounded">1500 ELO</span>
+                </div>
+                <input id="engine-elo-slider" type="range" min="800" max="3200" step="200" value="1400" class="w-full mt-1.5" />
+                <div id="engine-strength-label" class="text-[10px] text-[var(--text-muted)] text-right mt-0.5 font-semibold">1400 - Intermediate</div>
+              </div>
+
+              <div class="flex flex-col gap-2">
+                <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Play As</label>
+                <div class="flex gap-2">
+                  <button id="btn-engine-side-white" class="btn-primary flex-1 py-1.5 text-xs">White</button>
+                  <button id="btn-engine-side-black" class="btn-secondary flex-1 py-1.5 text-xs">Black</button>
+                  <button id="btn-engine-side-random" class="btn-secondary flex-1 py-1.5 text-xs">Random</button>
+                </div>
+              </div>
+
+              <div class="border-t border-[var(--border)] pt-3 flex flex-col gap-3 flex-1 min-h-0">
+                <div id="engine-game-status" class="text-center py-2 px-3 rounded text-xs font-semibold select-none bg-[var(--bg-primary)] border border-[var(--border)] min-h-[32px] flex items-center justify-center">
+                  Ready to play vs Stockfish
+                </div>
+
+                <div id="engine-moves-container" class="hidden flex flex-col gap-1.5 flex-1 min-h-0">
+                  <span class="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Game Moves</span>
+                  <div id="engine-moves-list" class="flex-1 overflow-y-auto bg-[var(--bg-primary)] border border-[var(--border)] rounded p-2.5 font-mono text-xs leading-6">
+                    <!-- game moves here -->
+                  </div>
+                </div>
+
+                <div class="flex gap-2 shrink-0">
+                  <button id="btn-engine-start" class="btn-primary flex-1 py-2 text-xs">Start Game</button>
+                  <button id="btn-engine-review" class="btn-secondary flex-1 py-2 text-xs hidden">Review Game</button>
+                  <button id="btn-engine-resign" class="btn-secondary flex-1 py-2 text-xs hidden">Resign</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 5. Coordinate Trainer Panel -->
+            <div id="training-panel-coordinates" class="hidden flex flex-col gap-4 flex-1">
+              <div id="coordinates-start-screen" class="flex flex-col gap-4 flex-1">
+                <div class="bg-[var(--bg-primary)] p-3 rounded border border-[var(--border)] text-xs text-[var(--text-secondary)] leading-relaxed">
+                  🎯 <strong>Coordinate Trainer</strong> improves your chessboard visualization.
+                  <ul class="list-disc pl-4 mt-1.5 flex flex-col gap-1">
+                    <li>You will have <strong>30 seconds</strong>.</li>
+                    <li>Find and click the coordinate target shown on the screen.</li>
+                    <li>Pieces are hidden. Board is empty.</li>
+                  </ul>
+                </div>
+
+                <div class="flex flex-col gap-2">
+                  <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Orientation</label>
+                  <div class="flex gap-2">
+                    <button id="btn-coords-side-white" class="btn-primary flex-1 py-1.5 text-xs">White</button>
+                    <button id="btn-coords-side-black" class="btn-secondary flex-1 py-1.5 text-xs">Black</button>
+                  </div>
+                </div>
+
+                <div id="coords-high-score" class="text-center py-2 px-3 rounded text-xs font-semibold bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-secondary)]">
+                  Personal Best: —
+                </div>
+
+                <button id="btn-coords-start" class="btn-primary w-full py-2 text-xs mt-auto">Start Challenge</button>
+              </div>
+
+              <div id="coordinates-active-screen" class="hidden flex flex-col gap-4 items-center justify-center flex-1 py-4">
+                <!-- Timer & Score HUD -->
+                <div class="flex justify-between items-center w-full px-2">
+                  <div class="flex flex-col items-start">
+                    <span class="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Score</span>
+                    <span id="coords-score" class="text-xl font-bold font-mono text-[var(--text-primary)]">0</span>
+                  </div>
+                  <div class="flex flex-col items-end">
+                    <span class="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Time</span>
+                    <span id="coords-timer" class="text-xl font-bold font-mono text-[var(--accent-red)]">30s</span>
+                  </div>
+                </div>
+
+                <!-- Target Square -->
+                <div class="flex flex-col items-center justify-center bg-[var(--bg-primary)] border-2 border-[var(--border-light)] rounded-xl w-36 h-36 my-2 shadow-2xl">
+                  <span class="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1">Click Square</span>
+                  <span id="coords-target" class="text-5xl font-extrabold font-mono text-[var(--accent-green)]">e4</span>
+                </div>
+
+                <div id="coords-active-feedback" class="text-center text-xs font-semibold text-[var(--text-muted)] select-none h-4">
+                  Get Ready!
+                </div>
+              </div>
+
+              <div id="coordinates-results-screen" class="hidden flex flex-col gap-4 items-center justify-center flex-1 py-4">
+                <div class="text-4xl">🏆</div>
+                <h4 class="font-bold text-base text-[var(--text-primary)]">Challenge Completed!</h4>
+                
+                <div class="flex flex-col gap-1.5 bg-[var(--bg-primary)] border border-[var(--border)] p-3 rounded-lg w-full text-sm font-semibold">
+                  <div class="flex justify-between">
+                    <span class="text-[var(--text-muted)]">Correct Clicks:</span>
+                    <span id="coords-result-score" class="font-mono text-[var(--text-primary)]">15</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-[var(--text-muted)]">Total Attempts:</span>
+                    <span id="coords-result-attempts" class="font-mono text-[var(--text-primary)]">18</span>
+                  </div>
+                  <div class="flex justify-between border-t border-[var(--border)] pt-1.5 mt-1.5">
+                    <span class="text-[var(--text-muted)]">Accuracy:</span>
+                    <span id="coords-result-accuracy" class="font-mono text-[var(--accent-green)]">83%</span>
+                  </div>
+                </div>
+
+                <button id="btn-coords-retry" class="btn-primary w-full py-2 text-xs">Play Again</button>
+              </div>
+            </div>
+
+          </div>
+        </div>
 
         </div>
         <!-- end right panel -->

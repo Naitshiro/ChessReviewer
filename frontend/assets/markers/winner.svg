@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 18 19">
+  <g id="winner">
+    <path class="icon-shadow" opacity="0.3" d="M9,.5a9,9,0,1,0,9,9A9,9,0,0,0,9,.5Z"></path>
+    <path class="icon-background" fill="#81B64C" d="M9,0a9,9,0,1,0,9,9A9,9,0,0,0,9,0Z"></path>
+    <g class="icon-component-shadow" opacity="0.2">
+      <path d="M4.5,13.5 L13.5,13.5 L14.5,7.5 L11.5,10.25 L9,5.5 L6.5,10.25 L3.5,7.5 Z M5,12.5 h8 v-1 h-8 z"></path>
+      <circle cx="3.5" cy="6.7" r="0.7"></circle>
+      <circle cx="9" cy="4.7" r="0.7"></circle>
+      <circle cx="14.5" cy="6.7" r="0.7"></circle>
+    </g>
+    <g class="icon-component" fill="#fff">
+      <path d="M4.5,13 L13.5,13 L14.5,7 L11.5,9.75 L9,5 L6.5,9.75 L3.5,7 Z M5,12 h8 v-1 h-8 z"></path>
+      <circle cx="3.5" cy="6.2" r="0.7"></circle>
+      <circle cx="9" cy="4.2" r="0.7"></circle>
+      <circle cx="14.5" cy="6.2" r="0.7"></circle>
+    </g>
+  </g>
+</svg>

@@ -32,7 +32,6 @@
   --accent-good: #97af8b;
   --accent-inaccuracy: #f7c631;
   --accent-mistake: #e6912c;
-  --accent-miss: #ca3431;
   --accent-blunder: #ca3431;
   --accent-theory: #d4a76a;
 
@@ -312,12 +311,20 @@ header {
   fill: rgba(202, 52, 49, 0.5) !important;
 }
 
-.cm-chessboard .marker.marker-miss {
-  fill: rgba(202, 52, 49, 0.45) !important;
-}
-
 .cm-chessboard .marker.marker-theory {
   fill: rgba(212, 167, 106, 0.45) !important;
+}
+
+.cm-chessboard .marker.marker-winner {
+  fill: rgba(129, 182, 76, 0.45) !important;
+}
+
+.cm-chessboard .marker.marker-loser {
+  fill: rgba(250, 65, 45, 0.45) !important;
+}
+
+.cm-chessboard .marker.marker-draw {
+  fill: rgba(126, 143, 159, 0.45) !important;
 }
 
 .cm-chessboard .marker.marker-annotation-white {
@@ -583,7 +590,6 @@ img.move-badge {
 .badge-good { background: #97af8b; color: #fff; }
 .badge-inaccuracy { background: #f7c631; color: #fff; }
 .badge-mistake { background: #e6912c; color: #fff; }
-.badge-miss { background: #ca3431; color: #fff; }
 .badge-blunder { background: #ca3431; color: #fff; }
 .badge-theory { background: #d4a76a; color: #fff; }
 
@@ -1359,4 +1365,172 @@ input[type="number"]::-webkit-inner-spin-button {
 
 .btn-exit-analysis:active {
   transform: scale(0.97);
+}
+
+/* ── Training Hub Styles ─────────────────────────────────── */
+
+.training-menu-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  position: relative;
+  overflow: hidden;
+}
+
+.training-menu-card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-light);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+.training-menu-card:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.training-menu-card .card-icon {
+  font-size: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: var(--bg-primary);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.training-menu-card:hover .card-icon {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.training-menu-card .card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+
+.training-menu-card .card-title {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-primary);
+  transition: color 0.2s;
+}
+
+.training-menu-card:hover .card-title {
+  color: var(--accent-green);
+}
+
+.training-menu-card .card-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ELO slider custom look */
+#engine-elo-slider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  outline: none;
+}
+
+#engine-elo-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  cursor: pointer;
+  transition: transform 0.1s;
+  border: 2px solid var(--bg-secondary);
+}
+
+#engine-elo-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+/* Coordinates Trainer square flashes */
+@keyframes correct-flash {
+  0%, 100% { border-color: var(--border); }
+  50% { border-color: var(--accent-green); box-shadow: 0 0 15px rgba(129, 182, 76, 0.4); }
+}
+
+@keyframes incorrect-flash {
+  0%, 100% { border-color: var(--border); }
+  50% { border-color: var(--accent-red); box-shadow: 0 0 15px rgba(202, 52, 49, 0.4); }
+}
+
+.correct-board-flash .cm-chessboard {
+  animation: correct-flash 0.4s ease-out 1;
+}
+
+.incorrect-board-flash .cm-chessboard {
+  animation: incorrect-flash 0.4s ease-out 1;
+}
+
+/* Highlight coordinates trainer coordinates clicked */
+.cm-chessboard .marker.marker-coord-correct {
+  fill: rgba(129, 182, 76, 0.5) !important;
+}
+.cm-chessboard .marker.marker-coord-incorrect {
+  fill: rgba(202, 52, 49, 0.5) !important;
+}
+
+/* Coordinates active target animation */
+#coords-target {
+  animation: target-grow 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes target-grow {
+  0% { transform: scale(0.7); opacity: 0.5; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Active training moves list */
+#opening-moves-list,
+#engine-moves-list {
+  scrollbar-width: thin;
+}
+
+.training-move-log-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border-bottom: 1px solid var(--bg-secondary);
+  padding: 3px 0;
+}
+
+.training-move-log-num {
+  width: 24px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-weight: bold;
+}
+
+.training-move-log-move {
+  flex: 1;
+  font-family: var(--font-mono);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.training-move-log-move.current {
+  background: rgba(129, 182, 76, 0.15);
+  color: var(--accent-green);
+  font-weight: bold;
 }

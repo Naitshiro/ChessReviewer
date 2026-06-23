@@ -11,10 +11,13 @@ Routes:
 Static files (frontend/) are mounted at "/" after all API routes.
 """
 
+# Trigger reload comment
 import asyncio
 import json
 import logging
 import sys
+import urllib.request
+import random
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
@@ -30,7 +33,7 @@ from pydantic import BaseModel, field_validator
 import chess
 
 from .engine import EngineManager, parse_pgn_game
-from .config import ANALYSIS_DEPTH
+from .config import STOCKFISH_PATH, ANALYSIS_DEPTH
 from .openings import is_book_sequence
 from .analysis import classify_move, is_sacrifice, win_prob
 from .chesscom import fetch_chesscom_games
@@ -142,6 +145,11 @@ class ClassifyRequest(BaseModel):
 class ThreatRequest(BaseModel):
     fen: str
     current_eval_cp: float
+
+
+class EngineMoveRequest(BaseModel):
+    fen: str
+    elo: int
 
 
 # ---------------------------------------------------------------------------
@@ -261,6 +269,146 @@ async def get_chesscom_games(username: str):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.exception("Error in /api/chesscom/games")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Training / Learning Routes
+# ---------------------------------------------------------------------------
+
+@app.get("/api/training/curated-puzzles")
+async def get_curated_puzzles():
+    """Retrieve the curated list of offline chess puzzles."""
+    try:
+        puzzles_file = Path(__file__).parent / "puzzles.json"
+        if puzzles_file.exists():
+            return json.loads(puzzles_file.read_text(encoding="utf-8"))
+        return []
+    except Exception as e:
+        logger.exception("Error reading curated puzzles")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/training/daily-puzzle")
+async def get_daily_puzzle():
+    """Fetch daily puzzle from Lichess with fallback to curated puzzles."""
+    try:
+        req = urllib.request.Request(
+            "https://lichess.org/api/puzzle/daily",
+            headers={"User-Agent": "ChessReviewer/1.0.0"}
+        )
+        with urllib.request.urlopen(req, timeout=2.0) as response:
+            data = json.loads(response.read().decode())
+            
+            puzzle_data = data.get("puzzle", {})
+            initial_fen = puzzle_data.get("initialFen")
+            solution = puzzle_data.get("solution", [])
+            rating = puzzle_data.get("rating", 1500)
+            theme = data.get("game", {}).get("perf", {}).get("name", "Tactics")
+            puzzle_id = puzzle_data.get("id", "daily")
+            
+            # Determine player color (turn in initialFen indicates who plays the blunder)
+            board = chess.Board(initial_fen)
+            player_color = "black" if board.turn == chess.WHITE else "white"
+            
+            return {
+                "id": f"lichess_{puzzle_id}",
+                "title": f"Lichess Daily Puzzle ({puzzle_id})",
+                "description": f"Find the winning line. Play as {player_color.capitalize()}.",
+                "rating": rating,
+                "theme": theme,
+                "initialFen": initial_fen,
+                "solution": solution,
+                "player_color": player_color
+            }
+    except Exception as e:
+        logger.warning(f"Failed to fetch Lichess daily puzzle: {e}. Falling back to curated list.")
+        try:
+            puzzles_file = Path(__file__).parent / "puzzles.json"
+            if puzzles_file.exists():
+                puzzles = json.loads(puzzles_file.read_text(encoding="utf-8"))
+                if puzzles:
+                    return random.choice(puzzles)
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail=f"Failed to fetch puzzle: {str(e)}")
+
+
+@app.post("/api/training/engine-move")
+async def training_engine_move(req: EngineMoveRequest):
+    """Play a move vs Stockfish configured with specific ELO."""
+    try:
+        board = chess.Board(req.fen)
+        if board.is_game_over():
+            return {
+                "best_move": None,
+                "san": None,
+                "fen_after": req.fen,
+                "game_over": True
+            }
+
+        # Keep ELO in supported range for UCI engine limits
+        elo = max(800, min(3200, req.elo))
+
+        # Spin up temporary Stockfish instance for this move
+        transport, engine = await chess.engine.popen_uci(STOCKFISH_PATH)
+        try:
+            config = {}
+            limit = chess.engine.Limit(time=0.1)
+
+            # Disable strength limiting at max level (3200)
+            if elo >= 3200:
+                if "UCI_LimitStrength" in engine.options:
+                    config["UCI_LimitStrength"] = False
+            else:
+                if "UCI_LimitStrength" in engine.options:
+                    config["UCI_LimitStrength"] = True
+
+                if "UCI_Elo" in engine.options:
+                    uci_elo_option = engine.options["UCI_Elo"]
+                    engine_min = getattr(uci_elo_option, "min", 1320)
+                    engine_max = getattr(uci_elo_option, "max", 2400)
+                    
+                    if engine_min is None:
+                        engine_min = 1320
+                    if engine_max is None:
+                        engine_max = 2800
+
+                    if elo < engine_min:
+                        config["UCI_Elo"] = engine_min
+                        # We requested a weaker engine than supported by ELO.
+                        # Simulate lower ELO by playing with a very small depth or search limit.
+                        diff = engine_min - elo
+                        if diff >= 400: # e.g. requested 800-900 when min is 1320
+                            limit = chess.engine.Limit(depth=1, time=0.01)
+                        elif diff >= 200: # e.g. requested 1000-1100 when min is 1320
+                            limit = chess.engine.Limit(depth=2, time=0.02)
+                        else:
+                            limit = chess.engine.Limit(depth=3, time=0.05)
+                    else:
+                        config["UCI_Elo"] = min(elo, engine_max)
+
+            await engine.configure(config)
+            result = await engine.play(board, limit)
+            
+            move = result.move
+            san = board.san(move)
+            uci = move.uci()
+            
+            board.push(move)
+            new_fen = board.fen()
+            
+            return {
+                "best_move": uci,
+                "san": san,
+                "fen_after": new_fen,
+                "game_over": board.is_game_over()
+            }
+        finally:
+            await engine.quit()
+            
+    except Exception as e:
+        logger.exception("Error in play vs engine move endpoint")
         raise HTTPException(status_code=500, detail=str(e))
 
 

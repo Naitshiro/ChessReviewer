@@ -21,7 +21,6 @@ export const CLASS_META = {
   good: { symbol: '✓', label: 'Good', css: 'badge-good', svg: 'good.svg' },
   inaccuracy: { symbol: '?!', label: 'Inaccuracy', css: 'badge-inaccuracy', svg: 'inaccuracy.svg' },
   mistake: { symbol: '?', label: 'Mistake', css: 'badge-mistake', svg: 'mistake.svg' },
-  miss: { symbol: '✗', label: 'Miss', css: 'badge-miss', svg: 'miss.svg' },
   blunder: { symbol: '??', label: 'Blunder', css: 'badge-blunder', svg: 'blunder.svg' },
   theory: { symbol: '⌕', label: 'Theory', css: 'badge-theory', svg: 'theory.svg' },
 };
@@ -29,7 +28,7 @@ export const CLASS_META = {
 // Classification display order for the scorecard
 const SCORE_ORDER = [
   'brilliant', 'great', 'best', 'excellent', 'good', 'theory',
-  'inaccuracy', 'mistake', 'miss', 'blunder',
+  'inaccuracy', 'mistake', 'blunder',
 ];
 
 export const COMPREHENSIVE_NAG_MAP = {
@@ -650,7 +649,7 @@ function _classColor(cls) {
   const map = {
     brilliant: '#26c2a3', great: '#5c8bb0', best: '#98bc49',
     excellent: '#98bc49', good: '#97af8b', inaccuracy: '#f7c631',
-    mistake: '#e6912c', miss: '#ca3431', blunder: '#ca3431', theory: '#d4a76a',
+    mistake: '#e6912c', blunder: '#ca3431', theory: '#d4a76a',
   };
   return map[cls] || 'var(--text-primary)';
 }

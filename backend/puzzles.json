@@ -1,0 +1,102 @@
+[
+  {
+    "id": "curated_1",
+    "title": "Back-Rank Checkmate",
+    "description": "Black has neglected their back rank security. Capitalize on the blunder!",
+    "rating": 800,
+    "theme": "Back-Rank Mate",
+    "initialFen": "6k1/5ppp/8/8/8/8/5PPP/3R2K1 b - - 0 1",
+    "solution": ["g8f8", "d1d8"],
+    "player_color": "white"
+  },
+  {
+    "id": "curated_2",
+    "title": "Philidor's Legacy (Smothered Mate)",
+    "description": "The black king is completely trapped by its own pieces. Sacrifice the Queen to force checkmate!",
+    "rating": 1500,
+    "theme": "Smothered Mate",
+    "initialFen": "6rk/5Qpp/7N/8/8/8/a7/6RK b - - 0 1",
+    "solution": ["a7a6", "f7g8", "g8g8", "h6f7"],
+    "player_color": "white"
+  },
+  {
+    "id": "curated_3",
+    "title": "Légal's Mate Trap",
+    "description": "Black pinned your knight but left their king vulnerable. Unleash a brilliant Queen sacrifice!",
+    "rating": 1400,
+    "theme": "Queen Sacrifice Mate",
+    "initialFen": "r1bqkbnr/ppp2ppp/2np4/4p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R b KQkq - 2 4",
+    "solution": ["c8g4", "f3e5", "g4d1", "c4f7", "e8e7", "c3d5"],
+    "player_color": "white"
+  },
+  {
+    "id": "curated_4",
+    "title": "Rook Deflection",
+    "description": "Black's rook moved away from defense. Deliver checkmate on the back rank!",
+    "rating": 1200,
+    "theme": "Back-Rank Mate",
+    "initialFen": "6k1/5ppp/r7/3Q4/8/8/5PPP/3R2K1 b - - 0 1",
+    "solution": ["a6a2", "d5d8", "a2d8", "d1d8"],
+    "player_color": "white"
+  },
+  {
+    "id": "curated_5",
+    "title": "Scholar's Mate Trap",
+    "description": "A classic trap. Black played a quiet pawn move instead of defending the f7 square.",
+    "rating": 600,
+    "theme": "Mate in 1",
+    "initialFen": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR b KQkq - 3 3",
+    "solution": ["a7a6", "f3f7"],
+    "player_color": "white"
+  },
+  {
+    "id": "curated_6",
+    "title": "Queen Fork",
+    "description": "Black grabbed a central pawn, but left their knight unprotected and exposed their king.",
+    "rating": 900,
+    "theme": "Double Attack Fork",
+    "initialFen": "rnbqk2r/ppp2ppp/3p1n2/4p3/2B1P3/2P2N2/PPP2PPP/R1BQK2R b KQkq - 0 5",
+    "solution": ["f6e4", "d1d5", "d8d7", "d5e4"],
+    "player_color": "white"
+  },
+  {
+    "id": "curated_7",
+    "title": "Pawn-Winning Simplification",
+    "description": "Black attacked your bishop. Trade off pieces and win a central pawn.",
+    "rating": 1000,
+    "theme": "Tactical Simplification",
+    "initialFen": "r3k2r/ppp1bppp/2np1n2/1B2p3/4P3/2NP1N2/PPP2PPP/R3K2R w KQkq - 0 8",
+    "solution": ["a7a6", "b5c6", "b7c6", "f3e5"],
+    "player_color": "white"
+  },
+  {
+    "id": "curated_8",
+    "title": "Damiano's Pawn Trap",
+    "description": "Black tried to defend their e5 pawn with f6. Punish them with a knight sacrifice that wins the rook!",
+    "rating": 1300,
+    "theme": "Tactical Trap",
+    "initialFen": "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 0 2",
+    "solution": ["f7f6", "f3e5", "f6e5", "d1h5", "g7g6", "h5e5"],
+    "player_color": "white"
+  },
+  {
+    "id": "curated_9",
+    "title": "Back-Rank Deflection",
+    "description": "The black rook left the back rank undefended. Checkmate the king!",
+    "rating": 950,
+    "theme": "Back-Rank Mate",
+    "initialFen": "4r1k1/5ppp/8/8/8/2N5/5PPP/4R1K1 b - - 0 1",
+    "solution": ["e8c8", "e1e8"],
+    "player_color": "white"
+  },
+  {
+    "id": "curated_10",
+    "title": "Quiet Blunder Punishment",
+    "description": "Black's rook moved to attack your pawn, ignoring the threat. Mate the king on the back rank!",
+    "rating": 1050,
+    "theme": "Back-Rank Mate",
+    "initialFen": "6k1/r4ppp/8/8/8/8/5PPP/1R4K1 b - - 0 1",
+    "solution": ["a7a2", "b1b8"],
+    "player_color": "white"
+  }
+]
