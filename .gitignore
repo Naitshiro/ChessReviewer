@@ -35,6 +35,7 @@ venv.bak/
 # Project specific
 config.json
 *.log
+scratch/
 
 # IDEs and Editors
 .vscode/
