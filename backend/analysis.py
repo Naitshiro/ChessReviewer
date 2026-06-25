@@ -8,6 +8,7 @@ All formulas match the spec exactly.
 import math
 from typing import Optional
 import chess
+import sys
 
 
 # ---------------------------------------------------------------------------
@@ -132,13 +133,9 @@ def get_max_loss_for_move(board: chess.Board, move: chess.Move) -> int:
         net_loss = target_value - max_recapture_value
         if net_loss < 0:
             net_loss = 0
-            
         max_loss = max(max_loss, net_loss - material_won)
-        
     return max_loss
-
-
-def is_sacrifice(board: chess.Board, move: chess.Move) -> bool:
+def is_sacrifice(board: chess.Board, move: chess.Move, mate_played: Optional[int] = None) -> bool:
     """
     Detect if a move results in a material sacrifice or exchange disadvantage.
     
@@ -146,26 +143,45 @@ def is_sacrifice(board: chess.Board, move: chess.Move) -> bool:
     a net material disadvantage for us, EVEN AFTER accounting for any material
     we just captured on this turn.
     
+    **Promotion handling** – A queen promotion is never considered a sacrifice
+    for the purpose of the "brilliant" classification.  This mirrors the
+    conventional Chess.com rule that only *underpromotions* (to rook, bishop or
+    knight) can be marked as brilliant.  The early return ensures that a queen
+    promotion will not set the ``sacrificed`` flag, while underpromotions are
+    still evaluated normally.
+    
     Args:
         board: The board BEFORE the move is played.
         move:  The move to evaluate.
+        mate_played: Optional mate distance after the move (used by the caller).
     Returns:
         True if the move leaves material in a sacrifice state.
     """
+    # Exclude queen promotions from being treated as sacrifices. Underpromotions
+    # (to rook, bishop, knight) are still allowed to be classified as sacrifices.
+    if move.promotion == chess.QUEEN:
+        return False
+
     # If the opponent is forced to capture (has only one legal move and it's a capture),
     # it is an involuntary sacrifice/sequence, so we do not count it as a sacrifice.
-    after_board = board.copy()
-    after_board.push(move)
-    opponent_moves = list(after_board.legal_moves)
-    if len(opponent_moves) == 1:
-        forced_move = opponent_moves[0]
-        if after_board.is_capture(forced_move):
-            return False
+    # after_board = board.copy()
+    # after_board.push(move)
+    # opponent_moves = list(after_board.legal_moves)
+    # if len(opponent_moves) == 1:
+    #     forced_move = opponent_moves[0]
+    #     if after_board.is_capture(forced_move):
+    #        return False
 
     actual_max_loss = get_max_loss_for_move(board, move)
+    print(f"DEBUG: is_sacrifice for move {board.san(move)} - actual_max_loss: {actual_max_loss}, mate_played: {mate_played}", file=sys.stderr)
     
     if actual_max_loss >= 200:
-        # 0. Check if the piece we are moving was ALREADY under a severe LEAGAL threat
+        # If the move leads to a mate, and it's a material loss, consider it a sacrifice
+        if mate_played is not None and mate_played > 0:
+            print(f"DEBUG: is_sacrifice returning True due to mate_played > 0 for move {board.san(move)}", file=sys.stderr)
+            return True
+
+        # 0. Check if the piece we are moving was ALREADY under a severe LEGAL threat
         mover_piece = board.piece_at(move.from_square)
         before_loss_of_mover = 0
         if mover_piece and not board.is_check():
@@ -196,7 +212,7 @@ def is_sacrifice(board: chess.Board, move: chess.Move) -> bool:
                 # We FOUND a safe move that doesn't lose material!
                 # This means our sacrifice was a CHOICE.
                 return True
-                
+
         # If we get here, every legal move lost >= 50 material. It was forced!
         return False
 
@@ -250,8 +266,9 @@ def classify_move(
         
     # Brilliant check first so that a brilliant theory move gets the 'brilliant' badge
     # But only if we are not continuing an already existing winning mating sequence.
-    is_continuing_mate = (mate_best is not None and mate_best > 0)
-    if not is_continuing_mate and (sacrificed and p_played >= 0.45 and (cp_best - cp_played) <= 50.0):
+    # Modified to consider a move brilliant if it initiates a mate, even if a mate was already present.
+    # Removed is_continuing_mate check as per user request.
+    if (sacrificed and p_played >= 0.45 and (cp_best - cp_played) <= 50.0):
         return "brilliant"
 
     if is_book:
@@ -516,4 +533,9 @@ def generate_null_move_fen(fen: str) -> str:
     # Clear en passant target square
     parts[3] = '-'
     return ' '.join(parts)
+
+
+
+
+
 
