@@ -245,6 +245,47 @@ export class BoardManager {
     this._renderActiveBadges();
   }
 
+  /**
+   * Add outcome markers to the kings based on game result.
+   * @param {string} result - Game result ('1-0', '0-1', or '1/2-1/2')
+   * @param {string} whiteKingSquare - Square of the white king (e.g., 'e1')
+   * @param {string} blackKingSquare - Square of the black king (e.g., 'e8')
+   */
+  addOutcomeMarkers(result, whiteKingSquare, blackKingSquare) {
+    if (!whiteKingSquare && !blackKingSquare) return;
+
+    const badges = [];
+
+    if (result === '1-0') {
+      // White wins: white king gets winner, black king gets loser
+      if (whiteKingSquare) {
+        badges.push({ square: whiteKingSquare, text: 'winner', type: 'outcome', color: 'white' });
+      }
+      if (blackKingSquare) {
+        badges.push({ square: blackKingSquare, text: 'loser', type: 'outcome', color: 'white' });
+      }
+    } else if (result === '0-1') {
+      // Black wins: black king gets winner, white king gets loser
+      if (whiteKingSquare) {
+        badges.push({ square: whiteKingSquare, text: 'loser', type: 'outcome', color: 'white' });
+      }
+      if (blackKingSquare) {
+        badges.push({ square: blackKingSquare, text: 'winner', type: 'outcome', color: 'white' });
+      }
+    } else if (result === '1/2-1/2') {
+      // Draw: both kings get draw marker
+      if (whiteKingSquare) {
+        badges.push({ square: whiteKingSquare, text: 'draw', type: 'outcome', color: 'white' });
+      }
+      if (blackKingSquare) {
+        badges.push({ square: blackKingSquare, text: 'draw', type: 'outcome', color: 'white' });
+      }
+    }
+
+    // Append king outcome badges on top of any existing badges (e.g. classification)
+    this._activeBadges = (this._activeBadges || []).concat(badges);
+    this._renderActiveBadges();
+  }
 
     clearClassificationBadge() {
       this._activeBadges = [];

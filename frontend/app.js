@@ -1383,6 +1383,15 @@ export function navigateTo(index) {
     const to = m.uci.slice(2, 4);
     _drawMarkersForMove(from, to, m);
 
+    // If this is the final move of the game, add outcome markers on the kings
+    if (clampedIndex === moves.length - 1 && state.game.metadata) {
+      const result = state.game.metadata.result;
+      if (result && result !== '*') {
+        const kings = _findKingSquares(m.fen_after);
+        board.addOutcomeMarkers(result, kings.w, kings.b);
+      }
+    }
+
     // Eval bar (from White's perspective)
     if (!state.liveEngineEnabled) {
       const c = new Chess(fen);
