@@ -8,7 +8,7 @@ All formulas match the spec exactly.
 import math
 from typing import Optional
 import chess
-import sys
+# import sys  # Removed unused import after eliminating debug prints
 
 
 # ---------------------------------------------------------------------------
@@ -135,6 +135,7 @@ def get_max_loss_for_move(board: chess.Board, move: chess.Move) -> int:
             net_loss = 0
         max_loss = max(max_loss, net_loss - material_won)
     return max_loss
+
 def is_sacrifice(board: chess.Board, move: chess.Move, mate_played: Optional[int] = None) -> bool:
     """
     Detect if a move results in a material sacrifice or exchange disadvantage.
@@ -173,12 +174,12 @@ def is_sacrifice(board: chess.Board, move: chess.Move, mate_played: Optional[int
     #        return False
 
     actual_max_loss = get_max_loss_for_move(board, move)
-    print(f"DEBUG: is_sacrifice for move {board.san(move)} - actual_max_loss: {actual_max_loss}, mate_played: {mate_played}", file=sys.stderr)
-    
+    # Debug print removed
+    print(f"Move {move.uci()}: max_loss={actual_max_loss}, mate_played={mate_played}")
     if actual_max_loss >= 200:
         # If the move leads to a mate, and it's a material loss, consider it a sacrifice
         if mate_played is not None and mate_played > 0:
-            print(f"DEBUG: is_sacrifice returning True due to mate_played > 0 for move {board.san(move)}", file=sys.stderr)
+            # Debug print removed
             return True
 
         # 0. Check if the piece we are moving was ALREADY under a severe LEGAL threat
@@ -199,15 +200,18 @@ def is_sacrifice(board: chess.Board, move: chess.Move, mate_played: Optional[int
                     before_loss_of_mover = max(before_loss_of_mover, loss)
 
         # Prevent "escaping" from being flagged as a sacrifice.
+        print(f"Move {move.uci()}: before_loss_of_mover={before_loss_of_mover}, actual_max_loss={actual_max_loss}")
         if before_loss_of_mover > actual_max_loss:
             return False
 
         # Verify it was a DELIBERATE choice to lose material.
         # If every legal move results in losing material, it's a forced loss, not a sacrifice.
         for alt_move in board.legal_moves:
+            print(f"Checking alternative move {alt_move.uci()} for potential loss...")
             if alt_move == move:
                 continue
             alt_loss = get_max_loss_for_move(board, alt_move)
+            print(f"Move {alt_move.uci()}: alt_loss={alt_loss}")
             if alt_loss < 50:
                 # We FOUND a safe move that doesn't lose material!
                 # This means our sacrifice was a CHOICE.
@@ -417,15 +421,15 @@ def accuracy_to_rating(accuracy: float) -> int:
 
 def accuracy_to_badge(accuracy: float) -> str:
     """Map a phase accuracy percentage to a classification badge."""
-    if accuracy >= 95.0:
+    if accuracy >= 90.0:
         return "best"
-    if accuracy >= 85.0:
+    if accuracy >= 75.0:
         return "excellent"
-    if accuracy >= 70.0:
-        return "good"
     if accuracy >= 50.0:
-        return "inaccuracy"
+        return "good"
     if accuracy >= 30.0:
+        return "inaccuracy"
+    if accuracy >= 20.0:
         return "mistake"
     return "blunder"
 
@@ -473,6 +477,7 @@ def build_accuracy_report(
         
         # Calculate Phase badges
         phase_badges = {}
+        phase_accuracies = {}
         for phase in ["opening", "middlegame", "endgame"]:
             phase_records = [r for r in records if r.get("phase") == phase]
             if not phase_records:
@@ -491,6 +496,7 @@ def build_accuracy_report(
             elif p_accuracy == 100.0 or (p_accuracy >= 95.0 and has_great) or (p_accuracy >= 85.0 and has_brilliant):
                 base_badge = "great"
             
+            phase_accuracies[phase] = round(p_accuracy, 1)
             phase_badges[phase] = base_badge
             
         # The only way to break the baseline cap and reach 3500-4000 is to find 
@@ -510,7 +516,8 @@ def build_accuracy_report(
             "accuracy": round(accuracy, 1),
             "estimated_rating": rounded_rating,
             "counts": counts,
-            "phases": phase_badges
+            "phases": phase_badges,
+            "phase_accuracies": phase_accuracies
         }
 
     return {
@@ -533,9 +540,3 @@ def generate_null_move_fen(fen: str) -> str:
     # Clear en passant target square
     parts[3] = '-'
     return ' '.join(parts)
-
-
-
-
-
-

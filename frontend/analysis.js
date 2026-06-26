@@ -623,7 +623,9 @@ function _renderSideAccuracy(side, data) {
         const badgeClass = data.phases[phase];
         if (badgeClass && CLASS_META[badgeClass]) {
           const meta = CLASS_META[badgeClass];
-          badgeEl.innerHTML = `<img class="move-badge" src="assets/markers/${meta.svg}" title="${meta.label}" alt="${meta.symbol}" />`;
+          const phaseName = phase.charAt(0).toUpperCase() + phase.slice(1); // Capitalize the first letter
+          const accuracyValue = data.phase_accuracies && data.phase_accuracies[phase] !== undefined ? data.phase_accuracies[phase] : 'N/A';
+          badgeEl.innerHTML = `<img class="move-badge" src="assets/markers/${meta.svg}" title="${phaseName} accuracy: ${accuracyValue}%" alt="${meta.symbol}" />`;
           badgeEl.style.border = 'none';
           badgeEl.style.background = 'transparent';
           badgeEl.className = 'move-badge';

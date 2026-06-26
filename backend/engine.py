@@ -13,12 +13,10 @@ import asyncio
 import logging
 from typing import Callable, Optional, AsyncGenerator
 
-import chess
 import chess.engine
 import chess.pgn
 import io
 import re
-import sys
 
 from .config import STOCKFISH_PATH, ENGINE_THREADS, ENGINE_HASH_MB, ANALYSIS_DEPTH
 from .analysis import (
@@ -337,18 +335,18 @@ class EngineManager:
         # --- Parse PGN ---
         # Bypassing preprocess_pgn_nags for debugging
         # pgn_text = preprocess_pgn_nags(pgn_text)
-        print(f"DEBUG: PGN text after preprocessing in batch_analyze:\n{pgn_text}", file=sys.stderr)
+        # Debug print removed
         pgn = chess.pgn.read_game(io.StringIO(pgn_text))
         if pgn is None:
-            print("DEBUG: chess.pgn.read_game returned None inside batch_analyze.", file=sys.stderr)
+            # Debug print removed
             raise ValueError("Could not parse PGN. Please check the input format.")
             
         if pgn.errors:
-            print(f"DEBUG: PGN errors inside batch_analyze: {pgn.errors}", file=sys.stderr)
+            # Debug print removed
             err_msg = str(pgn.errors[0])
             raise ValueError(f"Invalid PGN: {err_msg}")
 
-        print(f"DEBUG: pgn.mainline_moves() in batch_analyze: {list(pgn.mainline_moves())}", file=sys.stderr)
+        # Debug print removed
 
         # Collect all positions
         board = pgn.board()
@@ -488,7 +486,7 @@ class EngineManager:
             # Absolute delta (always ≥ 0)
             delta = max(0.0, P_best - P_played)
 
-            print("DEBUG: AAAAAAAAAAAAAAAAAAAAAA")
+            # Debug print removed
             # Book check
             if brilliant_theory_found:
                 book = False
@@ -499,19 +497,20 @@ class EngineManager:
             mate_best = get_mate_moves(es_before.get("score_mate"), color)
             mate_played = get_mate_moves(es_after.get("score_mate"), color)
 
-            print("DEBUG: Move number:", move_num, "SAN:", san, "UCI:", move.uci(), "Color:", "white" if color == chess.WHITE else "black", file=sys.stderr)
-            print("DEBUG: mate_best:", mate_best, "mate_played:", mate_played, file=sys.stderr)
+            # Debug print removed
+            # Debug print removed
 
             # Sacrifice check (always needed now because a book move could be brilliant)
             sacrificed = False
             try:
-                print(f"DEBUG: Calling is_sacrifice for move {san} (UCI: {move.uci()})", file=sys.stderr)
+                # Debug print removed
                 sacrificed = is_sacrifice(board_before, move, mate_played=mate_played)
-                print(f"DEBUG: is_sacrifice returned {sacrificed} for move {san} (UCI: {move.uci()})", file=sys.stderr)
+                # Debug print removed
             except Exception as e:
-                print(f"DEBUG: Error occurred while checking sacrifice for move {san}: {e}", file=sys.stderr)
+                # Debug print removed
                 sacrificed = False
 
+            print(f"Move {move_num} {san} (uci: {move.uci()}): cp_best={cp_best}, cp_played={cp_played}, delta={delta}, P_best={P_best}, P_played={P_played}, sacrificed={sacrificed}, book={book}")
             classification = classify_move(
                 delta=delta,
                 p_best=P_best,
