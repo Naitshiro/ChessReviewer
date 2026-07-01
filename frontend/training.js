@@ -100,6 +100,9 @@ export const TrainingModule = {
     playerColor: 'white',
     currentIndex: 0,
     activeStatus: 'idle', // idle, playing, completed
+    list: [],
+    ws: null,
+    currentExplorerMoves: [],
   },
 
   engine: {
@@ -217,6 +220,9 @@ export const TrainingModule = {
     }
     // Enable interaction correctly
     this.board.disableInteraction();
+    
+    // Stop opening engine WS if active
+    this._stopOpeningEngine();
   },
 
   // ── Move Routing Hooks ──────────────────────────────────────────────────
@@ -300,6 +306,10 @@ export const TrainingModule = {
       } else {
         this._resetOpeningTraining();
       }
+    });
+
+    document.getElementById('toggle-opening-engine')?.addEventListener('change', () => {
+      this._manageOpeningEngine();
     });
 
     // Play vs Engine UI
@@ -654,19 +664,40 @@ export const TrainingModule = {
 
   // ── Openings Module ─────────────────────────────────────────────────────
   _populateOpeningsDropdown() {
-    const select = document.getElementById('select-opening');
-    if (!select) return;
-    select.innerHTML = '';
-    OPENINGS.forEach(op => {
-      const opt = document.createElement('option');
-      opt.value = op.id;
-      opt.textContent = op.name;
-      select.appendChild(opt);
-    });
+    this.openings.list = OPENINGS; // default fallback
+    fetch('/api/openings/list')
+      .then(res => res.json())
+      .then(data => {
+        this.openings.list = data;
+        const select = document.getElementById('select-opening');
+        if (!select) return;
+        select.innerHTML = '';
+        data.forEach(op => {
+          const opt = document.createElement('option');
+          opt.value = op.id;
+          opt.textContent = op.name;
+          select.appendChild(opt);
+        });
+        if (select.value) {
+          this._loadOpeningById(select.value);
+        }
+      })
+      .catch(err => {
+        console.error("Failed to load practice openings from backend, using hardcoded fallback:", err);
+        const select = document.getElementById('select-opening');
+        if (!select) return;
+        select.innerHTML = '';
+        OPENINGS.forEach(op => {
+          const opt = document.createElement('option');
+          opt.value = op.id;
+          opt.textContent = op.name;
+          select.appendChild(opt);
+        });
+      });
   },
 
   _loadOpeningById(id) {
-    const op = OPENINGS.find(o => o.id === id);
+    const op = (this.openings.list || OPENINGS).find(o => o.id === id);
     if (op) {
       this.openings.active = op;
       this.openings.activeStatus = 'idle';
@@ -679,12 +710,14 @@ export const TrainingModule = {
       feedback.className = 'text-center py-1.5 px-3 rounded text-xs font-semibold bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-secondary)]';
 
       document.getElementById('opening-moves-container').classList.add('hidden');
+      document.getElementById('opening-explorer-container').classList.add('hidden');
       document.getElementById('btn-opening-start').textContent = 'Start Training';
       
       this.board.setPosition(op.startFen);
       this.board.setOrientation(this.openings.playerColor);
       this.board.clearMarrows();
       this.board.disableInteraction();
+      this._stopOpeningEngine();
     }
   },
 
@@ -734,6 +767,8 @@ export const TrainingModule = {
         feedback.textContent = 'Your Turn! Play your opening move.';
         feedback.className = 'text-center py-1.5 px-3 rounded text-xs font-semibold bg-green-950/20 border border-green-500/30 text-green-400';
         
+        this._updateOpeningExplorer();
+        
         this.board.enableInteraction(
           (f, t) => this._validateOpeningDrag(f, t),
           (sq) => this._getOpeningLegalMoves(sq)
@@ -743,9 +778,11 @@ export const TrainingModule = {
       feedback.textContent = 'Your Turn! Play the first move.';
       feedback.className = 'text-center py-1.5 px-3 rounded text-xs font-semibold bg-green-950/20 border border-green-500/30 text-green-400';
       
+      this._updateOpeningExplorer();
+      
       this.board.enableInteraction(
-        (f, t) => this._validateOpeningDrag(f, t),
-        (sq) => this._getOpeningLegalMoves(sq)
+          (f, t) => this._validateOpeningDrag(f, t),
+          (sq) => this._getOpeningLegalMoves(sq)
       );
     }
   },
@@ -763,7 +800,9 @@ export const TrainingModule = {
     this.openings.currentIndex = 0;
     this.openings.activeStatus = 'idle';
     document.getElementById('opening-moves-container').classList.add('hidden');
+    document.getElementById('opening-explorer-container').classList.add('hidden');
     document.getElementById('btn-opening-start').textContent = 'Start Training';
+    this._stopOpeningEngine();
   },
 
   _validateOpeningDrag(from, to) {
@@ -783,74 +822,241 @@ export const TrainingModule = {
   },
 
   _handleOpeningPlayerMove(from, to, promotion) {
-    const op = this.openings.active;
-    const expectedMove = op.moves[this.openings.currentIndex];
-    const playedMove = from + to;
+    this._makeOpeningMove(from, to, promotion);
+  },
 
-    const isCorrect = (playedMove === expectedMove || (playedMove + 'q') === expectedMove);
-    const feedback = document.getElementById('opening-feedback');
+  _makeOpeningMove(from, to, promotion = null) {
+    if (this.activeSubmode !== 'openings' || !this.openings.chess) return;
 
-    if (isCorrect) {
+    if (this.openings.opponentTimeoutId) {
+      clearTimeout(this.openings.opponentTimeoutId);
+      this.openings.opponentTimeoutId = null;
+    }
+
+    const playerColorLetter = this.openings.playerColor === 'white' ? 'w' : 'b';
+    const isPlayerTurn = this.openings.chess.turn() === playerColorLetter;
+
+    try {
       this.openings.chess.move({ from, to, promotion: promotion || 'q' });
       this.board.setPosition(this.openings.chess.fen(), true);
-      this.board.addLastMoveMarkers(from, to, 'theory', null, this.openings.playerColor);
 
-      // Light up the move in list
-      const moveIndex = Math.floor(this.openings.currentIndex / 2);
-      const mEl = document.getElementById(`op-move-item-${moveIndex}`);
-      if (mEl) mEl.classList.remove('opacity-30');
+      const moveColor = isPlayerTurn ? this.openings.playerColor : (this.openings.playerColor === 'white' ? 'black' : 'white');
+      this.board.addLastMoveMarkers(from, to, 'theory', null, moveColor);
 
-      this.openings.currentIndex++;
+      this._updateMovesHistory();
+      this._updateOpeningExplorer();
+    } catch (e) {
+      console.error("Manual move error:", e);
+    }
+  },
 
-      if (this.openings.currentIndex >= op.moves.length) {
-        // Finished!
-        this.openings.activeStatus = 'completed';
-        feedback.textContent = '🎉 Opening sequence completed successfully!';
-        feedback.className = 'text-center py-1.5 px-3 rounded text-xs font-semibold bg-emerald-900/30 border border-emerald-500/40 text-emerald-400 font-bold';
-        this.board.disableInteraction();
-      } else {
-        // Computer's turn
-        feedback.textContent = 'Correct! Opponent is replying...';
-        feedback.className = 'text-center py-1.5 px-3 rounded text-xs font-semibold bg-[var(--bg-primary)] border border-[var(--border)] text-yellow-500';
-        this.board.disableInteraction();
+  _updateMovesHistory() {
+    const list = document.getElementById('opening-moves-list');
+    if (!list || !this.openings.chess) return;
 
-        setTimeout(() => {
-          const opponentMove = op.moves[this.openings.currentIndex];
-          const oppFrom = opponentMove.slice(0, 2);
-          const oppTo = opponentMove.slice(2, 4);
+    const container = document.getElementById('opening-moves-container');
+    if (container) container.classList.remove('hidden');
 
-          this.openings.chess.move({ from: oppFrom, to: oppTo, promotion: 'q' });
-          this.board.setPosition(this.openings.chess.fen(), true);
-          this.board.addLastMoveMarkers(oppFrom, oppTo, null, null, this.openings.playerColor === 'white' ? 'black' : 'white');
+    const history = this.openings.chess.history({ verbose: true });
+    list.innerHTML = '';
 
-          this.openings.currentIndex++;
+    let moveNum = 1;
+    for (let i = 0; i < history.length; i += 2) {
+      const whiteMove = history[i] ? history[i].san : '';
+      const blackMove = history[i + 1] ? history[i + 1].san : '';
+      const row = document.createElement('div');
+      row.className = 'py-0.5 border-b border-[var(--border)] flex justify-between';
+      row.innerHTML = `
+        <span class="text-[var(--text-muted)]">${moveNum}.</span>
+        <span class="font-bold text-[var(--text-primary)] flex-1 pl-2">${whiteMove}</span>
+        <span class="text-[var(--text-secondary)] flex-1 text-right">${blackMove}</span>
+      `;
+      list.appendChild(row);
+      moveNum++;
+    }
+  },
 
-          feedback.textContent = 'Your Turn! Make the next opening move.';
+  _updateOpeningExplorer() {
+    const fen = this.openings.chess.fen();
+    const container = document.getElementById('opening-explorer-container');
+    if (container) container.classList.remove('hidden');
+
+    const tbody = document.getElementById('opening-explorer-tbody');
+    if (tbody) {
+      tbody.innerHTML = '<tr><td colspan="4" class="p-3 text-center text-[var(--text-muted)] animate-pulse">Loading explorer...</td></tr>';
+    }
+
+    fetch('/api/openings/explorer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fen })
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (this.activeSubmode !== 'openings' || !this.openings.chess || this.openings.chess.fen() !== fen) {
+          return;
+        }
+
+        const moves = data.moves || [];
+        this.openings.currentExplorerMoves = moves;
+
+        this.board.drawOpeningHints(moves);
+
+        if (tbody) {
+          tbody.innerHTML = '';
+          if (moves.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="p-3 text-center text-[var(--text-muted)]">No opening database games found.</td></tr>';
+          } else {
+            moves.forEach(m => {
+              const tr = document.createElement('tr');
+              tr.className = 'border-b border-[var(--border)] hover:bg-[var(--bg-card)] cursor-pointer transition-colors';
+              tr.dataset.uci = m.uci;
+
+              const wdb = `${m.white_win_ratio}%/${m.draw_ratio}%/${m.black_win_ratio}%`;
+
+              tr.innerHTML = `
+                <td class="p-1.5 font-mono font-bold text-[var(--text-primary)]">${m.san}</td>
+                <td class="p-1.5 text-right text-[var(--text-secondary)] font-semibold">${m.popularity}%</td>
+                <td class="p-1.5 text-right text-[var(--text-muted)] text-[10px]">${wdb}</td>
+                <td id="op-eval-${m.uci}" class="p-1.5 text-right font-mono font-semibold text-[var(--text-muted)]">—</td>
+              `;
+              tbody.appendChild(tr);
+            });
+
+            // Add click listeners to rows to manual play
+            tbody.querySelectorAll('tr').forEach(tr => {
+              tr.addEventListener('click', () => {
+                const uci = tr.dataset.uci;
+                if (uci) {
+                  const from = uci.slice(0, 2);
+                  const to = uci.slice(2, 4);
+                  this._makeOpeningMove(from, to);
+                }
+              });
+            });
+          }
+        }
+
+        this._manageOpeningEngine();
+
+        // Manage turn flow and opponent automatic play
+        const feedback = document.getElementById('opening-feedback');
+        const turn = this.openings.chess.turn();
+        const playerColorLetter = this.openings.playerColor === 'white' ? 'w' : 'b';
+
+        if (turn !== playerColorLetter) {
+          // Opponent's turn
+          this.board.disableInteraction();
+          if (moves.length > 0) {
+            feedback.textContent = 'Opponent is choosing a response...';
+            feedback.className = 'text-center py-1.5 px-3 rounded text-xs font-semibold bg-[var(--bg-primary)] border border-[var(--border)] text-yellow-500';
+
+            this.openings.opponentTimeoutId = setTimeout(() => {
+              if (this.activeSubmode !== 'openings' || !this.openings.chess || this.openings.chess.turn() === playerColorLetter) {
+                return;
+              }
+              const topMove = moves[0];
+              this._makeOpeningMove(topMove.uci.slice(0, 2), topMove.uci.slice(2, 4));
+            }, 800);
+          } else {
+            feedback.textContent = 'Out of book. Opponent has no popular responses.';
+            feedback.className = 'text-center py-1.5 px-3 rounded text-xs font-semibold bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-secondary)]';
+            this.board.enableInteraction(
+              (f, t) => this._validateOpeningDrag(f, t),
+              (sq) => this._getOpeningLegalMoves(sq)
+            );
+          }
+        } else {
+          // Player's turn
+          feedback.textContent = 'Your Turn! Make a move.';
           feedback.className = 'text-center py-1.5 px-3 rounded text-xs font-semibold bg-green-950/20 border border-green-500/30 text-green-400';
-          
           this.board.enableInteraction(
             (f, t) => this._validateOpeningDrag(f, t),
             (sq) => this._getOpeningLegalMoves(sq)
           );
-        }, 800);
+        }
+      })
+      .catch(err => {
+        console.error("Failed to load opening explorer:", err);
+        if (tbody) {
+          tbody.innerHTML = '<tr><td colspan="4" class="p-3 text-center text-red-400">Failed to load responses.</td></tr>';
+        }
+      });
+  },
+
+  _manageOpeningEngine() {
+    const isEngineToggled = document.getElementById('toggle-opening-engine')?.checked;
+    this._stopOpeningEngine();
+
+    if (!isEngineToggled || !this.openings.chess) {
+      return;
+    }
+
+    const fen = this.openings.chess.fen();
+    const loc = window.location;
+    const wsUrl = `ws://${loc.host}/ws/analyze`;
+    const ws = new WebSocket(wsUrl);
+    this.openings.ws = ws;
+
+    ws.addEventListener('open', () => {
+      ws.send(JSON.stringify({ type: 'set_fen', fen, depth: 14 }));
+    });
+
+    ws.addEventListener('message', e => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'info') {
+          const pv = msg.pv || [];
+          if (pv.length > 0) {
+            const firstMoveUci = pv[0];
+            const scoreCp = msg.score_cp;
+            const scoreMate = msg.score_mate;
+
+            let scoreStr = '0.00';
+            if (scoreMate !== null && scoreMate !== undefined) {
+              scoreStr = `#M${scoreMate}`;
+            } else if (scoreCp !== null && scoreCp !== undefined) {
+              const val = (scoreCp / 100).toFixed(2);
+              scoreStr = scoreCp > 0 ? `+${val}` : val;
+            }
+
+            const td = document.getElementById(`op-eval-${firstMoveUci}`);
+            if (td) {
+              td.textContent = scoreStr;
+              const valNum = scoreCp !== null ? scoreCp / 100 : (scoreMate > 0 ? 10 : -10);
+              const boardTurn = this.openings.chess.turn();
+              const isGoodForTurn = (boardTurn === 'w' && valNum > 0) || (boardTurn === 'b' && valNum < 0);
+
+              if (Math.abs(valNum) < 0.5) {
+                td.className = 'p-1.5 text-right font-mono font-semibold text-[var(--text-secondary)]';
+              } else if (isGoodForTurn) {
+                td.className = 'p-1.5 text-right font-mono font-semibold text-[var(--accent-green)]';
+              } else {
+                td.className = 'p-1.5 text-right font-mono font-semibold text-red-400';
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Opening WS parse error:", err);
       }
-    } else {
-      feedback.textContent = '❌ That move deviates from the opening line! Reverting...';
-      feedback.className = 'text-center py-1.5 px-3 rounded text-xs font-semibold bg-red-950/30 border border-red-500/40 text-red-400';
-      
-      this.board.disableInteraction();
-      setTimeout(() => {
-        this.board.setPosition(this.openings.chess.fen(), false);
-        this.board.clearMarrows();
-        
-        feedback.textContent = 'Your Turn! Try the correct theoretical move.';
-        feedback.className = 'text-center py-1.5 px-3 rounded text-xs font-semibold bg-green-950/20 border border-green-500/30 text-green-400';
-        
-        this.board.enableInteraction(
-          (f, t) => this._validateOpeningDrag(f, t),
-          (sq) => this._getOpeningLegalMoves(sq)
-        );
-      }, 1000);
+    });
+
+    ws.addEventListener('error', err => {
+      console.error("Opening WS error:", err);
+    });
+  },
+
+  _stopOpeningEngine() {
+    if (this.openings.ws) {
+      if (this.openings.ws.readyState === WebSocket.OPEN || this.openings.ws.readyState === WebSocket.CONNECTING) {
+        this.openings.ws.close();
+      }
+      this.openings.ws = null;
+    }
+    if (this.openings.opponentTimeoutId) {
+      clearTimeout(this.openings.opponentTimeoutId);
+      this.openings.opponentTimeoutId = null;
     }
   },
 

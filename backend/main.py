@@ -11,7 +11,7 @@ Routes:
 Static files (frontend/) are mounted at "/" after all API routes.
 """
 
-# Trigger reload comment
+# Trigger reload comment: updated for zero-center evaluation graph rendering support
 import asyncio
 import json
 import logging
@@ -34,7 +34,7 @@ import chess
 
 from .engine import EngineManager, parse_pgn_game
 from .config import STOCKFISH_PATH, ANALYSIS_DEPTH
-from .openings import is_book_sequence
+from .openings import is_book_sequence, PRACTICE_OPENINGS, fetch_lichess_explorer
 from .analysis import classify_move, is_sacrifice, win_prob
 from .chesscom import fetch_chesscom_games
 
@@ -150,6 +150,11 @@ class ThreatRequest(BaseModel):
 class EngineMoveRequest(BaseModel):
     fen: str
     elo: int
+
+
+class ExplorerRequest(BaseModel):
+    fen: Optional[str] = None
+    moves: Optional[list[str]] = None
 
 
 # ---------------------------------------------------------------------------
@@ -269,6 +274,47 @@ async def get_chesscom_games(username: str):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.exception("Error in /api/chesscom/games")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Opening Practice / Explorer Routes
+# ---------------------------------------------------------------------------
+
+@app.get("/api/openings/list")
+async def get_openings_list():
+    """Get predefined list of openings for interactive practice."""
+    return PRACTICE_OPENINGS
+
+@app.post("/api/openings/explorer")
+async def get_opening_explorer(req: ExplorerRequest):
+    """
+    Get top continuation moves from Lichess or local fallback.
+    Accepts FEN or move history sequence.
+    """
+    try:
+        fen = req.fen
+        if req.moves:
+            board = chess.Board()
+            for mv in req.moves:
+                try:
+                    try:
+                        board.push_uci(mv)
+                    except Exception:
+                        board.push_san(mv)
+                except Exception:
+                    raise HTTPException(status_code=400, detail=f"Invalid move sequence: {mv}")
+            fen = board.fen()
+        
+        if not fen:
+            fen = chess.STARTING_FEN
+            
+        result = await asyncio.to_thread(fetch_lichess_explorer, fen)
+        return result
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.exception("Error in /api/openings/explorer")
         raise HTTPException(status_code=500, detail=str(e))
 
 

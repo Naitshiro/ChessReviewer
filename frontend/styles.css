@@ -608,7 +608,7 @@ img.move-badge {
 
 .move-row {
   display: grid;
-  grid-template-columns: 32px 1fr 1fr;
+  grid-template-columns: 32px 1fr 1fr 52px;
   gap: 4px;
   align-items: center;
   padding: 2px 4px;
@@ -619,6 +619,58 @@ img.move-badge {
 
 .move-row:hover {
   background: var(--bg-card);
+}
+
+/* Move times spent styling */
+.move-time-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  min-width: 52px;
+  color: var(--text-muted);
+}
+
+.move-time-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.move-time-bar {
+  display: inline-block;
+  width: 3px;
+  height: 8px;
+  border-radius: 1px;
+}
+
+.move-time-text {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 9.5px;
+  line-height: 1;
+}
+
+/* Result row styling */
+.move-list-result-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.result-info-icon {
+  color: var(--text-muted);
+  cursor: help;
+  display: inline-flex;
+  align-items: center;
 }
 
 .move-num {

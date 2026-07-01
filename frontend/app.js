@@ -103,6 +103,9 @@ const el = {
   pauseIcon: document.getElementById('pause-icon'),
   btnNext: document.getElementById('btn-next'),
   btnLast: document.getElementById('btn-last'),
+  btnSound: document.getElementById('btn-sound'),
+  soundOnIcon: document.getElementById('sound-on-icon'),
+  soundOffIcon: document.getElementById('sound-off-icon'),
   btnFlip: document.getElementById('btn-flip'),
   btnToggleOverlay: document.getElementById('btn-toggle-overlay'),
   backToReviewBtn: document.getElementById('back-to-review-btn'),
@@ -184,6 +187,7 @@ board.init((from, to, promotion) => {
 async function init() {
   _setMode(MODE.IDLE);
   _bindControls();
+  _updateSoundButtonUI();
   await _checkHealth();
 
   // Keyboard navigation
@@ -462,6 +466,24 @@ function _bindControls() {
   el.fenInput?.addEventListener('keydown', e => {
     if (e.key === 'Enter') loadFen();
   });
+
+  // Sound toggle button binding
+  el.btnSound?.addEventListener('click', () => {
+    board.soundEnabled = !board.soundEnabled;
+    localStorage.setItem('chess_sound_enabled', board.soundEnabled);
+    _updateSoundButtonUI();
+  });
+}
+
+function _updateSoundButtonUI() {
+  if (!el.soundOnIcon || !el.soundOffIcon) return;
+  if (board.soundEnabled) {
+    el.soundOnIcon.classList.remove('hidden');
+    el.soundOffIcon.classList.add('hidden');
+  } else {
+    el.soundOnIcon.classList.add('hidden');
+    el.soundOffIcon.classList.remove('hidden');
+  }
 }
 
 function _setToggleDisabled(toggleEl, dotEl, labelEl, disabled, colorCode) {
@@ -606,53 +628,11 @@ function _drawMarkersForMove(from, to, m) {
   board.addLastMoveMarkers(from, to, classification, annotationObj, m.color);
 }
 
-function _findKingSquares(fen) {
-  if (!fen) return { w: null, b: null };
-  const boardPart = fen.split(' ')[0];
-  const rows = boardPart.split('/');
-  let whiteKingSquare = null;
-  let blackKingSquare = null;
-  
-  const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-  
-  for (let r = 0; r < 8; r++) {
-    const rowStr = rows[r];
-    const rank = 8 - r;
-    let fileIdx = 0;
-    
-    for (let c = 0; c < rowStr.length; c++) {
-      const char = rowStr[c];
-      if (isNaN(char)) {
-        const sq = files[fileIdx] + rank;
-        if (char === 'K') {
-          whiteKingSquare = sq;
-        } else if (char === 'k') {
-          blackKingSquare = sq;
-        }
-        fileIdx++;
-      } else {
-        fileIdx += parseInt(char, 10);
-      }
-    }
-  }
-  
-  return { w: whiteKingSquare, b: blackKingSquare };
-}
-
 function _redrawCurrentMoveOverlay() {
   if (state.mode === MODE.REVIEW) {
     if (state.review.currentIndex >= 0) {
       const m = state.game.moves[state.review.currentIndex];
       _drawMarkersForMove(m.uci.slice(0, 2), m.uci.slice(2, 4), m);
-      
-      // If we are at the final move of the game, add outcome highlights & badges to the kings
-      if (state.review.currentIndex === state.game.moves.length - 1 && state.game.metadata) {
-        const result = state.game.metadata.result;
-        if (result && result !== '*') {
-          const kings = _findKingSquares(m.fen_after);
-          board.addOutcomeMarkers(result, kings.w, kings.b);
-        }
-      }
     }
   } else if (state.mode === MODE.ANALYSIS) {
     const idx = state.analysis.currentBranchIndex;
@@ -673,7 +653,8 @@ function _triggerMoveListRender() {
       state.analysis.branchMoves,
       state.analysis.forkIndex,
       state.overlayPriority,
-      state.liveReviewEnabled
+      state.liveReviewEnabled,
+      state.game.metadata?.result
     );
   } else {
     renderMoveList(
@@ -682,7 +663,8 @@ function _triggerMoveListRender() {
       [],
       null,
       state.overlayPriority,
-      state.liveReviewEnabled
+      state.liveReviewEnabled,
+      state.game.metadata?.result
     );
   }
 }
@@ -1382,15 +1364,6 @@ export function navigateTo(index) {
     const from = m.uci.slice(0, 2);
     const to = m.uci.slice(2, 4);
     _drawMarkersForMove(from, to, m);
-
-    // If this is the final move of the game, add outcome markers on the kings
-    if (clampedIndex === moves.length - 1 && state.game.metadata) {
-      const result = state.game.metadata.result;
-      if (result && result !== '*') {
-        const kings = _findKingSquares(m.fen_after);
-        board.addOutcomeMarkers(result, kings.w, kings.b);
-      }
-    }
 
     // Eval bar (from White's perspective)
     if (!state.liveEngineEnabled) {

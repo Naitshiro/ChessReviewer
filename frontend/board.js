@@ -9,6 +9,7 @@ import { Arrows, ARROW_TYPE } from
   'https://cdn.jsdelivr.net/npm/cm-chessboard@8/src/extensions/arrows/Arrows.js';
 import { Markers, MARKER_TYPE } from
   'https://cdn.jsdelivr.net/npm/cm-chessboard@8/src/extensions/markers/Markers.js';
+import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm';
 
 // CDN assets URL for cm-chessboard (piece sprites, CSS)
 const CM_ASSETS = 'https://cdn.jsdelivr.net/npm/cm-chessboard@8/assets/';
@@ -60,6 +61,84 @@ const ANNOTATION_MARKERS = {
   black: { class: 'marker-annotation-black', slice: 'markerSquare' },
 };
 
+class ChessAudio {
+  constructor() {
+    this.sounds = {
+      move: new Audio('assets/sounds/move-self.mp3'),
+      capture: new Audio('assets/sounds/capture.mp3'),
+      check: new Audio('assets/sounds/move-check.mp3'),
+      castle: new Audio('assets/sounds/castle.mp3'),
+      promote: new Audio('assets/sounds/promote.mp3')
+    };
+
+    // Preload all audio assets
+    for (const key in this.sounds) {
+      this.sounds[key].load();
+    }
+  }
+
+  play(type) {
+    try {
+      const audio = this.sounds[type];
+      if (audio) {
+        audio.currentTime = 0;
+        audio.play().catch(err => {
+          console.warn("Audio playback prevented:", err);
+        });
+      }
+    } catch (e) {
+      console.warn("Failed to play chess sound:", e);
+    }
+  }
+}
+
+function getFenKey(fen) {
+  if (!fen) return '';
+  return fen.split(' ').slice(0, 4).join(' ');
+}
+
+function detectMoveType(prevFen, newFen) {
+  if (!prevFen || !newFen) return null;
+  const keyPrev = getFenKey(prevFen);
+  const keyNew = getFenKey(newFen);
+  if (keyPrev === keyNew) return null;
+
+  try {
+    const c1 = new Chess(prevFen);
+    for (const m of c1.moves({ verbose: true })) {
+      const clone = new Chess(prevFen);
+      clone.move(m);
+      if (getFenKey(clone.fen()) === keyNew) {
+        if (clone.inCheck()) {
+          return 'check';
+        }
+        if (m.flags.includes('k') || m.flags.includes('q')) {
+          return 'castle';
+        }
+        if (m.flags.includes('p')) {
+          return 'promote';
+        }
+        if (m.flags.includes('c') || m.flags.includes('e')) {
+          return 'capture';
+        }
+        return 'move';
+      }
+    }
+
+    const c2 = new Chess(newFen);
+    for (const m of c2.moves({ verbose: true })) {
+      const clone = new Chess(newFen);
+      clone.move(m);
+      if (getFenKey(clone.fen()) === keyPrev) {
+        return 'move';
+      }
+    }
+  } catch (e) {
+    console.warn("Error in detectMoveType:", e);
+  }
+  return null;
+}
+
 /**
  * BoardManager wraps cm-chessboard and exposes a clean interface
  * for the application state machine.
@@ -73,6 +152,8 @@ export class BoardManager {
     this._orientation = COLOR.white;
     this._currentFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
     this._activeBadges = []; // Array of { square, text, type, color }
+    this._audio = new ChessAudio();
+    this.soundEnabled = localStorage.getItem('chess_sound_enabled') !== 'false';
   }
 
   /**
@@ -117,7 +198,16 @@ export class BoardManager {
    */
   async setPosition(fen, animate = true) {
     if (!this._board) return;
+    const oldFen = this._currentFen;
     this._currentFen = fen;
+
+    if (this.soundEnabled && oldFen && oldFen !== fen) {
+      const type = detectMoveType(oldFen, fen);
+      if (type) {
+        this._audio.play(type);
+      }
+    }
+
     await this._board.setPosition(fen, animate);
   }
 
@@ -234,58 +324,7 @@ export class BoardManager {
     this.showClassificationBadges([{ square, text, type, color: moveColor }]);
   }
 
-  addOutcomeBadges(outcomeBadges) {
-    const formatted = outcomeBadges.map(ob => ({
-      square: ob.square,
-      text: ob.text,
-      type: 'outcome',
-      color: 'white'
-    }));
-    this._activeBadges = (this._activeBadges || []).concat(formatted);
-    this._renderActiveBadges();
-  }
 
-  /**
-   * Add outcome markers to the kings based on game result.
-   * @param {string} result - Game result ('1-0', '0-1', or '1/2-1/2')
-   * @param {string} whiteKingSquare - Square of the white king (e.g., 'e1')
-   * @param {string} blackKingSquare - Square of the black king (e.g., 'e8')
-   */
-  addOutcomeMarkers(result, whiteKingSquare, blackKingSquare) {
-    if (!whiteKingSquare && !blackKingSquare) return;
-
-    const badges = [];
-
-    if (result === '1-0') {
-      // White wins: white king gets winner, black king gets loser
-      if (whiteKingSquare) {
-        badges.push({ square: whiteKingSquare, text: 'winner', type: 'outcome', color: 'white' });
-      }
-      if (blackKingSquare) {
-        badges.push({ square: blackKingSquare, text: 'loser', type: 'outcome', color: 'white' });
-      }
-    } else if (result === '0-1') {
-      // Black wins: black king gets winner, white king gets loser
-      if (whiteKingSquare) {
-        badges.push({ square: whiteKingSquare, text: 'loser', type: 'outcome', color: 'white' });
-      }
-      if (blackKingSquare) {
-        badges.push({ square: blackKingSquare, text: 'winner', type: 'outcome', color: 'white' });
-      }
-    } else if (result === '1/2-1/2') {
-      // Draw: both kings get draw marker
-      if (whiteKingSquare) {
-        badges.push({ square: whiteKingSquare, text: 'draw', type: 'outcome', color: 'white' });
-      }
-      if (blackKingSquare) {
-        badges.push({ square: blackKingSquare, text: 'draw', type: 'outcome', color: 'white' });
-      }
-    }
-
-    // Append king outcome badges on top of any existing badges (e.g. classification)
-    this._activeBadges = (this._activeBadges || []).concat(badges);
-    this._renderActiveBadges();
-  }
 
     clearClassificationBadge() {
       this._activeBadges = [];
@@ -345,7 +384,7 @@ export class BoardManager {
         badge.style.top = `${y}px`;
         badge.className = 'board-class-badge';
 
-        if (type === 'classification' || type === 'outcome') {
+        if (type === 'classification') {
           badge.src = `assets/markers/${text}.svg`;
           badge.alt = text;
         } else {
@@ -464,6 +503,25 @@ export class BoardManager {
           }
         }
       }
+    }
+
+    /**
+     * Draw opening popularity hints on the board.
+     * @param {Array<{uci: string, popularity: number}>} moves
+     */
+    drawOpeningHints(moves) {
+      if (!this._board) return;
+      this.clearArrows();
+      moves.forEach((m, idx) => {
+        const from = m.uci.slice(0, 2);
+        const to = m.uci.slice(2, 4);
+        if (from && to) {
+          const arrowType = idx === 0 
+            ? { class: 'arrow-info', slice: 'arrowDefault' } 
+            : { class: 'arrow-danger', slice: 'arrowDefault' };
+          this._board.addArrow(arrowType, from, to);
+        }
+      });
     }
 
     // ── Combined helpers ─────────────────────────────────────────────────

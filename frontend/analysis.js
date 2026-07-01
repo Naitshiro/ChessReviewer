@@ -163,10 +163,18 @@ export function renderEvalBar(whiteCp, mateMoves = null, gameOver = false, winne
 
 let evalChart = null;
 
-/**
- * Render the win probability over time chart using Chart.js.
- * @param {Array<{white_win_prob: number, move_number: number, color: string, san: string}>} moves
- */
+function formatEval(move) {
+  if (move.score_mate !== null && move.score_mate !== undefined) {
+    const isWhiteMate = move.score_mate > 0;
+    return isWhiteMate ? `+M${Math.abs(move.score_mate)}` : `-M${Math.abs(move.score_mate)}`;
+  }
+  if (move.white_cp !== null && move.white_cp !== undefined) {
+    const val = move.white_cp / 100.0;
+    return val >= 0 ? `+${val.toFixed(2)}` : `${val.toFixed(2)}`;
+  }
+  return '0.00';
+}
+
 export function renderEvalChart(moves) {
   const ctx = document.getElementById('eval-chart');
   if (!ctx || typeof Chart === 'undefined') return;
@@ -176,12 +184,19 @@ export function renderEvalChart(moves) {
     return `${prefix}${m.san}`;
   });
 
-  const whiteProbs = moves.map(m => Math.round(m.white_win_prob * 100));
+  // Map win probability to -10 to +10 range
+  // 0.5 (equal) -> 0.0
+  // 1.0 (white winning) -> +10.0
+  // 0.0 (black winning) -> -10.0
+  const evalValues = moves.map(m => {
+    const val = (m.white_win_prob - 0.5) * 20.0;
+    return Math.round(val * 100) / 100;
+  });
 
   if (evalChart) {
-    evalChart.moves = moves; // Store current moves for the draw plugin
+    evalChart.moves = moves;
     evalChart.data.labels = labels;
-    evalChart.data.datasets[0].data = whiteProbs;
+    evalChart.data.datasets[0].data = evalValues;
     evalChart.update('none');
     return;
   }
@@ -191,24 +206,15 @@ export function renderEvalChart(moves) {
     data: {
       labels,
       datasets: [{
-        data: whiteProbs,
-        borderColor: '#81b64c',
-        borderWidth: 1.5,
-        backgroundColor: (ctx) => {
-          const chart = ctx.chart;
-          const { ctx: c, chartArea } = chart;
-          if (!chartArea) return 'transparent';
-          const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-          gradient.addColorStop(0, 'rgba(129, 182, 76, 0.3)');
-          gradient.addColorStop(0.5, 'rgba(129, 182, 76, 0.05)');
-          gradient.addColorStop(1, 'rgba(129, 182, 76, 0)');
-          return gradient;
-        },
-        fill: true,
-        tension: 0.3,
+        data: evalValues,
+        borderColor: '#ffffff',
+        borderWidth: 2,
+        backgroundColor: 'rgba(255, 255, 255, 0.85)',
+        fill: 'origin',
+        tension: 0.35,
         pointRadius: 0,
-        pointHoverRadius: 4,
-        pointHoverBackgroundColor: '#81b64c',
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: '#ffffff',
       }],
     },
     plugins: [{
@@ -249,17 +255,32 @@ export function renderEvalChart(moves) {
           display: false,
         },
         y: {
-          min: 0,
-          max: 100,
+          min: -10,
+          max: 10,
           display: true,
           ticks: {
-            color: '#6b6966',
-            font: { size: 9 },
+            color: '#bab9b7',
+            font: { size: 9, family: 'var(--font-sans)', weight: '500' },
             maxTicksLimit: 5,
-            callback: v => `${v}%`,
+            callback: v => {
+              if (v > 0) return `+${v.toFixed(0)}`;
+              if (v < 0) return `${v.toFixed(0)}`;
+              return '0.0';
+            },
           },
           grid: {
-            color: 'rgba(255,255,255,0.04)',
+            color: (context) => {
+              if (context.tick.value === 0) {
+                return 'rgba(255, 255, 255, 0.4)';
+              }
+              return 'rgba(255, 255, 255, 0.04)';
+            },
+            lineWidth: (context) => {
+              if (context.tick.value === 0) {
+                return 1.5;
+              }
+              return 1;
+            }
           },
           border: { display: false },
         },
@@ -267,15 +288,21 @@ export function renderEvalChart(moves) {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: 'rgba(60, 58, 55, 0.95)',
-          borderColor: 'rgba(129, 182, 76, 0.3)',
+          backgroundColor: 'rgba(30, 29, 27, 0.95)',
+          borderColor: 'rgba(255, 255, 255, 0.1)',
           borderWidth: 1,
-          titleColor: '#989795',
+          titleColor: '#bab9b7',
           bodyColor: '#ffffff',
           padding: 8,
           callbacks: {
             title: items => items[0]?.label || '',
-            label: item => `White: ${item.raw}%`,
+            label: item => {
+              const move = moves[item.dataIndex];
+              if (!move) return '';
+              const evalStr = formatEval(move);
+              const prob = Math.round(move.white_win_prob * 100);
+              return `Eval: ${evalStr} (White: ${prob}%)`;
+            },
           },
         },
       },
@@ -305,7 +332,7 @@ export function highlightChartMove(moveIndex) {
  * @param {Array} branchMoves - Array of branch moves
  * @param {number} forkIndex - Index in main moves where branch started
  */
-export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex = null, overlayPriority = 'classification', liveReviewEnabled = false) {
+export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex = null, overlayPriority = 'classification', liveReviewEnabled = false, result = null) {
   const container = document.getElementById('move-list');
   if (!container) return;
 
@@ -327,6 +354,12 @@ export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex =
       currentRow.appendChild(numEl);
       currentRow.appendChild(_createEmptyCell(`move-cell-w-${m.move_number}`));
       currentRow.appendChild(_createEmptyCell(`move-cell-b-${m.move_number}`));
+      
+      const timeContainer = document.createElement('div');
+      timeContainer.className = 'move-time-container';
+      timeContainer.id = `move-time-container-${m.move_number}`;
+      currentRow.appendChild(timeContainer);
+      
       return currentRow;
     }, (row) => currentRow = row, lastMoveNum, overlayPriority, liveReviewEnabled);
     lastMoveNum = m.move_number;
@@ -339,7 +372,6 @@ export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex =
   // 2. Render branch moves inline
   if (branchMoves && branchMoves.length > 0 && forkIndex !== null) {
     const branchContainer = document.createElement('div');
-    // Subtle background to distinguish branch, no left margin so columns align perfectly
     branchContainer.className = 'branch-container my-1 py-1 rounded';
     branchContainer.style.background = 'rgba(60, 58, 55, 0.5)';
     const branchRows = [];
@@ -365,6 +397,12 @@ export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex =
         bCurrentRow.appendChild(numEl);
         bCurrentRow.appendChild(_createEmptyCell(`b-move-cell-w-${m.move_number}`));
         bCurrentRow.appendChild(_createEmptyCell(`b-move-cell-b-${m.move_number}`));
+        
+        const timeContainer = document.createElement('div');
+        timeContainer.className = 'move-time-container';
+        timeContainer.id = `b-move-time-container-${m.move_number}`;
+        bCurrentRow.appendChild(timeContainer);
+        
         return bCurrentRow;
       }, (row) => bCurrentRow = row, bLastMoveNum, overlayPriority, liveReviewEnabled);
       bLastMoveNum = m.move_number;
@@ -378,6 +416,21 @@ export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex =
     } else {
       container.prepend(branchContainer);
     }
+  }
+
+  // 3. Render game result at the bottom
+  if (result && result !== '*') {
+    const resultRow = document.createElement('div');
+    resultRow.className = 'move-list-result-row';
+    resultRow.innerHTML = `
+      <span class="result-text">${result}</span>
+      <span class="result-info-icon" title="Game Over">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+        </svg>
+      </span>
+    `;
+    container.appendChild(resultRow);
   }
 }
 
@@ -471,6 +524,37 @@ function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setR
 
   const targetCell = currentRow.querySelector(`#${cellId}`) || currentRow.lastElementChild;
   targetCell.replaceWith(cell);
+
+  // Update timespent display
+  const timeContainerId = type === 'main'
+    ? `move-time-container-${m.move_number}`
+    : `b-move-time-container-${m.move_number}`;
+  let timeContainer = currentRow.querySelector(`#${timeContainerId}`);
+  if (!timeContainer) {
+    timeContainer = document.createElement('div');
+    timeContainer.className = 'move-time-container';
+    timeContainer.id = timeContainerId;
+    currentRow.appendChild(timeContainer);
+  }
+
+  const colorTimeClass = `move-time-${m.color}`;
+  let timeItem = timeContainer.querySelector(`.${colorTimeClass}`);
+  if (!timeItem) {
+    timeItem = document.createElement('div');
+    timeItem.className = `move-time-item ${colorTimeClass}`;
+    timeContainer.appendChild(timeItem);
+  }
+
+  if (m.move_time) {
+    const barColor = m.color === 'white' ? '#bab9b7' : '#5b5956';
+    timeItem.innerHTML = `
+      <span class="move-time-bar" style="background-color: ${barColor};"></span>
+      <span class="move-time-text">${m.move_time}</span>
+    `;
+    timeItem.style.display = 'flex';
+  } else {
+    timeItem.style.display = 'none';
+  }
 }
 
 

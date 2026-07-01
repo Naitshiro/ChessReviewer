@@ -264,6 +264,14 @@
                 <path d="M13 5l7 7-7 7M6 5l7 7-7 7"/>
               </svg>
             </button>
+            <button id="btn-sound" class="nav-btn" title="Toggle Sound">
+              <svg id="sound-on-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/>
+              </svg>
+              <svg id="sound-off-icon" class="hidden" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6"/>
+              </svg>
+            </button>
             <button id="btn-toggle-overlay" class="nav-btn w-auto px-2 font-bold text-[10px] text-[var(--text-muted)] uppercase tracking-wider ml-1" title="Toggle Overlay Priority">
               Class
             </button>
@@ -901,6 +909,31 @@
                   <span class="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Theory Moves</span>
                   <div id="opening-moves-list" class="flex-1 overflow-y-auto bg-[var(--bg-primary)] border border-[var(--border)] rounded p-2 font-mono text-xs text-[var(--text-secondary)] leading-6">
                     <!-- moves injected here -->
+                  </div>
+                </div>
+
+                <div id="opening-explorer-container" class="hidden flex flex-col gap-1.5 flex-1 min-h-0 border-t border-[var(--border)] pt-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Popular Responses</span>
+                    <label class="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-[var(--text-muted)] select-none">
+                      <input type="checkbox" id="toggle-opening-engine" class="rounded border-[var(--border)] bg-[var(--bg-primary)] text-[var(--accent-green)] focus:ring-0 focus:ring-offset-0" />
+                      Stockfish
+                    </label>
+                  </div>
+                  <div class="flex-1 overflow-y-auto bg-[var(--bg-primary)] border border-[var(--border)] rounded min-h-[140px]">
+                    <table class="w-full text-xs text-left border-collapse font-sans">
+                      <thead>
+                        <tr class="border-b border-[var(--border)] text-[9px] text-[var(--text-muted)] uppercase font-semibold bg-[var(--bg-secondary)]">
+                          <th class="p-1.5">Move</th>
+                          <th class="p-1.5 text-right">Pop (%)</th>
+                          <th class="p-1.5 text-right">W/D/B (%)</th>
+                          <th class="p-1.5 text-right">Eval</th>
+                        </tr>
+                      </thead>
+                      <tbody id="opening-explorer-tbody">
+                        <!-- rows injected dynamically -->
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 

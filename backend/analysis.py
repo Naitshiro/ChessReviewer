@@ -47,39 +47,19 @@ def win_prob(cp: float) -> float:
 def game_accuracy(deltas: list[float]) -> float:
     """
     Chess.com CAPS-style game accuracy percentage.
-    Calculates a non-linear accuracy score per move and averages them, 
-    applying a harsher penalty to games with multiple blunders.
+    Calculates the accuracy score based on the cumulative/average win probability loss (delta).
+    An exponential decay function converts the average delta into a 0-100 range.
+    A coefficient of 11.3 provides a very high fidelity fit matching Chess.com CAPS2 scores.
     """
     if not deltas:
         return 100.0
         
-    move_accs = []
-    for d in deltas:
-        if d <= 0.0:
-            move_accs.append(100.0)
-        elif d <= 0.02:
-            move_accs.append(100.0 - (d / 0.02) * 5.0)  # 100 to 95
-        elif d <= 0.05:
-            move_accs.append(95.0 - ((d - 0.02) / 0.03) * 15.0)  # 95 to 80
-        elif d <= 0.10:
-            move_accs.append(80.0 - ((d - 0.05) / 0.05) * 35.0)  # 80 to 45
-        elif d <= 0.20:
-            move_accs.append(45.0 - ((d - 0.10) / 0.10) * 35.0)  # 45 to 10
-        elif d <= 0.30:
-            move_accs.append(10.0 - ((d - 0.20) / 0.10) * 10.0)  # 10 to 0
-        else:
-            move_accs.append(0.0)
-            
-    # Harsher penalty for games with many bad moves: apply a dynamic exponent based on error counts.
-    avg_acc = sum(move_accs) / len(move_accs)
+    avg_delta = sum(deltas) / len(deltas)
     
-    num_major = sum(1 for d in deltas if d >= 0.20)
-    num_minor = sum(1 for d in deltas if 0.10 <= d < 0.20)
-    exponent = 1.04 + 0.192 * num_major + 0.06 * num_minor
-
-    normalized = (avg_acc / 100.0)
-    final_acc = (normalized ** exponent) * 100.0
-    return max(0.0, min(100.0, final_acc))
+    # Map average delta to a 0-100 score using an exponential decay curve
+    raw_acc = 100.0 * math.exp(-11.3 * avg_delta)
+    
+    return max(0.0, min(100.0, raw_acc))
 
 
 def material_value(board: chess.Board, color: chess.Color) -> int:
@@ -174,8 +154,6 @@ def is_sacrifice(board: chess.Board, move: chess.Move, mate_played: Optional[int
     #        return False
 
     actual_max_loss = get_max_loss_for_move(board, move)
-    # Debug print removed
-    print(f"Move {move.uci()}: max_loss={actual_max_loss}, mate_played={mate_played}")
     if actual_max_loss >= 200:
         # If the move leads to a mate, and it's a material loss, consider it a sacrifice
         if mate_played is not None and mate_played > 0:
@@ -200,18 +178,15 @@ def is_sacrifice(board: chess.Board, move: chess.Move, mate_played: Optional[int
                     before_loss_of_mover = max(before_loss_of_mover, loss)
 
         # Prevent "escaping" from being flagged as a sacrifice.
-        print(f"Move {move.uci()}: before_loss_of_mover={before_loss_of_mover}, actual_max_loss={actual_max_loss}")
         if before_loss_of_mover > actual_max_loss:
             return False
 
         # Verify it was a DELIBERATE choice to lose material.
         # If every legal move results in losing material, it's a forced loss, not a sacrifice.
         for alt_move in board.legal_moves:
-            print(f"Checking alternative move {alt_move.uci()} for potential loss...")
             if alt_move == move:
                 continue
             alt_loss = get_max_loss_for_move(board, alt_move)
-            print(f"Move {alt_move.uci()}: alt_loss={alt_loss}")
             if alt_loss < 50:
                 # We FOUND a safe move that doesn't lose material!
                 # This means our sacrifice was a CHOICE.
