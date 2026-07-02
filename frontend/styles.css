@@ -337,12 +337,12 @@ header {
 
 /* Board Classification Badge overlays */
 .board-class-badge {
-  position: absolute;
-  display: block;
-  z-index: 10;
-  pointer-events: none;
-  user-select: none;
-  animation: badge-pop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: absolute !important;
+  display: block !important;
+  z-index: 9999 !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  animation: badge-pop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important;
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;

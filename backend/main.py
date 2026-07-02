@@ -44,7 +44,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
+if getattr(sys, 'frozen', False):
+    # PyInstaller temporary folder
+    FRONTEND_DIR = Path(sys._MEIPASS) / "frontend"
+else:
+    FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 
 
 # ---------------------------------------------------------------------------

@@ -23,8 +23,8 @@ import { TrainingModule } from './training.js';
 
 // ── Constants ───────────────────────────────────────────────────────────
 
-const API_BASE = '';   // Same origin
-const WS_URL = `ws://${location.host}/ws/analyze`;
+let API_BASE = '';   // Same origin
+let WS_URL = `ws://${location.host}/ws/analyze`;
 
 const MODE = { IDLE: 'idle', REVIEW: 'review', ANALYSIS: 'analysis', TRAINING: 'training' };
 
@@ -185,6 +185,24 @@ board.init((from, to, promotion) => {
 // ── Initialization ──────────────────────────────────────────────────────
 
 async function init() {
+  // Detect and configure for Tauri context
+  if (window.__TAURI__) {
+    try {
+      const port = await window.__TAURI__.invoke('get_server_port');
+      API_BASE = `http://127.0.0.1:${port}`;
+      WS_URL = `ws://127.0.0.1:${port}/ws/analyze`;
+      console.log(`[Tauri] Configured API_BASE to ${API_BASE}`);
+    } catch (err) {
+      console.error('[Tauri] Failed to get server port from Tauri, falling back to 8000:', err);
+      API_BASE = 'http://127.0.0.1:8000';
+      WS_URL = 'ws://127.0.0.1:8000/ws/analyze';
+    }
+  } else if (location.protocol === 'tauri:' || location.origin.startsWith('tauri://') || location.origin.startsWith('https://tauri.localhost')) {
+    API_BASE = 'http://127.0.0.1:8000';
+    WS_URL = 'ws://127.0.0.1:8000/ws/analyze';
+  }
+  window.API_BASE = API_BASE;
+
   _setMode(MODE.IDLE);
   _bindControls();
   _updateSoundButtonUI();

@@ -384,6 +384,10 @@ export class BoardManager {
         badge.style.top = `${y}px`;
         badge.className = 'board-class-badge';
 
+        badge.onerror = () => {
+          console.error(`[Badges] Failed to load badge image for classification: "${text}" from URL: "${badge.src}"`);
+        };
+
         if (type === 'classification') {
           badge.src = `assets/markers/${text}.svg`;
           badge.alt = text;
@@ -395,6 +399,7 @@ export class BoardManager {
           }
         }
 
+        console.log(`[Badges] Rendered badge "${text}" on square ${square} (col:${col}, row:${row}) at position left:${x}px, top:${y}px with size ${badgeSize}px.`);
         wrapper.appendChild(badge);
       }
     }

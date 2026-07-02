@@ -10,10 +10,14 @@ Resolution priority for Stockfish path:
 
 import json
 import os
+import sys
 from pathlib import Path
 
-# Project root is one level above this file
-PROJECT_ROOT = Path(__file__).parent.parent
+# Project root is one level above this file (or current dir of executable if frozen)
+if getattr(sys, 'frozen', False):
+    PROJECT_ROOT = Path(sys.executable).parent
+else:
+    PROJECT_ROOT = Path(__file__).parent.parent
 
 _CONFIG_FILE = PROJECT_ROOT / "config.json"
 

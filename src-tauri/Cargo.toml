@@ -1,0 +1,31 @@
+[package]
+name = "chess-reviewer"
+version = "1.0.0"
+description = "Local Chess Reviewer"
+authors = ["ChessReviewer Dev"]
+edition = "2021"
+rust-version = "1.70"
+
+[build-dependencies]
+tauri-build = { version = "1.5", features = [] }
+
+[dependencies]
+tauri = { version = "1.6", features = ["shell-open"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.35", features = ["full"] }
+tokio-stream = "0.1"
+futures-util = "0.3"
+axum = { version = "0.7", features = ["ws"] }
+shakmaty = "0.26"
+reqwest = { version = "0.11", features = ["json"] }
+tower-http = { version = "0.5", features = ["cors"] }
+rand = "0.8"
+bytes = "1.5"
+urlencoding = "2.1"
+
+[features]
+# this feature is used for production builds or when `devPath` points to the filesystem
+# it should be enabled when tauri-build or tauri dev/build runs
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

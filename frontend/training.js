@@ -390,7 +390,7 @@ export const TrainingModule = {
 
   // ── Tactics Module (Puzzles) ────────────────────────────────────────────
   _loadCuratedPuzzles() {
-    fetch('/api/training/curated-puzzles')
+    fetch(`${window.API_BASE || ''}/api/training/curated-puzzles`)
       .then(res => res.json())
       .then(data => {
         this.puzzles.curated = data;
@@ -465,7 +465,7 @@ export const TrainingModule = {
     feedback.textContent = 'Fetching daily puzzle...';
     feedback.className = 'text-center py-2 px-3 rounded text-xs font-semibold bg-[var(--bg-primary)] border border-[var(--border)] text-yellow-500 animate-pulse';
 
-    fetch('/api/training/daily-puzzle')
+    fetch(`${window.API_BASE || ''}/api/training/daily-puzzle`)
       .then(res => res.json())
       .then(puzzle => {
         this._displayPuzzleDetails(puzzle);
@@ -665,7 +665,7 @@ export const TrainingModule = {
   // ── Openings Module ─────────────────────────────────────────────────────
   _populateOpeningsDropdown() {
     this.openings.list = OPENINGS; // default fallback
-    fetch('/api/openings/list')
+    fetch(`${window.API_BASE || ''}/api/openings/list`)
       .then(res => res.json())
       .then(data => {
         this.openings.list = data;
@@ -886,7 +886,7 @@ export const TrainingModule = {
       tbody.innerHTML = '<tr><td colspan="4" class="p-3 text-center text-[var(--text-muted)] animate-pulse">Loading explorer...</td></tr>';
     }
 
-    fetch('/api/openings/explorer', {
+    fetch(`${window.API_BASE || ''}/api/openings/explorer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fen })
@@ -1154,7 +1154,7 @@ export const TrainingModule = {
   },
 
   _fetchEngineOpponentMove() {
-    fetch('/api/training/engine-move', {
+    fetch(`${window.API_BASE || ''}/api/training/engine-move`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
