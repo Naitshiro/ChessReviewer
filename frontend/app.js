@@ -166,6 +166,8 @@ const el = {
   chesscomUsername: document.getElementById('chesscom-username'),
   chesscomFetchBtn: document.getElementById('chesscom-fetch-btn'),
   chesscomSpinner: document.getElementById('chesscom-spinner'),
+  chesscomArchiveContainer: document.getElementById('chesscom-archive-container'),
+  chesscomArchiveSelect: document.getElementById('chesscom-archive-select'),
   chesscomGamesList: document.getElementById('chesscom-games-list'),
 
   // FEN elements
@@ -222,8 +224,13 @@ async function init() {
   });
 
   // Enable interaction right away so user can play from blank board
-  board.enableInteraction(() => true, _getLegalMoves);
   _triggerEvalBarRender();
+
+  setTimeout(() => {
+    board.enableInteraction(() => true, _getLegalMoves);
+    _triggerEvalBarRender();
+  }, 50);
+
   _switchTab('import');
 
   // Initialize training module
@@ -397,7 +404,7 @@ function _bindControls() {
     // Sync depth and timeout from current live settings inputs
     if (el.settingsDepth && el.liveDepthInput) el.settingsDepth.value = el.liveDepthInput.value;
     if (el.settingsTimeout && el.liveTimeoutInput) el.settingsTimeout.value = el.liveTimeoutInput.value;
-    
+
     el.settingsModal?.classList.remove('hidden');
   });
 
@@ -468,9 +475,15 @@ function _bindControls() {
   });
 
   // Chess.com Loader bindings
-  el.chesscomFetchBtn?.addEventListener('click', fetchChesscomGames);
+  el.chesscomFetchBtn?.addEventListener('click', () => fetchChesscomGames());
   el.chesscomUsername?.addEventListener('keydown', e => {
     if (e.key === 'Enter') fetchChesscomGames();
+  });
+  el.chesscomArchiveSelect?.addEventListener('change', e => {
+    const selectedArchive = e.target.value;
+    if (selectedArchive) {
+      fetchChesscomGames(selectedArchive);
+    }
   });
   el.chesscomGamesList?.addEventListener('click', e => {
     const card = e.target.closest('.chesscom-game-card');
@@ -943,11 +956,7 @@ function _loadGameAnalysis(data) {
 
 function getFlagEmoji(countryCode) {
   if (!countryCode || countryCode.length !== 2) return '';
-  const codePoints = countryCode
-    .toUpperCase()
-    .split('')
-    .map(char => 127397 + char.charCodeAt(0));
-  return String.fromCodePoint(...codePoints);
+  return countryCode.toLowerCase();
 }
 
 function _calculateCapturedPieces(fen) {
@@ -955,36 +964,36 @@ function _calculateCapturedPieces(fen) {
     w: { p: 8, n: 2, b: 2, r: 2, q: 1 },
     b: { p: 8, n: 2, b: 2, r: 2, q: 1 }
   };
-  
+
   const current = {
     w: { p: 0, n: 0, b: 0, r: 0, q: 0 },
     b: { p: 0, n: 0, b: 0, r: 0, q: 0 }
   };
-  
+
   const boardPart = (fen || '').split(' ')[0];
   for (const char of boardPart) {
     if (char === '/') continue;
     if (/[0-9]/.test(char)) continue;
-    
+
     const isWhite = char === char.toUpperCase();
     const type = char.toLowerCase();
     const color = isWhite ? 'w' : 'b';
-    
+
     if (current[color] && current[color][type] !== undefined) {
       current[color][type]++;
     }
   }
-  
+
   const captured = {
     w: {}, // White pieces captured by Black
     b: {}  // Black pieces captured by White
   };
-  
+
   for (const type of ['p', 'n', 'b', 'r', 'q']) {
     captured.w[type] = Math.max(0, starting.w[type] - current.w[type]);
     captured.b[type] = Math.max(0, starting.b[type] - current.b[type]);
   }
-  
+
   const values = { p: 1, n: 3, b: 3, r: 5, q: 9 };
   let whiteVal = 0;
   let blackVal = 0;
@@ -992,7 +1001,7 @@ function _calculateCapturedPieces(fen) {
     whiteVal += current.w[type] * values[type];
     blackVal += current.b[type] * values[type];
   }
-  
+
   return { captured, whiteVal, blackVal };
 }
 
@@ -1000,11 +1009,11 @@ function _getClockTimesForMove(idx) {
   let whiteClk = null;
   let blackClk = null;
   const reviewMoves = state.game.moves;
-  
+
   if (!reviewMoves || reviewMoves.length === 0) {
     return { white: null, black: null };
   }
-  
+
   const maxIdx = Math.min(idx, reviewMoves.length - 1);
   for (let k = 0; k <= maxIdx; k++) {
     const m = reviewMoves[k];
@@ -1016,7 +1025,7 @@ function _getClockTimesForMove(idx) {
       }
     }
   }
-  
+
   if (!whiteClk || !blackClk) {
     for (let k = 0; k < reviewMoves.length; k++) {
       const m = reviewMoves[k];
@@ -1026,7 +1035,7 @@ function _getClockTimesForMove(idx) {
       }
     }
   }
-  
+
   return { white: whiteClk, black: blackClk };
 }
 
@@ -1044,14 +1053,14 @@ function _updatePlayerClocksAndCaptured(idx) {
       fen = state.analysis.forkFen || state.game.initialFen;
     }
   }
-  
+
   const { captured, whiteVal, blackVal } = _calculateCapturedPieces(fen);
-  
+
   const getPiecesHtml = (pCount, color) => {
-    const symbols = color === 'white' 
+    const symbols = color === 'white'
       ? { p: '♙', n: '♘', b: '♗', r: '♖', q: '♕' }
       : { p: '♟', n: '♞', b: '♝', r: '♜', q: '♛' };
-    
+
     let html = '';
     // Show in standard sorted order: Pawns, then Bishops, then Knights, then Rooks, then Queens
     const types = ['p', 'b', 'n', 'r', 'q'];
@@ -1067,12 +1076,12 @@ function _updatePlayerClocksAndCaptured(idx) {
     }
     return html;
   };
-  
+
   // White pieces captured by Black (displayed on Black's card)
   const whiteCapturedHtml = getPiecesHtml(captured.w, 'white');
   // Black pieces captured by White (displayed on White's card)
   const blackCapturedHtml = getPiecesHtml(captured.b, 'black');
-  
+
   let whiteDiffHtml = '';
   let blackDiffHtml = '';
   if (whiteVal > blackVal) {
@@ -1080,7 +1089,7 @@ function _updatePlayerClocksAndCaptured(idx) {
   } else if (blackVal > whiteVal) {
     blackDiffHtml = `<span class="material-diff text-[10px] font-bold text-[var(--text-secondary)] ml-1 bg-white/10 px-1 py-0.5 rounded leading-none" style="vertical-align: middle;">+${blackVal - whiteVal}</span>`;
   }
-  
+
   if (state.boardOrientation === 'white') {
     if (el.topPlayerCaptured) el.topPlayerCaptured.innerHTML = whiteCapturedHtml + blackDiffHtml;
     if (el.bottomPlayerCaptured) el.bottomPlayerCaptured.innerHTML = blackCapturedHtml + whiteDiffHtml;
@@ -1088,7 +1097,7 @@ function _updatePlayerClocksAndCaptured(idx) {
     if (el.topPlayerCaptured) el.topPlayerCaptured.innerHTML = blackCapturedHtml + whiteDiffHtml;
     if (el.bottomPlayerCaptured) el.bottomPlayerCaptured.innerHTML = whiteCapturedHtml + blackDiffHtml;
   }
-  
+
   const hasClocks = state.game.moves.some(m => m.clk != null);
   if (!hasClocks) {
     if (el.topPlayerClock) el.topPlayerClock.classList.add('hidden');
@@ -1096,13 +1105,13 @@ function _updatePlayerClocksAndCaptured(idx) {
   } else {
     if (el.topPlayerClock) el.topPlayerClock.classList.remove('hidden');
     if (el.bottomPlayerClock) el.bottomPlayerClock.classList.remove('hidden');
-    
+
     const clkTimes = _getClockTimesForMove(idx);
     let topTime = '';
     let bottomTime = '';
     let topIsActive = false;
     let bottomIsActive = false;
-    
+
     let activeSide = 'white';
     try {
       const c = new Chess(fen);
@@ -1114,7 +1123,7 @@ function _updatePlayerClocksAndCaptured(idx) {
     } catch (e) {
       activeSide = null;
     }
-    
+
     if (state.boardOrientation === 'white') {
       topTime = clkTimes.black || '5:00';
       bottomTime = clkTimes.white || '5:00';
@@ -1126,9 +1135,9 @@ function _updatePlayerClocksAndCaptured(idx) {
       topIsActive = (activeSide === 'white');
       bottomIsActive = (activeSide === 'black');
     }
-    
+
     const activeClockSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="w-3.5 h-3.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>`;
-    
+
     if (el.topPlayerClock) {
       if (topIsActive) {
         el.topPlayerClock.innerHTML = `${activeClockSvg} <span>${topTime}</span>`;
@@ -1138,7 +1147,7 @@ function _updatePlayerClocksAndCaptured(idx) {
         el.topPlayerClock.classList.remove('active');
       }
     }
-    
+
     if (el.bottomPlayerClock) {
       if (bottomIsActive) {
         el.bottomPlayerClock.innerHTML = `${activeClockSvg} <span>${bottomTime}</span>`;
@@ -1192,7 +1201,7 @@ function _updatePlayerCards() {
           avatarEl.textContent = '';
         }
         if (flagEl && cached.flag) {
-          flagEl.textContent = cached.flag;
+          flagEl.innerHTML = `<img src="https://flagcdn.com/16x12/${cached.flag}.png" width="16" height="12" style="border-radius:2px; display:inline-block; vertical-align:middle;" alt="${cached.flag}">`;
         }
       }
       return;
@@ -1590,9 +1599,8 @@ function _handleBoardMove(from, to, promotion) {
       ? state.analysis.latestLines[0].score_mate
       : (idx + 1 < state.game.moves.length ? state.game.moves[idx + 1].score_mate : null);
 
-    _enterAnalysisMode(fen, idx);
+    _enterAnalysisMode(fen, idx, true);
     state.analysis.chess.move(moveResult.san);
-    board.setPosition(newFen, false);
 
     const mateBestMoves = getMateMoves(mateBestPlies, moveResult.color === 'w' ? 'white' : 'black');
 
@@ -1699,7 +1707,7 @@ function _handleBoardMove(from, to, promotion) {
 
 // ── Analysis (On-Demand) Mode ───────────────────────────────────────────
 
-function _enterAnalysisMode(fen, gameIndex) {
+function _enterAnalysisMode(fen, gameIndex, skipRedraw = false) {
   state.mode = MODE.ANALYSIS;
   state.analysis.forkFen = fen;
   state.analysis.forkIndex = gameIndex;
@@ -1708,7 +1716,10 @@ function _enterAnalysisMode(fen, gameIndex) {
 
   _setMode(MODE.ANALYSIS);
 
-  board.setPosition(fen, false);
+  if (!skipRedraw) {
+    board.setPosition(fen, false);
+  }
+
   board.clearMarrows();
   board.enableInteraction(() => true, _getLegalMoves);
 
@@ -2070,7 +2081,7 @@ function _switchTab(tab) {
     document.getElementById('training-dashboard')?.classList.remove('hidden');
     _setMode(MODE.TRAINING);
     TrainingModule.switchMode('hub');
-    
+
     el.sidebarNavTraining?.classList.add('active');
     el.sidebarNavAnalysis?.classList.remove('active');
     el.sidebarNavImport?.classList.remove('active');
@@ -2266,7 +2277,7 @@ function _uciPvToSan(fen, uciMoves) {
 
 // ── Chess.com Game Loading ──────────────────────────────────
 
-async function fetchChesscomGames() {
+async function fetchChesscomGames(archiveUrl = null) {
   const username = el.chesscomUsername?.value?.trim();
   if (!username) {
     showToast('Please enter a Chess.com username.', 'error');
@@ -2278,7 +2289,11 @@ async function fetchChesscomGames() {
   if (el.chesscomSpinner) el.chesscomSpinner.classList.remove('hidden');
 
   try {
-    const res = await fetch(`${API_BASE}/api/chesscom/games?username=${encodeURIComponent(username)}`);
+    let url = `${API_BASE}/api/chesscom/games?username=${encodeURIComponent(username)}`;
+    if (archiveUrl) {
+      url += `&archive=${encodeURIComponent(archiveUrl)}`;
+    }
+    const res = await fetch(url);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
       throw new Error(err.detail || 'Failed to fetch games.');
@@ -2289,10 +2304,31 @@ async function fetchChesscomGames() {
     }
     state.chesscomGames = data.games;
     renderChesscomGames(data.games, username);
-    if (data.games.length === 0) {
-      showToast('No recent games found for this user in their latest active month.', 'info');
+
+    // Populate archives dropdown if available
+    if (data.archives && data.archives.length > 0) {
+      if (el.chesscomArchiveSelect) {
+        // Build option HTML
+        let optionsHtml = '';
+        data.archives.forEach(arc => {
+          const selectedAttr = arc.url === data.selected_archive ? 'selected' : '';
+          optionsHtml += `<option value="${arc.url}" ${selectedAttr}>${arc.label}</option>`;
+        });
+        el.chesscomArchiveSelect.innerHTML = optionsHtml;
+      }
+      if (el.chesscomArchiveContainer) {
+        el.chesscomArchiveContainer.classList.remove('hidden');
+      }
     } else {
-      showToast(`Loaded ${data.games.length} Chess.com games.`, 'success');
+      if (el.chesscomArchiveContainer) {
+        el.chesscomArchiveContainer.classList.add('hidden');
+      }
+    }
+
+    if (data.games.length === 0) {
+      showToast('No games found for this user in the selected month.', 'info');
+    } else {
+      showToast(`Loaded ${data.games.length} games.`, 'success');
     }
   } catch (e) {
     showToast(`Failed to fetch Chess.com games: ${e.message}`, 'error', 6000);

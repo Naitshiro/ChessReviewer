@@ -184,7 +184,7 @@ pub fn parse_pgn(pgn: &str) -> Result<ParsedGame, String> {
 
         let book = crate::openings::is_book_sequence(&moves_sans[0..=i]);
         let sacrificed = crate::analysis::is_sacrifice(&pos, &mv, None);
-        let uci = mv.to_string();
+        let uci = shakmaty::uci::Uci::from_move(&mv, shakmaty::CastlingMode::Standard).to_string();
         let opening_name = crate::openings::get_opening_name(&fen_before).unwrap_or_else(|| "".to_string());
 
         let nags = nags_per_move.get(i).cloned().unwrap_or_default();
@@ -247,8 +247,8 @@ pub fn parse_pgn(pgn: &str) -> Result<ParsedGame, String> {
     let mut white_prev_clock = if computed_initial_time > 0.0 { Some(computed_initial_time) } else { None };
     let mut black_prev_clock = if computed_initial_time > 0.0 { Some(computed_initial_time) } else { None };
 
-    let mut move_times = Vec::new();
-    for (i, m) in move_records.iter().enumerate() {
+    let mut move_times: Vec<Option<String>> = Vec::new();
+    for (_i, m) in move_records.iter().enumerate() {
         let color = m["color"].as_str().unwrap_or("white");
         let clk_str = m["clk"].as_str();
         let mut time_spent_str = None;
@@ -278,29 +278,7 @@ pub fn parse_pgn(pgn: &str) -> Result<ParsedGame, String> {
                 }
             }
         } else {
-            // Simulated fallback matching Python
-            let fen = &fens[i];
-            let mut hasher = std::collections::hash_map::DefaultHasher::new();
-            use std::hash::{Hash, Hasher};
-            fen.hash(&mut hasher);
-            let h = hasher.finish();
-
-            // Estimate non-pawns on board
-            let fen_parts: Vec<&str> = fen.split_whitespace().collect();
-            let board_part = fen_parts.first().copied().unwrap_or("");
-            let non_pawn = board_part.chars().filter(|&c| c.is_alphabetic() && c.to_ascii_lowercase() != 'p').count();
-
-            let move_num = m["move_number"].as_u64().unwrap_or(1);
-            let sec = if move_num <= 8 {
-                0.5 + ((h % 20) as f64) / 10.0
-            } else {
-                if non_pawn > 10 {
-                    4.0 + ((h % 160) as f64) / 10.0
-                } else {
-                    1.5 + ((h % 60) as f64) / 10.0
-                }
-            };
-            time_spent_str = Some(format_time_spent(sec));
+            time_spent_str = None;
         }
 
         move_times.push(time_spent_str);

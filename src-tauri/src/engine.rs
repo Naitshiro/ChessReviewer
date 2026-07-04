@@ -47,6 +47,7 @@ impl StockfishProcess {
         // Configure options
         process.send_command(&format!("setoption name Threads value {}", threads)).await?;
         process.send_command(&format!("setoption name Hash value {}", hash)).await?;
+        process.send_command("setoption name MultiPV value 3").await?;
         process.send_command("isready").await?;
         process.read_until("readyok").await?;
 
@@ -91,7 +92,7 @@ impl StockfishProcess {
         self.read_until("readyok").await?;
 
         self.send_command(&format!("position fen {}", fen)).await?;
-        self.send_command(&format!("go depth {} multipv 3", depth)).await?;
+        self.send_command(&format!("go depth {}", depth)).await?;
 
         let mut pv_map: std::collections::HashMap<usize, UciPvInfo> = std::collections::HashMap::new();
         let mut line = String::new();
@@ -134,7 +135,7 @@ impl StockfishProcess {
         self.read_until("readyok").await?;
 
         self.send_command(&format!("position fen {}", fen)).await?;
-        self.send_command(&format!("go depth {} multipv 3", depth)).await?;
+        self.send_command(&format!("go depth {}", depth)).await?;
 
         // Use an atomic flag for cancellation that the sync on_info callback can check
         let cancelled = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));

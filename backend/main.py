@@ -269,16 +269,22 @@ async def analyze(req: AnalyzeRequest):
 
 
 @app.get("/api/chesscom/games")
-async def get_chesscom_games(username: str):
-    """Fetch the latest 15 games for a Chess.com user."""
+async def get_chesscom_games(username: str, archive: Optional[str] = None):
+    """Fetch games for a Chess.com user, optionally for a specific monthly archive."""
     try:
-        games = await asyncio.to_thread(fetch_chesscom_games, username.strip())
-        return {"status": "ok", "games": games}
+        data = await asyncio.to_thread(fetch_chesscom_games, username.strip(), archive)
+        return {
+            "status": "ok",
+            "games": data["games"],
+            "archives": data["archives"],
+            "selected_archive": data["selected_archive"]
+        }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.exception("Error in /api/chesscom/games")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 # ---------------------------------------------------------------------------

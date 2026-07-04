@@ -452,6 +452,12 @@
                       <span>Fetch Games</span>
                     </button>
                   </div>
+                  <div id="chesscom-archive-container" class="hidden flex flex-col gap-1">
+                    <label for="chesscom-archive-select" class="text-[10px] text-[var(--text-secondary)] font-medium">Select Month</label>
+                    <select id="chesscom-archive-select" class="bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2.5 py-1 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent-green)] transition-all">
+                      <!-- Filled dynamically -->
+                    </select>
+                  </div>
                   <div id="chesscom-games-list" class="max-h-[160px] overflow-y-auto flex flex-col gap-1.5 mt-1 hidden">
                     <!-- Chess.com game cards will be injected here -->
                   </div>

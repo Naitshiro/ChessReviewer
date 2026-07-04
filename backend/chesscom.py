@@ -5,7 +5,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def fetch_chesscom_games(username: str):
+def fetch_chesscom_games(username: str, archive_url: str = None):
     headers = {
         "User-Agent": "ChessReviewer/1.0 (https://github.com/Naitshiro/ChessReviewer; contact@example.com)"
     }
@@ -25,13 +25,13 @@ def fetch_chesscom_games(username: str):
         
     archives = data.get("archives", [])
     if not archives:
-        return []
+        return {"games": [], "archives": [], "selected_archive": ""}
         
-    # Get the latest archive
-    latest_archive_url = archives[-1]
+    # Determine target archive url
+    target_archive_url = archive_url if archive_url else archives[-1]
     
-    # 2. Fetch games from the latest archive
-    req_games = urllib.request.Request(latest_archive_url, headers=headers)
+    # 2. Fetch games from the selected archive
+    req_games = urllib.request.Request(target_archive_url, headers=headers)
     try:
         with urllib.request.urlopen(req_games) as res:
             games_data = json.loads(res.read().decode())
@@ -40,12 +40,24 @@ def fetch_chesscom_games(username: str):
         
     games = games_data.get("games", [])
     
-    # Format and reverse to get the most recent first
+    # Helper to parse archive label
+    def get_archive_label(url: str) -> str:
+        parts = url.split('/')
+        if len(parts) >= 2:
+            year = parts[-2]
+            month = parts[-1]
+            months = {
+                "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr",
+                "05": "May", "06": "Jun", "07": "Jul", "08": "Aug",
+                "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dec"
+            }
+            month_name = months.get(month, month)
+            return f"{month_name} {year}"
+        return url
+
+    # Format and reverse to get the most recent first (no cap!)
     recent_games = []
     for g in reversed(games):
-        if len(recent_games) >= 15:
-            break
-            
         white = g.get("white", {})
         black = g.get("black", {})
         
@@ -68,4 +80,16 @@ def fetch_chesscom_games(username: str):
             }
         })
         
-    return recent_games
+    mapped_archives = []
+    for a in reversed(archives):
+        mapped_archives.append({
+            "label": get_archive_label(a),
+            "url": a
+        })
+
+    return {
+        "games": recent_games,
+        "archives": mapped_archives,
+        "selected_archive": target_archive_url
+    }
+

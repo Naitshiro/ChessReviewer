@@ -26,16 +26,32 @@ impl Default for AppConfig {
 }
 
 pub fn get_config_path() -> PathBuf {
-    // Look for config.json next to the executable
+    // 1. Look for config.json next to the executable, then walk up the tree.
+    //    This covers both release builds (exe in target\release\) and dev runs.
     if let Ok(exe_path) = std::env::current_exe() {
-        if let Some(parent) = exe_path.parent() {
-            let config_next_to_exe = parent.join("config.json");
-            if config_next_to_exe.exists() {
-                return config_next_to_exe;
+        let mut dir = exe_path.parent().map(|p| p.to_path_buf());
+        while let Some(ref d) = dir {
+            let candidate = d.join("config.json");
+            if candidate.exists() {
+                return candidate;
             }
+            dir = d.parent().map(|p| p.to_path_buf());
         }
     }
-    // Dev fallback: root folder of project
+
+    // 2. Check the current working directory and its parents.
+    if let Ok(cwd) = std::env::current_dir() {
+        let mut dir = Some(cwd);
+        while let Some(ref d) = dir {
+            let candidate = d.join("config.json");
+            if candidate.exists() {
+                return candidate;
+            }
+            dir = d.parent().map(|p| p.to_path_buf());
+        }
+    }
+
+    // 3. Last resort: relative path in CWD
     PathBuf::from("config.json")
 }
 

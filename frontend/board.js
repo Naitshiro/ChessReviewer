@@ -81,8 +81,9 @@ class ChessAudio {
     try {
       const audio = this.sounds[type];
       if (audio) {
-        audio.currentTime = 0;
-        audio.play().catch(err => {
+        // Clone the node so multiple sounds can play simultaneously
+        const soundClone = audio.cloneNode();
+        soundClone.play().catch(err => {
           console.warn("Audio playback prevented:", err);
         });
       }
@@ -136,7 +137,7 @@ function detectMoveType(prevFen, newFen) {
   } catch (e) {
     console.warn("Error in detectMoveType:", e);
   }
-  return null;
+  return "move";
 }
 
 /**
@@ -326,223 +327,224 @@ export class BoardManager {
 
 
 
-    clearClassificationBadge() {
-      this._activeBadges = [];
-      document.querySelectorAll('.board-class-badge').forEach(el => el.remove());
-    }
+  clearClassificationBadge() {
+    this._activeBadges = [];
+    document.querySelectorAll('.board-class-badge').forEach(el => el.remove());
+  }
 
-    _redrawActiveBadge() {
-      this._renderActiveBadges();
-    }
+  _redrawActiveBadge() {
+    this._renderActiveBadges();
+  }
 
-    _renderActiveBadges() {
-      const wrapper = document.getElementById('board-wrapper');
-      if (!wrapper) return;
+  _renderActiveBadges() {
+    const wrapper = document.getElementById('board-wrapper');
+    if (!wrapper) return;
 
-      // Remove any existing badges first
-      document.querySelectorAll('.board-class-badge').forEach(el => el.remove());
+    // Remove any existing badges first
+    document.querySelectorAll('.board-class-badge').forEach(el => el.remove());
 
-      if (!this._activeBadges || this._activeBadges.length === 0) return;
+    if (!this._activeBadges || this._activeBadges.length === 0) return;
 
-      const boardEl = document.getElementById(this._elementId);
-      if (!boardEl) return;
+    const boardEl = document.getElementById(this._elementId);
+    if (!boardEl) return;
 
-      const boardRect = boardEl.getBoundingClientRect();
-      const wrapperRect = wrapper.getBoundingClientRect();
+    const boardRect = boardEl.getBoundingClientRect();
+    const wrapperRect = wrapper.getBoundingClientRect();
 
-      const squareSize = boardRect.width / 8;
-      const badgeSize = Math.max(26, Math.min(36, squareSize * 0.45));
+    const squareSize = boardRect.width / 8;
+    const badgeSize = Math.max(26, Math.min(36, squareSize * 0.45));
 
-      for (const badgeData of this._activeBadges) {
-        const { square, text, type, color } = badgeData;
-        if (!square) continue;
+    for (const badgeData of this._activeBadges) {
+      const { square, text, type, color } = badgeData;
+      if (!square) continue;
 
-        const file = square.charCodeAt(0) - 97;
-        const rank = parseInt(square.charAt(1), 10) - 1;
+      const file = square.charCodeAt(0) - 97;
+      const rank = parseInt(square.charAt(1), 10) - 1;
 
-        let col = file;
-        let row = rank;
+      let col = file;
+      let row = rank;
 
-        if (this._orientation === 'black' || this._orientation === COLOR.black) {
-          col = 7 - file;
-          row = rank;
-        } else {
-          col = file;
-          row = 7 - rank;
-        }
-
-        const boardLeft = boardRect.left - wrapperRect.left;
-        const boardTop = boardRect.top - wrapperRect.top;
-
-        const x = boardLeft + col * squareSize + squareSize - (badgeSize / 2);
-        const y = boardTop + row * squareSize - (badgeSize / 2);
-
-        const badge = document.createElement('img');
-        badge.style.width = `${badgeSize}px`;
-        badge.style.height = `${badgeSize}px`;
-        badge.style.left = `${x}px`;
-        badge.style.top = `${y}px`;
-        badge.className = 'board-class-badge';
-
-        badge.onerror = () => {
-          console.error(`[Badges] Failed to load badge image for classification: "${text}" from URL: "${badge.src}"`);
-        };
-
-        if (type === 'classification') {
-          badge.src = `assets/markers/${text}.svg`;
-          badge.alt = text;
-        } else {
-          badge.src = `assets/markers/${text.svg}`;
-          badge.alt = text.label || text;
-          if (color === 'white') {
-            badge.style.filter = 'invert(1)';
-          }
-        }
-
-        console.log(`[Badges] Rendered badge "${text}" on square ${square} (col:${col}, row:${row}) at position left:${x}px, top:${y}px with size ${badgeSize}px.`);
-        wrapper.appendChild(badge);
+      if (this._orientation === 'black' || this._orientation === COLOR.black) {
+        col = 7 - file;
+        row = rank;
+      } else {
+        col = file;
+        row = 7 - rank;
       }
-    }
 
-    // ── Engine Arrows (MultiPV) ───────────────────────────────────────────
+      const boardLeft = boardRect.left - wrapperRect.left;
+      const boardTop = boardRect.top - wrapperRect.top;
 
-    clearArrows() {
-      if (!this._board) return;
-      this._board.removeArrows();
-    }
+      const x = boardLeft + col * squareSize + squareSize - (badgeSize / 2);
+      const y = boardTop + row * squareSize - (badgeSize / 2);
 
-    /**
-     * Draw engine suggestion arrows for up to 3 MultiPV lines.
-     * @param {Array<{from_sq: string, to_sq: string, multipv: number}>} lines
-     */
-    drawEngineArrows(lines) {
-      if (!this._board) return;
-      this.clearArrows();
+      const badge = document.createElement('img');
+      badge.style.width = `${badgeSize}px`;
+      badge.style.height = `${badgeSize}px`;
+      badge.style.left = `${x}px`;
+      badge.style.top = `${y}px`;
+      badge.style.pointerEvents = 'none';
+      badge.className = 'board-class-badge';
 
-      let linesToDraw = [...lines];
-      if (linesToDraw.length > 0) {
-        const best = linesToDraw[0];
-        // If the best move is a forced mate in 1 or mate in 0, remove the other arrows
-        if (best.score_mate === 1 || best.score_mate === -1 || best.score_mate === 0) {
-          linesToDraw = [best];
+      badge.onerror = () => {
+        console.error(`[Badges] Failed to load badge image for classification: "${text}" from URL: "${badge.src}"`);
+      };
+
+      if (type === 'classification') {
+        badge.src = `assets/markers/${text}.svg`;
+        badge.alt = text;
+      } else {
+        badge.src = `assets/markers/${text.svg}`;
+        badge.alt = text.label || text;
+        if (color === 'white') {
+          badge.style.filter = 'invert(1)';
         }
       }
 
-      // Draw in reverse order so the best move (PV1) is rendered last = on top
+      console.log(`[Badges] Rendered badge "${text}" on square ${square} (col:${col}, row:${row}) at position left:${x}px, top:${y}px with size ${badgeSize}px.`);
+      wrapper.appendChild(badge);
+    }
+  }
+
+  // ── Engine Arrows (MultiPV) ───────────────────────────────────────────
+
+  clearArrows() {
+    if (!this._board) return;
+    this._board.removeArrows();
+  }
+
+  /**
+   * Draw engine suggestion arrows for up to 3 MultiPV lines.
+   * @param {Array<{from_sq: string, to_sq: string, multipv: number}>} lines
+   */
+  drawEngineArrows(lines) {
+    if (!this._board) return;
+    this.clearArrows();
+
+    let linesToDraw = [...lines];
+    if (linesToDraw.length > 0) {
+      const best = linesToDraw[0];
+      // If the best move is a forced mate in 1 or mate in 0, remove the other arrows
+      if (best.score_mate === 1 || best.score_mate === -1 || best.score_mate === 0) {
+        linesToDraw = [best];
+      }
+    }
+
+    // Draw in reverse order so the best move (PV1) is rendered last = on top
+    const sorted = linesToDraw.sort((a, b) => (b.multipv || 1) - (a.multipv || 1));
+    for (const line of sorted) {
+      const pvIdx = (line.multipv || 1) - 1;   // 0-based
+      const arrowType = ARROW_TYPES[Math.min(pvIdx, ARROW_TYPES.length - 1)];
+
+      if (line.from_sq && line.to_sq) {
+        this._board.addArrow(arrowType, line.from_sq, line.to_sq);
+      }
+    }
+  }
+
+  /**
+   * Draw threat arrows for up to 3 threat moves.
+   * @param {Array<{from: string, to: string, multipv: number}>} threats
+   */
+  drawThreatArrows(threats) {
+    if (!this._board) return;
+    this.clearArrows();
+
+    const threatTypes = [
+      { class: 'threat-pv1', slice: 'arrowDefault' },
+      { class: 'threat-pv2', slice: 'arrowDefault' },
+      { class: 'threat-pv3', slice: 'arrowDefault' }
+    ];
+
+    // Draw in reverse order so multipv 1 (Highest Threat) is on top
+    const sorted = [...threats].sort((a, b) => b.multipv - a.multipv);
+    for (const threat of sorted) {
+      const idx = threat.multipv - 1; // 1-based to 0-based
+      const arrowType = threatTypes[Math.min(idx, threatTypes.length - 1)];
+
+      if (threat.from && threat.to) {
+        this._board.addArrow(arrowType, threat.from, threat.to);
+      }
+    }
+  }
+
+  /**
+   * Draw both engine suggestions and threat arrows simultaneously.
+   * @param {Array<{from_sq: string, to_sq: string, multipv: number}>} engineLines
+   * @param {Array<{from: string, to: string, multipv: number}>} threats
+   */
+  drawAllArrows(engineLines, threats) {
+    if (!this._board) return;
+    this.clearArrows();
+
+    // 1. Draw engine arrows
+    if (engineLines && engineLines.length > 0) {
+      let linesToDraw = [...engineLines];
+      const best = linesToDraw[0];
+      if (best.score_mate === 1 || best.score_mate === -1 || best.score_mate === 0) {
+        linesToDraw = [best];
+      }
       const sorted = linesToDraw.sort((a, b) => (b.multipv || 1) - (a.multipv || 1));
       for (const line of sorted) {
-        const pvIdx = (line.multipv || 1) - 1;   // 0-based
+        const pvIdx = (line.multipv || 1) - 1;
         const arrowType = ARROW_TYPES[Math.min(pvIdx, ARROW_TYPES.length - 1)];
-
         if (line.from_sq && line.to_sq) {
           this._board.addArrow(arrowType, line.from_sq, line.to_sq);
         }
       }
     }
 
-    /**
-     * Draw threat arrows for up to 3 threat moves.
-     * @param {Array<{from: string, to: string, multipv: number}>} threats
-     */
-    drawThreatArrows(threats) {
-      if (!this._board) return;
-      this.clearArrows();
-
+    // 2. Draw threat arrows
+    if (threats && threats.length > 0) {
       const threatTypes = [
         { class: 'threat-pv1', slice: 'arrowDefault' },
         { class: 'threat-pv2', slice: 'arrowDefault' },
         { class: 'threat-pv3', slice: 'arrowDefault' }
       ];
-
-      // Draw in reverse order so multipv 1 (Highest Threat) is on top
       const sorted = [...threats].sort((a, b) => b.multipv - a.multipv);
       for (const threat of sorted) {
-        const idx = threat.multipv - 1; // 1-based to 0-based
+        const idx = threat.multipv - 1;
         const arrowType = threatTypes[Math.min(idx, threatTypes.length - 1)];
-
         if (threat.from && threat.to) {
           this._board.addArrow(arrowType, threat.from, threat.to);
         }
       }
     }
+  }
 
-    /**
-     * Draw both engine suggestions and threat arrows simultaneously.
-     * @param {Array<{from_sq: string, to_sq: string, multipv: number}>} engineLines
-     * @param {Array<{from: string, to: string, multipv: number}>} threats
-     */
-    drawAllArrows(engineLines, threats) {
-      if (!this._board) return;
-      this.clearArrows();
-
-      // 1. Draw engine arrows
-      if (engineLines && engineLines.length > 0) {
-        let linesToDraw = [...engineLines];
-        const best = linesToDraw[0];
-        if (best.score_mate === 1 || best.score_mate === -1 || best.score_mate === 0) {
-          linesToDraw = [best];
-        }
-        const sorted = linesToDraw.sort((a, b) => (b.multipv || 1) - (a.multipv || 1));
-        for (const line of sorted) {
-          const pvIdx = (line.multipv || 1) - 1;
-          const arrowType = ARROW_TYPES[Math.min(pvIdx, ARROW_TYPES.length - 1)];
-          if (line.from_sq && line.to_sq) {
-            this._board.addArrow(arrowType, line.from_sq, line.to_sq);
-          }
-        }
+  /**
+   * Draw opening popularity hints on the board.
+   * @param {Array<{uci: string, popularity: number}>} moves
+   */
+  drawOpeningHints(moves) {
+    if (!this._board) return;
+    this.clearArrows();
+    moves.forEach((m, idx) => {
+      const from = m.uci.slice(0, 2);
+      const to = m.uci.slice(2, 4);
+      if (from && to) {
+        const arrowType = idx === 0
+          ? { class: 'arrow-info', slice: 'arrowDefault' }
+          : { class: 'arrow-danger', slice: 'arrowDefault' };
+        this._board.addArrow(arrowType, from, to);
       }
+    });
+  }
 
-      // 2. Draw threat arrows
-      if (threats && threats.length > 0) {
-        const threatTypes = [
-          { class: 'threat-pv1', slice: 'arrowDefault' },
-          { class: 'threat-pv2', slice: 'arrowDefault' },
-          { class: 'threat-pv3', slice: 'arrowDefault' }
-        ];
-        const sorted = [...threats].sort((a, b) => b.multipv - a.multipv);
-        for (const threat of sorted) {
-          const idx = threat.multipv - 1;
-          const arrowType = threatTypes[Math.min(idx, threatTypes.length - 1)];
-          if (threat.from && threat.to) {
-            this._board.addArrow(arrowType, threat.from, threat.to);
-          }
-        }
-      }
-    }
+  // ── Combined helpers ─────────────────────────────────────────────────
 
-    /**
-     * Draw opening popularity hints on the board.
-     * @param {Array<{uci: string, popularity: number}>} moves
-     */
-    drawOpeningHints(moves) {
-      if (!this._board) return;
-      this.clearArrows();
-      moves.forEach((m, idx) => {
-        const from = m.uci.slice(0, 2);
-        const to = m.uci.slice(2, 4);
-        if (from && to) {
-          const arrowType = idx === 0 
-            ? { class: 'arrow-info', slice: 'arrowDefault' } 
-            : { class: 'arrow-danger', slice: 'arrowDefault' };
-          this._board.addArrow(arrowType, from, to);
-        }
-      });
-    }
+  /** Clear both markers and arrows in one call. */
+  clearMarrows() {
+    this.clearMarkers();
+    this.clearArrows();
+  }
 
-    // ── Combined helpers ─────────────────────────────────────────────────
+  // ── Cleanup ───────────────────────────────────────────────────────────
 
-    /** Clear both markers and arrows in one call. */
-    clearMarrows() {
-      this.clearMarkers();
-      this.clearArrows();
-    }
-
-    // ── Cleanup ───────────────────────────────────────────────────────────
-
-    destroy() {
-      if (this._board) {
-        this._board.destroy();
-        this._board = null;
-      }
+  destroy() {
+    if (this._board) {
+      this._board.destroy();
+      this._board = null;
     }
   }
+}

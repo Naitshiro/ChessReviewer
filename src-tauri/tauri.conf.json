@@ -31,7 +31,8 @@
       ]
     },
     "security": {
-      "csp": null
+      "csp": "default-src 'self' https://tauri.localhost; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.tailwindcss.com https://tauri.localhost; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.tailwindcss.com https://tauri.localhost; img-src 'self' data: blob: https://cdn.jsdelivr.net https://tauri.localhost https://images.chesscomfiles.com; font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com https://tauri.localhost; connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:* https://explorer.lichess.ovh https://lichess.org https://api.chess.com https://cdn.jsdelivr.net https://cdn.tailwindcss.com https://tauri.localhost; worker-src 'self' blob: https://tauri.localhost",
+      "dangerousDisableAssetCspModification": true
     },
     "windows": [
       {
