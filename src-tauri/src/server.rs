@@ -13,7 +13,7 @@ use futures_util::{SinkExt, StreamExt};
 use tower_http::cors::{Any, CorsLayer};
 use shakmaty::{Chess, Position, Role, Square, Color};
 use shakmaty::san::San;
-use rand::seq::SliceRandom;
+use rand::{seq::SliceRandom, Rng};
 
 use crate::config::AppConfig;
 use crate::engine::EngineManager;
@@ -72,6 +72,57 @@ pub struct ParsedGame {
     pub fens: Vec<String>,
 }
 
+fn find_legal_move_permissive(pos: &shakmaty::Chess, raw_san: &str) -> Option<shakmaty::Move> {
+    // 1. Try standard strict parsing first (for perfect PGNs)
+    if let Ok(san) = raw_san.parse::<shakmaty::san::San>() {
+        if let Ok(mv) = san.to_move(pos) {
+            return Some(mv);
+        }
+    }
+
+    // 2. Strict parsing failed -> Normalize the input string for loose matching
+    // Remove checks (+), checkmates (#), capture markers (x, X), promotion symbols (=), and parens
+    let clean_input = raw_san
+        .replace(['+', '#', 'x', 'X', '=', '(', ')'], "")
+        .replace('0', "O") // Normalize standard vs letter castling typos
+        .replace('o', "O")
+        .trim()
+        .to_string();
+
+    // 3. Scan all legal moves calculated by the engine for this turn
+    for mv in pos.legal_moves() {
+        let legal_san_str = shakmaty::san::San::from_move(pos, &mv).to_string();
+        let clean_legal = legal_san_str
+            .replace(['+', '#', 'x', 'X', '=', '(', ')'], "")
+            .replace('0', "O")
+            .replace('o', "O")
+            .trim()
+            .to_string();
+
+        // Check if our sanitized strings match (e.g., "Be7" matching "Be7")
+        if clean_input == clean_legal {
+            return Some(mv);
+        }
+
+        // 4. Advanced Fallback: Handle short file-to-file pawn captures (e.g., "ed" instead of "exd4")
+        if clean_input.len() == 2 {
+            if let (Some(from_char), Some(to_char)) = (clean_input.chars().nth(0), clean_input.chars().nth(1)) {
+                if let (Some(from_file), Some(to_file)) = (shakmaty::File::from_char(from_char), shakmaty::File::from_char(to_char)) {
+                    if mv.is_capture() && mv.role() == shakmaty::Role::Pawn {
+                        if let Some(from_sq) = mv.from() {
+                            if from_sq.file() == from_file && mv.to().file() == to_file {
+                                return Some(mv);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
 // ---------------------------------------------------------------------------
 // PGN Parsing Utility
 // ---------------------------------------------------------------------------
@@ -80,6 +131,10 @@ pub fn parse_pgn(pgn: &str) -> Result<ParsedGame, String> {
     let mut moves_sans = Vec::new();
     let mut nags_per_move: Vec<Vec<i32>> = Vec::new();
     let mut clks_per_move: Vec<Option<String>> = Vec::new();
+
+    let mut in_curly = false;
+    let mut in_paren = 0i32;
+    let mut cur_comment = String::new();
 
     for line in pgn.lines() {
         let trimmed = line.trim();
@@ -94,9 +149,6 @@ pub fn parse_pgn(pgn: &str) -> Result<ParsedGame, String> {
         } else if !trimmed.is_empty() {
             // Strip comments in curly braces or parentheses, but extract NAGs and clk annotations
             let mut clean_line = String::new();
-            let mut in_curly = false;
-            let mut in_paren = 0i32;
-            let mut cur_comment = String::new();
 
             for c in trimmed.chars() {
                 if c == '{' {
@@ -155,8 +207,10 @@ pub fn parse_pgn(pgn: &str) -> Result<ParsedGame, String> {
     let mut move_records = Vec::new();
 
     for (i, san_str) in moves_sans.iter().enumerate() {
-        let san = san_str.parse::<San>().map_err(|e| format!("Invalid SAN move: {} ({})", san_str, e))?;
-        let mv = san.to_move(&pos).map_err(|e| format!("Illegal move: {} ({})", san_str, e))?;
+        let mv = match find_legal_move_permissive(&pos, san_str) {
+            Some(m) => m,
+            None => return Err(format!("Illegal or unparseable move sequence: {} at step {}", san_str, i + 1)),
+        };
 
         let fen_before = shakmaty::fen::Fen::from_position(pos.clone(), shakmaty::EnPassantMode::Always).to_string();
         let color = if pos.turn().is_white() { "white" } else { "black" };
@@ -482,7 +536,10 @@ async fn import_handler(Json(req): Json<AnalyzeRequest>) -> Response {
                 "accuracy": accuracy,
             })).into_response()
         }
-        Err(e) => (axum::http::StatusCode::BAD_REQUEST, e).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::BAD_REQUEST, 
+            Json(serde_json::json!({ "detail": e }))
+        ).into_response(),
     }
 }
 
@@ -605,47 +662,74 @@ async fn engine_move_handler(State(state): State<AppState>, Json(req): Json<Engi
                 return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "Engine not ready").into_response();
             }
 
-            // Use ELO-aware analysis
-            if let Ok(top_choice) = state.engine.analyze_with_elo(&req.fen, req.elo).await {
-                if let Some(best_move_str) = top_choice.pv.first() {
-                    if best_move_str.len() >= 4 {
-                        let from_sq = Square::from_ascii(best_move_str[0..2].as_bytes()).ok();
-                        let to_sq = Square::from_ascii(best_move_str[2..4].as_bytes()).ok();
+            // Blunder rate: ELO 800 -> ~30%, ELO 1000 -> ~18%, ELO 1200 -> ~7%, >= 1320 -> 0%
+            let play_random = if req.elo < 1320 {
+                let diff = (1320 - req.elo).max(0);
+                let blunder_prob = ((diff as f64) / 1700.0).max(0.0).min(0.5);
+                blunder_prob > 0.0 && rand::thread_rng().gen::<f64>() < blunder_prob
+            } else {
+                false
+            };
 
-                        if let (Some(from), Some(to)) = (from_sq, to_sq) {
-                            // Find matching legal move (handles promotions)
-                            let promo = if best_move_str.len() == 5 {
-                                match best_move_str.chars().nth(4) {
-                                    Some('q') => Some(Role::Queen),
-                                    Some('r') => Some(Role::Rook),
-                                    Some('b') => Some(Role::Bishop),
-                                    Some('n') => Some(Role::Knight),
-                                    _ => None,
+            let mut engine_move = None;
+
+            if !play_random {
+                if let Ok(top_choice) = state.engine.analyze_with_elo(&req.fen, req.elo).await {
+                    if let Some(best_move_str) = top_choice.pv.first() {
+                        if best_move_str.len() >= 4 {
+                            let from_sq = Square::from_ascii(best_move_str[0..2].as_bytes()).ok();
+                            let to_sq = Square::from_ascii(best_move_str[2..4].as_bytes()).ok();
+
+                            if let (Some(from), Some(to)) = (from_sq, to_sq) {
+                                // Find matching legal move (handles promotions)
+                                let promo = if best_move_str.len() == 5 {
+                                    match best_move_str.chars().nth(4) {
+                                        Some('q') => Some(Role::Queen),
+                                        Some('r') => Some(Role::Rook),
+                                        Some('b') => Some(Role::Bishop),
+                                        Some('n') => Some(Role::Knight),
+                                        _ => None,
+                                    }
+                                } else {
+                                    None
+                                };
+
+                                let resolved_move = pos.legal_moves().into_iter()
+                                    .find(|m| m.from() == Some(from) && m.to() == to
+                                        && m.promotion() == promo);
+
+                                if let Some(m) = resolved_move {
+                                    engine_move = Some(m);
                                 }
-                            } else {
-                                None
-                            };
-
-                            let resolved_move = pos.legal_moves().into_iter()
-                                .find(|m| m.from() == Some(from) && m.to() == to
-                                    && m.promotion() == promo);
-
-                            if let Some(m) = resolved_move {
-                                let san = San::from_move(&pos, &m).to_string();
-                                let next_pos = pos.clone().play(&m).unwrap();
-                                let new_fen = shakmaty::fen::Fen::from_position(next_pos.clone(), shakmaty::EnPassantMode::Always).to_string();
-
-                                return Json(serde_json::json!({
-                                    "best_move": best_move_str,
-                                    "san": san,
-                                    "fen_after": new_fen,
-                                    "game_over": next_pos.is_game_over()
-                                })).into_response();
                             }
                         }
                     }
                 }
             }
+
+            // Fallback/forced random move selection if engine failed or blunder triggered
+            let m = match engine_move {
+                Some(mv) => mv,
+                None => {
+                    let legal_moves = pos.legal_moves();
+                    if legal_moves.is_empty() {
+                        return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "No legal moves available").into_response();
+                    }
+                    let mut rng = rand::thread_rng();
+                    legal_moves.choose(&mut rng).cloned().unwrap()
+                }
+            };
+
+            let san = San::from_move(&pos, &m).to_string();
+            let next_pos = pos.clone().play(&m).unwrap();
+            let new_fen = shakmaty::fen::Fen::from_position(next_pos.clone(), shakmaty::EnPassantMode::Always).to_string();
+
+            return Json(serde_json::json!({
+                "best_move": shakmaty::uci::Uci::from_move(&m, shakmaty::CastlingMode::Standard).to_string(),
+                "san": san,
+                "fen_after": new_fen,
+                "game_over": next_pos.is_game_over()
+            })).into_response();
         }
     }
     (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "Engine error").into_response()
@@ -790,7 +874,10 @@ async fn chesscom_games_handler(
 async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeRequest>) -> Response {
     let parsed = match parse_pgn(&req.pgn) {
         Ok(game) => game,
-        Err(e) => return (axum::http::StatusCode::BAD_REQUEST, e).into_response(),
+        Err(e) => return (
+            axum::http::StatusCode::BAD_REQUEST, 
+            Json(serde_json::json!({ "detail": e }))
+        ).into_response(),
     };
 
     let depth = req.depth.unwrap_or(state.config.analysis_depth);

@@ -262,6 +262,14 @@ impl StockfishProcess {
 
     /// Analyze a position with ELO-limited engine (for play vs engine).
     pub async fn analyze_with_elo(&mut self, fen: &str, elo: i32) -> Result<UciPvInfo, String> {
+        let result = self.analyze_with_elo_run(fen, elo).await;
+        // Always reset strength limiting and MultiPV after use, even on error
+        let _ = self.send_command("setoption name UCI_LimitStrength value false").await;
+        let _ = self.send_command("setoption name MultiPV value 3").await;
+        result
+    }
+
+    async fn analyze_with_elo_run(&mut self, fen: &str, elo: i32) -> Result<UciPvInfo, String> {
         // Clamp ELO to valid range
         let elo = elo.max(800).min(3200);
 
@@ -277,16 +285,19 @@ impl StockfishProcess {
             self.send_command(&format!("setoption name UCI_Elo value {}", clamped_elo)).await?;
         }
 
+        // Limit MultiPV to 1 for game play ELO analysis to avoid score pollution
+        self.send_command("setoption name MultiPV value 1").await?;
+
         self.send_command("isready").await?;
         self.read_until("readyok").await?;
         self.send_command(&format!("position fen {}", fen)).await?;
 
-        // Adjust time limit based on ELO gap below minimum
+        // Adjust time limit based on ELO gap below minimum (safer limits to prevent crashes)
         let movetime = if elo >= 3200 {
             100
         } else if elo < 1320 {
             let diff = 1320 - elo;
-            if diff >= 400 { 10 } else if diff >= 200 { 20 } else { 50 }
+            if diff >= 400 { 50 } else if diff >= 200 { 70 } else { 95 }
         } else {
             100
         };
@@ -324,9 +335,6 @@ impl StockfishProcess {
                 }
             }
         }
-
-        // Reset strength limiting after use
-        self.send_command("setoption name UCI_LimitStrength value false").await?;
 
         Ok(best_info)
     }
@@ -400,7 +408,18 @@ impl EngineManager {
 
     pub async fn ensure_ready(&self) -> Result<(), String> {
         let mut lock = self.inner.lock().await;
-        if lock.is_none() {
+        let needs_spawn = match lock.as_mut() {
+            None => true,
+            Some(process) => {
+                match process.child.try_wait() {
+                    Ok(Some(_status)) => true, // Exited, needs spawn
+                    Ok(None) => false,        // Still running, all good
+                    Err(_) => true,           // Error, respawn just in case
+                }
+            }
+        };
+
+        if needs_spawn {
             let process = StockfishProcess::spawn(
                 &self.config.stockfish_path,
                 self.config.engine_threads,
