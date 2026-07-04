@@ -535,7 +535,7 @@ async fn openings_explorer_handler(Json(req): Json<ExplorerRequest>) -> Response
 }
 
 async fn curated_puzzles_handler() -> impl IntoResponse {
-    let puzzles_json = include_str!("../../backend/puzzles.json");
+    let puzzles_json = include_str!("puzzles.json");
     let val: serde_json::Value = serde_json::from_str(puzzles_json).unwrap_or(serde_json::Value::Null);
     Json(val)
 }
@@ -576,7 +576,7 @@ async fn daily_puzzle_handler() -> Response {
     }
 
     // Fallback to random puzzle from local curated list
-    let puzzles_json = include_str!("../../backend/puzzles.json");
+    let puzzles_json = include_str!("puzzles.json");
     if let Ok(puzzles) = serde_json::from_str::<Vec<serde_json::Value>>(puzzles_json) {
         if !puzzles.is_empty() {
             let mut rng = rand::thread_rng();

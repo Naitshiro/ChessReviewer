@@ -3,40 +3,41 @@ title ChessReviewer Builder
 cd /d "%~dp0"
 echo.
 echo  =============================================
-echo   ChessReviewer - Portable EXE Builder
+echo   ChessReviewer - Standalone Builder (Tauri)
 echo  =============================================
 echo.
 
-REM Activate virtualenv
-if not exist ".venv" (
-    echo  [ERROR] Python virtual environment (.venv) not found. Please run start.bat first to initialize it.
+REM Verify Node.js is installed
+node --version >nul 2>&1
+if errorlevel 1 (
+    echo  [ERROR] Node.js not found. Please install Node.js.
     pause
     exit /b 1
 )
-call .venv\Scripts\activate.bat
 
-REM Check for PyInstaller
-python -c "import PyInstaller" >nul 2>&1
+REM Verify Rust/Cargo is installed
+cargo --version >nul 2>&1
 if errorlevel 1 (
-    echo  [SETUP] Installing PyInstaller in virtualenv...
-    pip install pyinstaller
+    echo  [ERROR] Rust/Cargo not found. Please install Rust from https://rustup.rs/
+    pause
+    exit /b 1
 )
 
-echo  [BUILD] Compiling Python sidecar using PyInstaller...
-pyinstaller --onefile --noconsole --name backend_server --add-data "backend/eco_interpolated.json;backend" --add-data "backend/puzzles.json;backend" --add-data "frontend;frontend" backend/main.py
+REM Install dependencies if node_modules doesn't exist
+if not exist "node_modules" (
+    echo  [SETUP] Installing Node.js dependencies...
+    call npm install
+    echo.
+)
 
-echo.
-echo  [BUILD] Installing Node dependencies (including electron-builder)...
-call npm install
-
-echo.
-echo  [BUILD] Packaging Electron app into a single portable EXE...
-call npm run dist
+echo  [BUILD] Compiling Tauri standalone app...
+call npm run tauri build
 
 echo.
 echo  =============================================
 echo   Build finished!
-echo   Standalone EXE location: dist\ChessReviewer Portable.exe
+echo   Standalone EXE location: src-tauri\target\release\ChessReviewer.exe
+echo   Installers location:     src-tauri\target\release\bundle\
 echo  =============================================
 echo.
 pause

@@ -7,38 +7,33 @@ echo   ChessReviewer - Local Chess Analysis Tool
 echo  =============================================
 echo.
 
-REM Check for Python
-python --version >nul 2>&1
+REM Check if Node.js is installed
+node --version >nul 2>&1
 if errorlevel 1 (
-    echo  [ERROR] Python not found. Please install Python 3.11+.
+    echo  [ERROR] Node.js not found. Please install Node.js ^(LTS recommended^).
     pause
     exit /b 1
 )
 
-REM Install dependencies if needed
-if not exist ".venv" (
-    echo  [SETUP] Creating virtual environment...
-    python -m venv .venv
-    echo  [SETUP] Installing dependencies...
-    .venv\Scripts\pip install -r requirements.txt --quiet
-    echo  [SETUP] Done!
+REM Check if Cargo is installed (required for Tauri builds)
+cargo --version >nul 2>&1
+if errorlevel 1 (
+    echo  [ERROR] Rust/Cargo not found. Please install Rust from https://rustup.rs/
+    pause
+    exit /b 1
+)
+
+REM Install node dependencies if node_modules doesn't exist
+if not exist "node_modules" (
+    echo  [SETUP] Installing Node.js dependencies...
+    call npm install
     echo.
 )
 
-REM Download missing piece assets if they don't exist
-if not exist "frontend\assets\pieces\neo.svg" (
-    echo  [SETUP] Downloading neo piece set and extensions...
-    python scratch/download_pieces.py
-)
-
-REM Activate venv and start server
-call .venv\Scripts\activate.bat
-
-echo  [INFO] Starting server at http://127.0.0.1:8000
-echo  [INFO] Open your browser to: http://127.0.0.1:8000
+echo  [INFO] Starting ChessReviewer in Tauri Developer Mode...
 echo  [INFO] Press Ctrl+C to stop.
 echo.
 
-python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+call npm run tauri dev
 
 pause

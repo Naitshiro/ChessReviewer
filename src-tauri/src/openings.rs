@@ -37,7 +37,7 @@ pub fn get_eco_db() -> &'static EcoDb {
         let mut prefixes = HashSet::new();
 
         // Embed the JSON opening database at compile time
-        let json_data = include_str!("../../backend/eco_interpolated.json");
+        let json_data = include_str!("eco_interpolated.json");
         if let Ok(data) = serde_json::from_str::<HashMap<String, EcoInfo>>(json_data) {
             for (fen_str, info) in data {
                 let key = get_fen_key(&fen_str);

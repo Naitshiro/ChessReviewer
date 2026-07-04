@@ -23,3 +23,8 @@
 - Ensure all generated output respects the file's established line ending convention to prevent diff failures and format inconsistencies.
 
 **Why:** Consistent path handling for internal tools prevents edit failures, while leveraging Coreutils for terminal commands provides a familiar Unix-like experience. Proper line ending management prevents version control noise in cross-platform environments.
+
+## Development & Build Commands
+- **Run in Developer Mode**: `npm run tauri dev` (or run `start.bat`)
+- **Compile Production Release**: `npm run tauri build` (or run `build_portable.bat`)
+- **Check Rust Code**: Run `cargo check` inside `src-tauri` directory

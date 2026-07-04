@@ -2,6 +2,8 @@
 
 A free, local chess game review and real-time analysis tool. An open alternative to chess.com's premium review features, powered by Stockfish.
 
+This version is built entirely with **Rust + Tauri**, eliminating any Python dependencies.
+
 ## Features
 
 - **Game Review** — Paste any PGN and get full move-by-move Stockfish analysis
@@ -13,8 +15,9 @@ A free, local chess game review and real-time analysis tool. An open alternative
 
 ## Requirements
 
-- Python 3.11 or newer
-- Stockfish chess engine binary (free download)
+- **Node.js** (LTS version recommended)
+- **Rust and Cargo** (from [rustup.rs](https://rustup.rs/))
+- **Stockfish chess engine binary** (free download)
 
 ## Setup
 
@@ -24,51 +27,52 @@ Download from [stockfishchess.org/download](https://stockfishchess.org/download/
 
 ### 2. Configure Stockfish Path
 
-Edit `config.json` in the project root and set the path to your Stockfish executable:
+Edit `config.json` in the project root and set the path to your Stockfish executable (use double backslashes `\\` or forward slashes `/`):
 
 ```json
 {
-  "stockfish_path": "C:/ChessEngines/stockfish/stockfish-windows-x86-64-avx2.exe",
-  "engine_threads": 2,
-  "engine_hash_mb": 128,
-  "analysis_depth": 18
+  "stockfish_path": "C:\\ChessEngines\\stockfish\\stockfish-windows-x86-64-avx2.exe",
+  "engine_threads": 4,
+  "engine_hash_mb": 2048,
+  "analysis_depth": 12,
+  "server_host": "127.0.0.1",
+  "server_port": 8000
 }
 ```
-
-> **Tip:** The app will also read a `STOCKFISH_PATH` environment variable, or fall back to `stockfish/stockfish.exe` relative to the project root.
 
 ### 3. Start the Application
 
 Simply double-click **`start.bat`**.
 
 On first run, it will automatically:
-1. Create a Python virtual environment
-2. Install dependencies from `requirements.txt`
-3. Start the server
+1. Detect Node.js and Rust environments
+2. Install npm dependencies
+3. Launch the application in Tauri Developer Mode
 
-Then open your browser to: **http://127.0.0.1:8000**
+---
 
 ## Manual Start (without start.bat)
 
 ```bash
-# Create and activate venv
-python -m venv .venv
-.venv\Scripts\activate
+# Install npm dependencies
+npm install
 
-# Install deps
-pip install -r requirements.txt
-
-# Start server
-python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
+# Run the Tauri application in developer mode
+npm run tauri dev
 ```
 
-## Usage
+## Compilation / Building (Standalone App)
 
-1. **Analyze a Game**: Paste a PGN into the text area and click **Analyze**.
-   - Supports full PGN with headers, or just a bare move list like `1. e4 e5 2. Nf3 Nc6`
-2. **Review Moves**: Use the ◀▶ buttons or arrow keys to step through the game
-3. **Live Analysis**: While reviewing, drag a piece to a *different* square than the game move to fork into Live Analysis Mode. Engine arrows show the top 3 candidate moves in real time.
-4. **Return to Review**: Click **"Back to Game Review"** to exit live analysis.
+Double-click **`build_portable.bat`** or run:
+
+```bash
+npm run tauri build
+```
+
+The resulting standalone executable will be located in:
+`src-tauri\target\release\ChessReviewer.exe`
+
+---
 
 ## Move Classification Formulas
 
@@ -89,19 +93,10 @@ python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
 | Mistake | Delta < 0.20 |
 | Blunder | Delta ≥ 0.20 |
 
-## Configuration Options
-
-| Key | Default | Description |
-|---|---|---|
-| `stockfish_path` | `""` | Absolute path to Stockfish executable |
-| `engine_threads` | `2` | CPU threads for Stockfish |
-| `engine_hash_mb` | `128` | Hash table size in MB |
-| `analysis_depth` | `18` | Search depth for batch analysis |
-| `server_host` | `127.0.0.1` | Bind address |
-| `server_port` | `8000` | HTTP/WS port |
+---
 
 ## Tech Stack
 
-- **Backend**: Python 3.11 · FastAPI · python-chess · uvicorn
-- **Engine**: Stockfish (local binary via UCI protocol)
-- **Frontend**: Vanilla HTML5/JS · Tailwind CSS v3 CDN · cm-chessboard v8 · chess.js v1 · Chart.js v4
+- **Tauri Core**: Rust · Axum · tokio · shakmaty (chess logic)
+- **Engine**: Stockfish (local binary via UCI protocol over stdin/stdout)
+- **Frontend**: Vanilla HTML5/JS · cm-chessboard v8 · chess.js v1 · Chart.js v4
