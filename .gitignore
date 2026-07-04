@@ -37,6 +37,7 @@ config.json
 *.log
 scratch/
 node_modules/
+.agent/
 
 # IDEs and Editors
 .vscode/
