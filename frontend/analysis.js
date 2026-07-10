@@ -501,12 +501,12 @@ export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex =
       currentRow.appendChild(numEl);
       currentRow.appendChild(_createEmptyCell(`move-cell-w-${m.move_number}`));
       currentRow.appendChild(_createEmptyCell(`move-cell-b-${m.move_number}`));
-      
+
       const timeContainer = document.createElement('div');
       timeContainer.className = 'move-time-container';
       timeContainer.id = `move-time-container-${m.move_number}`;
       currentRow.appendChild(timeContainer);
-      
+
       return currentRow;
     }, (row) => currentRow = row, lastMoveNum, overlayPriority, liveReviewEnabled);
     lastMoveNum = m.move_number;
@@ -532,7 +532,7 @@ export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex =
         bCurrentRow.className = 'move-row';
         const numEl = document.createElement('span');
         numEl.className = 'move-num text-[var(--text-secondary)] relative';
-        
+
         if (i === 0) {
           const lIcon = document.createElement('span');
           lIcon.textContent = '↳ ';
@@ -540,23 +540,23 @@ export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex =
           numEl.appendChild(lIcon);
         }
         numEl.appendChild(document.createTextNode(`${m.move_number}.`));
-        
+
         bCurrentRow.appendChild(numEl);
         bCurrentRow.appendChild(_createEmptyCell(`b-move-cell-w-${m.move_number}`));
         bCurrentRow.appendChild(_createEmptyCell(`b-move-cell-b-${m.move_number}`));
-        
+
         const timeContainer = document.createElement('div');
         timeContainer.className = 'move-time-container';
         timeContainer.id = `b-move-time-container-${m.move_number}`;
         bCurrentRow.appendChild(timeContainer);
-        
+
         return bCurrentRow;
       }, (row) => bCurrentRow = row, bLastMoveNum, overlayPriority, liveReviewEnabled);
       bLastMoveNum = m.move_number;
     }
 
     branchRows.forEach(r => branchContainer.appendChild(r));
-    
+
     const targetRow = rowElements[forkIndex];
     if (targetRow) {
       targetRow.after(branchContainer);
@@ -585,6 +585,18 @@ function _createEmptyCell(id) {
   const el = document.createElement('div');
   el.id = id;
   return el;
+}
+
+function formatSanWithPieceIcon(san, isWhite) {
+  const pieceChar = san[0];
+  if (['N', 'B', 'R', 'Q', 'K'].includes(pieceChar)) {
+    const pieceMap = { 'N': 'n', 'B': 'b', 'R': 'r', 'Q': 'q', 'K': 'k' };
+    const colorCode = isWhite ? 'w' : 'b';
+    const pieceId = `${colorCode}${pieceMap[pieceChar]}`;
+    const rest = san.slice(1);
+    return `<span style="display:inline-flex; align-items:center; vertical-align:middle;"><svg style="width:16px; height:16px; margin-bottom: 2px;" viewBox="0 0 40 40"><use href="#${pieceId}"></use></svg>${rest}</span>`;
+  }
+  return san;
 }
 
 function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setRowFn, lastMoveNum, overlayPriority = 'classification', liveReviewEnabled = false) {
@@ -661,7 +673,7 @@ function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setR
   }
 
   const text = document.createElement('span');
-  text.textContent = m.san;
+  text.innerHTML = formatSanWithPieceIcon(m.san, m.color === 'white');
   cell.appendChild(text);
   cell.addEventListener('click', () => onClick(type, index));
 
@@ -738,7 +750,7 @@ export function renderScorecard(accuracy, depthUsed = null) {
     if (accuracyRow) accuracyRow.classList.add('hidden');
     if (ratingRow) ratingRow.classList.add('hidden');
     if (phasesContainer) phasesContainer.classList.add('hidden');
-    
+
     const mergedEl = document.getElementById('scorecard-merged');
     if (mergedEl) {
       mergedEl.innerHTML = '<div class="text-[var(--text-muted)] text-xs italic text-center py-2">Analyze a game to see results.</div>';

@@ -68,6 +68,7 @@ const state = {
     latestLines: [],      // Latest MultiPV results [{multipv, from_sq, to_sq, ...}]
     branchMoves: [],      // Moves played in analysis mode
     currentBranchIndex: -1, // Currently viewed move in branch
+    expandedLines: {},    // Map of line index -> boolean for expanded state
   },
   boardOrientation: 'white', // tracks the visual orientation to render player cards correctly
   autoplay: {
@@ -1043,6 +1044,50 @@ function _getClockTimesForMove(idx) {
 
   return { white: whiteClk, black: blackClk };
 }
+function parseTimeStrToSeconds(str) {
+  if (!str) return null;
+  const parts = str.split(':');
+  if (parts.length === 3) {
+    // h:mm:ss.d or h:mm:ss
+    const h = parseFloat(parts[0]) || 0;
+    const m = parseFloat(parts[1]) || 0;
+    const s = parseFloat(parts[2]) || 0;
+    return h * 3600 + m * 60 + s;
+  } else if (parts.length === 2) {
+    // mm:ss.d or mm:ss
+    const m = parseFloat(parts[0]) || 0;
+    const s = parseFloat(parts[1]) || 0;
+    return m * 60 + s;
+  } else if (parts.length === 1) {
+    // ss.d or ss
+    return parseFloat(parts[0]) || 0;
+  }
+  return null;
+}
+
+function formatClockString(str) {
+  if (!str) return '';
+  const secondsVal = parseTimeStrToSeconds(str);
+  if (secondsVal === null) return str; // fallback to original if parsing fails
+
+  if (secondsVal < 10) {
+    // When you go below 10 seconds (e.g. 9.1 seconds), display 9.1 (no minutes)
+    return secondsVal.toFixed(1);
+  }
+
+  const h = Math.floor(secondsVal / 3600);
+  const m = Math.floor((secondsVal % 3600) / 60);
+  const s = Math.floor(secondsVal % 60);
+
+  if (h > 0) {
+    const mm = String(m).padStart(2, '0');
+    const ss = String(s).padStart(2, '0');
+    return `${h}:${mm}:${ss}`;
+  } else {
+    const ss = String(s).padStart(2, '0');
+    return `${m}:${ss}`;
+  }
+}
 
 function _updatePlayerClocksAndCaptured(idx) {
   let fen = state.game.initialFen;
@@ -1128,13 +1173,13 @@ function _updatePlayerClocksAndCaptured(idx) {
     }
 
     if (state.boardOrientation === 'white') {
-      topTime = clkTimes.black || '5:00';
-      bottomTime = clkTimes.white || '5:00';
+      topTime = formatClockString(clkTimes.black) || '5:00';
+      bottomTime = formatClockString(clkTimes.white) || '5:00';
       topIsActive = (activeSide === 'black');
       bottomIsActive = (activeSide === 'white');
     } else {
-      topTime = clkTimes.white || '5:00';
-      bottomTime = clkTimes.black || '5:00';
+      topTime = formatClockString(clkTimes.white) || '5:00';
+      bottomTime = formatClockString(clkTimes.black) || '5:00';
       topIsActive = (activeSide === 'white');
       bottomIsActive = (activeSide === 'black');
     }
@@ -1837,6 +1882,7 @@ function _startWebSocketAnalysis(fen) {
 
   // Clear previous arrows and analysis lines when analyzing a new position
   state.analysis.latestLines = [];
+  state.analysis.expandedLines = {};
   _redrawBoardArrows();
   if (el.engineSpinner) el.engineSpinner.classList.remove('hidden');
   if (el.badgeDot) el.badgeDot.style.animation = 'blink-dot 1s ease-in-out infinite';
@@ -2256,6 +2302,167 @@ function _updatePgnInput() {
 
   el.pgnInput.value = pgnStr.trim();
 }
+function playEngineLineSequence(pvMoves, targetIndex) {
+  const wasEngineEnabled = state.liveEngineEnabled;
+  state.liveEngineEnabled = false;
+
+  const movesToPlay = pvMoves.slice(0, targetIndex + 1);
+  for (let i = 0; i < movesToPlay.length; i++) {
+    const uci = movesToPlay[i];
+    const from = uci.slice(0, 2);
+    const to = uci.slice(2, 4);
+    const promotion = uci.length > 4 ? uci[4] : undefined;
+
+    if (i === movesToPlay.length - 1) {
+      state.liveEngineEnabled = wasEngineEnabled;
+    }
+
+    _handleBoardMove(from, to, promotion);
+  }
+}
+
+window.toggleEngineLine = function (idx) {
+  state.analysis.expandedLines[idx] = !state.analysis.expandedLines[idx];
+  _updateEngineLinesPanel();
+};
+
+window.playEngineLine = function (lineIndex, moveIndex) {
+  let pv = null;
+  if (lineIndex === -1) {
+    const activeIndex = state.review.currentIndex;
+    if (activeIndex >= 0) {
+      pv = state.analysis.latestLines[0]?.pv;
+      if (!pv && state.game.moves[activeIndex + 1]) {
+        pv = state.game.moves[activeIndex + 1].pv1_full;
+      }
+    }
+  } else if (lineIndex === -2) {
+    const activeIndex = state.review.currentIndex;
+    if (activeIndex >= 0 && state.game.moves[activeIndex]) {
+      pv = state.game.moves[activeIndex].pv1_full;
+    }
+  } else {
+    const line = state.analysis.latestLines.filter(Boolean)[lineIndex];
+    pv = line?.pv;
+  }
+  if (!pv) return;
+  playEngineLineSequence(pv, moveIndex);
+};
+
+function formatSanWithPieceIcon(san, isWhite) {
+  const pieceChar = san[0];
+  if (['N', 'B', 'R', 'Q', 'K'].includes(pieceChar)) {
+    const pieceMap = { 'N': 'n', 'B': 'b', 'R': 'r', 'Q': 'q', 'K': 'k' };
+    const colorCode = isWhite ? 'w' : 'b';
+    const pieceId = `${colorCode}${pieceMap[pieceChar]}`;
+    const rest = san.slice(1);
+    return `<span style="display:inline-flex; align-items:center; vertical-align:middle;"><svg style="width:12px; height:12px; margin-right:1px;" viewBox="0 0 40 40"><use href="#${pieceId}"></use></svg>${rest}</span>`;
+  }
+  return san;
+}
+
+function formatPvMovesHtml(currentFen, uciMoves, lineIndex) {
+  try {
+    const c = new Chess(currentFen);
+    const pvMoves = [];
+    const isFirstBlack = (c.turn() === 'b');
+
+    let html = '';
+    for (let i = 0; i < uciMoves.length; i++) {
+      const uci = uciMoves[i];
+      const from = uci.slice(0, 2);
+      const to = uci.slice(2, 4);
+      const promotion = uci.length > 4 ? uci[4] : undefined;
+
+      const turn = c.turn();
+      const fullmove = c.moveNumber();
+
+      const result = c.move({ from, to, promotion });
+      if (!result) break;
+
+      let prefix = '';
+      if (turn === 'w') {
+        prefix = `${fullmove}. `;
+      } else if (i === 0 && isFirstBlack) {
+        prefix = `${fullmove}... `;
+      } else if (i > 0 && pvMoves[i - 1]?.turn === 'b') {
+        prefix = `${fullmove}... `;
+      }
+
+      pvMoves.push({
+        san: result.san,
+        uci: uci,
+        turn: turn,
+        fullmove: fullmove
+      });
+
+      html += `${prefix}<span class="pv-move-btn" onclick="playEngineLine(${lineIndex}, ${i})">${formatSanWithPieceIcon(result.san, turn === 'w')}</span> `;
+    }
+    return html.trim();
+  } catch (e) {
+    console.error("Error formatting PV moves:", e);
+    return uciMoves.join(' ');
+  }
+}
+
+const CLASS_LABELS = {
+  brilliant: "Brilliant",
+  great: "Great Move",
+  best: "Best",
+  excellent: "Excellent",
+  good: "Good",
+  inaccuracy: "Inaccuracy",
+  mistake: "Mistake",
+  blunder: "Blunder"
+};
+
+const CLASS_COLORS = {
+  brilliant: "#26c6da",
+  great: "#1e88e5",
+  best: "#81b64c",
+  excellent: "#81b64c",
+  good: "#97af8b",
+  inaccuracy: "#f7c631",
+  mistake: "#e6912c",
+  blunder: "#fa412d"
+};
+
+function formatMoveEval(m) {
+  if (m.score_mate !== undefined && m.score_mate !== null) {
+    if (m.score_mate === 1) return '1-0';
+    if (m.score_mate === -1) return '0-1';
+    if (m.score_mate === 0) return '0-1';
+    return m.score_mate > 0 ? `M${m.score_mate}` : `-M${Math.abs(m.score_mate)}`;
+  }
+  return ((m.white_cp || 0) / 100).toFixed(2);
+}
+
+function formatBestMoveEval(m) {
+  const isBlackTurn = (m.color === 'black');
+
+  if (m.mate_best !== undefined && m.mate_best !== null) {
+    let mateVal = 0;
+    if (Array.isArray(m.mate_best)) {
+      mateVal = m.mate_best.length;
+    } else if (typeof m.mate_best === 'number') {
+      mateVal = Math.abs(m.mate_best);
+    }
+    if (mateVal > 0) {
+      let displayMate = typeof m.mate_best === 'number' ? m.mate_best : mateVal;
+      if (isBlackTurn && typeof m.mate_best === 'number') {
+        displayMate = -displayMate;
+      }
+      return displayMate > 0 ? `M${displayMate}` : `-M${Math.abs(displayMate)}`;
+    }
+  }
+
+  let cp = (m.cp_best || 0) / 100;
+  if (isBlackTurn) {
+    cp = -cp;
+  }
+  return cp.toFixed(2);
+}
+
 function _updateEngineLinesPanel() {
   if (!el.engineLinesPanel || !el.engineLinesContainer) return;
 
@@ -2272,11 +2479,151 @@ function _updateEngineLinesPanel() {
     return;
   }
 
-  // Get current FEN to convert PV from UCI to SAN
   const currentFen = _getCurrentFen();
+  const activeIndex = state.review.currentIndex;
+  const isReviewMode = (state.mode === MODE.REVIEW);
+
+  let comparisonHtml = '';
+  if (isReviewMode && activeIndex >= 0 && state.game.moves[activeIndex]) {
+    const m = state.game.moves[activeIndex];
+    const singleRowClasses = ['theory', 'best', 'great', 'brilliant', 'book', 'excellent'];
+
+    const hasBestMove = m.best_move && m.best_move !== '';
+    const playedDifferent = hasBestMove && m.best_move !== m.uci;
+
+    if (m.classification) {
+      const showSingleRow = singleRowClasses.includes(m.classification) || !playedDifferent;
+
+      if (showSingleRow) {
+        // 1. Played Move Row only
+        const playedEval = formatMoveEval(m);
+        const playedAdv = m.white_cp >= 0;
+        const playedScoreBg = playedAdv ? 'background:#fff;color:#111;' : 'background:#222;color:#fff;';
+
+        const label = CLASS_LABELS[m.classification] || m.classification;
+        let labelText = `${m.san} is a ${label}`;
+        if (m.classification === 'inaccuracy' || m.classification === 'excellent') {
+          labelText = `${m.san} is an ${label}`;
+        } else if (m.classification === 'best') {
+          labelText = `${m.san} is best`;
+        }
+
+        let playedPv = state.analysis.latestLines[0]?.pv;
+        if (!playedPv && state.game.moves[activeIndex + 1]) {
+          playedPv = state.game.moves[activeIndex + 1].pv1_full;
+        }
+        const playedPvHtml = playedPv ? formatPvMovesHtml(m.fen_after, playedPv, -1) : 'No line available';
+
+        const isPlayedExpanded = !!state.analysis.expandedLines['played'];
+
+        comparisonHtml = `
+          <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px; padding-bottom:8px; border-bottom: 2px solid rgba(255,255,255,0.1);">
+            <!-- Played Move Row -->
+            <div style="display:flex; gap:8px; align-items:center; min-width:0; width:100%; padding: 2px 0;">
+              <span style="${playedScoreBg}min-width:45px; text-align:center; padding:2px 6px; border-radius:4px; font-weight:700; font-size:11px; flex-shrink:0;">${playedEval}</span>
+              <div class="engine-line-moves ${isPlayedExpanded ? 'expanded' : 'collapsed'}" style="flex-grow:1; min-width:0; font-size:11px; color:var(--text-secondary); ${isPlayedExpanded ? 'white-space:normal;' : 'white-space:nowrap; overflow:hidden; text-overflow:ellipsis;'}">
+                <span style="color:${CLASS_COLORS[m.classification] || 'var(--text-primary)'}; font-weight:700; display:inline-flex; align-items:center; gap:3px; margin-right:6px;">
+                  <img src="assets/markers/${m.classification}.svg" style="width:12px; height:12px; vertical-align:middle; display:inline-block;" />
+                  <span>${labelText}</span>
+                </span>
+                ${playedPvHtml}
+              </div>
+              <button class="engine-line-toggle-btn" onclick="toggleEngineLine('played')" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding: 2px 4px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transform: rotate(${isPlayedExpanded ? '180deg' : '0deg'}); transition: transform 0.2s;">
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        `;
+      } else {
+        // 2. Both Played Move and Best Move Rows
+        const playedEval = formatMoveEval(m);
+        const playedAdv = m.white_cp >= 0;
+        const playedScoreBg = playedAdv ? 'background:#fff;color:#111;' : 'background:#222;color:#fff;';
+
+        const label = CLASS_LABELS[m.classification] || m.classification;
+        let labelText = `${m.san} is a ${label}`;
+        if (m.classification === 'inaccuracy' || m.classification === 'excellent') {
+          labelText = `${m.san} is an ${label}`;
+        }
+
+        let playedPv = state.analysis.latestLines[0]?.pv;
+        if (!playedPv && state.game.moves[activeIndex + 1]) {
+          playedPv = state.game.moves[activeIndex + 1].pv1_full;
+        }
+        const playedPvHtml = playedPv ? formatPvMovesHtml(m.fen_after, playedPv, -1) : 'No line available';
+
+        // Best Move Row
+        const bestEval = formatBestMoveEval(m);
+        const isBlackTurn = (m.color === 'black');
+        let cpBestCorrected = (m.cp_best || 0) / 100;
+        if (isBlackTurn) {
+          cpBestCorrected = -cpBestCorrected;
+        }
+        let isMateBestWhite = false;
+        if (m.mate_best !== undefined && m.mate_best !== null) {
+          let displayMate = typeof m.mate_best === 'number' ? m.mate_best : m.mate_best.length;
+          if (isBlackTurn && typeof m.mate_best === 'number') {
+            displayMate = -displayMate;
+          }
+          isMateBestWhite = displayMate > 0;
+        }
+        const bestAdv = (m.mate_best !== undefined && m.mate_best !== null) ? isMateBestWhite : cpBestCorrected >= 0;
+        const bestScoreBg = bestAdv ? 'background:#fff;color:#111;' : 'background:#222;color:#fff;';
+
+        const bestSan = _uciPvToSan(m.fen_before, [m.best_move]);
+        const bestLabelText = `${bestSan} is best`;
+
+        const bestPv = m.pv1_full;
+        const bestPvHtml = bestPv ? formatPvMovesHtml(m.fen_before, bestPv, -2) : 'No line available';
+
+        const isPlayedExpanded = !!state.analysis.expandedLines['played'];
+        const isBestExpanded = !!state.analysis.expandedLines['best'];
+
+        comparisonHtml = `
+          <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px; padding-bottom:8px; border-bottom: 2px solid rgba(255,255,255,0.1);">
+            <!-- Played Move Row -->
+            <div style="display:flex; gap:8px; align-items:center; min-width:0; width:100%; padding: 2px 0;">
+              <span style="${playedScoreBg}min-width:45px; text-align:center; padding:2px 6px; border-radius:4px; font-weight:700; font-size:11px; flex-shrink:0;">${playedEval}</span>
+              <div class="engine-line-moves ${isPlayedExpanded ? 'expanded' : 'collapsed'}" style="flex-grow:1; min-width:0; font-size:11px; color:var(--text-secondary); ${isPlayedExpanded ? 'white-space:normal;' : 'white-space:nowrap; overflow:hidden; text-overflow:ellipsis;'}">
+                <span style="color:${CLASS_COLORS[m.classification] || 'var(--text-primary)'}; font-weight:700; display:inline-flex; align-items:center; gap:3px; margin-right:6px;">
+                  <img src="assets/markers/${m.classification}.svg" style="width:12px; height:12px; vertical-align:middle; display:inline-block;" />
+                  <span>${labelText}</span>
+                </span>
+                ${playedPvHtml}
+              </div>
+              <button class="engine-line-toggle-btn" onclick="toggleEngineLine('played')" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding: 2px 4px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transform: rotate(${isPlayedExpanded ? '180deg' : '0deg'}); transition: transform 0.2s;">
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+            </div>
+            
+            <!-- Best Move Row -->
+            <div style="display:flex; gap:8px; align-items:center; min-width:0; width:100%; padding: 2px 0;">
+              <span style="${bestScoreBg}min-width:45px; text-align:center; padding:2px 6px; border-radius:4px; font-weight:700; font-size:11px; flex-shrink:0;">${bestEval}</span>
+              <div class="engine-line-moves ${isBestExpanded ? 'expanded' : 'collapsed'}" style="flex-grow:1; min-width:0; font-size:11px; color:var(--text-secondary); ${isBestExpanded ? 'white-space:normal;' : 'white-space:nowrap; overflow:hidden; text-overflow:ellipsis;'}">
+                <span style="color:${CLASS_COLORS.best}; font-weight:700; display:inline-flex; align-items:center; gap:3px; margin-right:6px;">
+                  <img src="assets/markers/best.svg" style="width:12px; height:12px; vertical-align:middle; display:inline-block;" />
+                  <span>${bestLabelText}</span>
+                </span>
+                ${bestPvHtml}
+              </div>
+              <button class="engine-line-toggle-btn" onclick="toggleEngineLine('best')" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding: 2px 4px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transform: rotate(${isBestExpanded ? '180deg' : '0deg'}); transition: transform 0.2s;">
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        `;
+      }
+    }
+  }
 
   let html = '';
-  lines.forEach(line => {
+  lines.forEach((line, idx) => {
     let scoreStr = '';
     if (line.score_mate !== undefined && line.score_mate !== null) {
       if (line.score_mate === 1) scoreStr = '1-0';
@@ -2292,24 +2639,30 @@ function _updateEngineLinesPanel() {
       scoreStr = cp;
     }
 
-    // White advantage → white bg, black text. Black advantage → dark bg, white text.
     const whiteAdv = (line.score_mate !== undefined && line.score_mate !== null)
       ? line.score_mate > 0
       : line.white_cp >= 0;
     const scoreBg = whiteAdv ? 'background:#fff;color:#111;' : 'background:#222;color:#fff;';
 
-    // Convert UCI PV to SAN
-    const pvSan = _uciPvToSan(currentFen, line.pv || []);
+    const isExpanded = !!state.analysis.expandedLines[idx];
+    const pvMovesHtml = formatPvMovesHtml(currentFen, line.pv || [], idx);
 
     html += `
-      <div style="display:flex;gap:6px;align-items:center;">
-        <span style="${scoreBg}min-width:50px;text-align:center;padding:2px 6px;border-radius:4px;font-weight:700;font-size:11px;flex-shrink:0;">${scoreStr}</span>
-        <span style="color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;">${pvSan}</span>
+      <div style="display:flex; gap:8px; align-items:flex-start; min-width:0; width:100%; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+        <span style="${scoreBg}min-width:45px; text-align:center; padding:2px 6px; border-radius:4px; font-weight:700; font-size:11px; flex-shrink:0; margin-top:2px;">${scoreStr}</span>
+        <div class="engine-line-moves ${isExpanded ? 'expanded' : 'collapsed'}" style="flex-grow:1; min-width:0; font-size:11px; line-height:1.6; color:var(--text-secondary);">
+          ${pvMovesHtml}
+        </div>
+        <button class="engine-line-toggle-btn" onclick="toggleEngineLine(${idx})" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding: 2px 4px; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:2px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transform: rotate(${isExpanded ? '180deg' : '0deg'}); transition: transform 0.2s;">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
       </div>
     `;
   });
 
-  el.engineLinesContainer.innerHTML = html;
+  el.engineLinesContainer.innerHTML = comparisonHtml + html;
 }
 
 /** Convert a UCI PV array to SAN notation using chess.js */

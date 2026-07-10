@@ -243,16 +243,37 @@ header {
 
 /* ── Chess Board ─────────────────────────────────────────── */
 #board-container {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr auto;
+  column-gap: 12px;
+  row-gap: 6px;
   align-items: center;
+  justify-content: center;
   width: 100%;
   max-width: min(calc(100vh - 240px), 640px);
   min-width: 0;
 }
 
+.player-card.top-player-card {
+  grid-row: 1;
+  grid-column: 2;
+}
+
+.player-card.bottom-player-card {
+  grid-row: 3;
+  grid-column: 2;
+}
+
+#left-panel {
+  grid-row: 2;
+  grid-column: 1;
+  align-self: stretch;
+}
+
 #board-wrapper {
+  grid-row: 2;
+  grid-column: 2;
   position: relative;
   width: 100%;
   aspect-ratio: 1;
@@ -1609,4 +1630,33 @@ input[type="number"]::-webkit-inner-spin-button {
   transform: scale(1.2) translateY(-2px);
   position: relative;
   z-index: 10;
+}
+
+/* ── Engine Lines Interactive Styles ────────────────────── */
+.engine-line-moves.collapsed {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.engine-line-moves.expanded {
+  display: block;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.pv-move-btn {
+  cursor: pointer;
+  padding: 0 3px;
+  border-radius: 3px;
+  color: var(--text-primary);
+  font-weight: 500;
+  transition: background-color 0.15s, color 0.15s;
+  display: inline-block;
+}
+
+.pv-move-btn:hover {
+  background-color: var(--accent-green);
+  color: #111;
 }

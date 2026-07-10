@@ -953,6 +953,7 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
                     "relative_cp": rel_cp,
                     "score_mate": mate_val,
                     "pv1": null, "pv2": null, "pv3": null,
+                    "pv1_full": null, "pv2_full": null, "pv3_full": null,
                     "cp1": rel_cp, "cp2": rel_cp, "cp3": rel_cp,
                     "mate1": mate_val, "mate2": null, "mate3": null,
                     "wdl1": terminal_wdl, "wdl2": null, "wdl3": null,
@@ -998,6 +999,7 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
                     // Store the first move UCI of the PV
                     let first_pv_uci = info.pv.first().cloned().unwrap_or_default();
                     score_entry[&key_pv] = serde_json::json!(first_pv_uci);
+                    score_entry[&format!("{}_full", key_pv)] = serde_json::json!(info.pv);
                     score_entry[&key_cp] = serde_json::json!(cp_val);
                     score_entry[&key_mate] = serde_json::json!(abs_mate);
                     score_entry[&key_wdl] = serde_json::json!(info.wdl);
@@ -1015,6 +1017,7 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
                     "relative_cp": 0,
                     "score_mate": null,
                     "pv1": null, "pv2": null, "pv3": null,
+                    "pv1_full": null, "pv2_full": null, "pv3_full": null,
                     "cp1": 0.0, "cp2": -0.01, "cp3": -0.02,
                     "mate1": null, "mate2": null, "mate3": null,
                     "wdl1": null, "wdl2": null, "wdl3": null,
@@ -1218,6 +1221,8 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
             m_val["classification"] = serde_json::json!(classification);
             m_val["best_move"] = serde_json::json!(best_move);
             m_val["top_moves"] = serde_json::json!(top_moves);
+            m_val["pv1_full"] = score_before["pv1_full"].clone();
+            m_val["mate_best"] = serde_json::json!(mate_best);
             m_val["is_book"] = serde_json::json!(is_book);
             m_val["is_sacrifice"] = serde_json::json!(sacrificed);
             m_val["opening"] = serde_json::json!(opening_name);

@@ -171,8 +171,8 @@ export class BoardManager {
         cssClass: 'default',
         pieces: { file: "pieces/neo.svg" },
         showCoordinates: true,
-        moveFromMarker: MARKER_TYPE.frame,
-        moveToMarker: MARKER_TYPE.frame,
+        moveFromMarker: null,
+        moveToMarker: null,
       },
       orientation: COLOR.white,
       extensions: [
@@ -255,6 +255,25 @@ export class BoardManager {
 
           const from = event.squareFrom;
           const to = event.squareTo;
+
+          // Check for re-selection (clicking another piece of the same color)
+          try {
+            const chess = new Chess(this._currentFen);
+            const pieceFrom = chess.get(from);
+            const pieceTo = chess.get(to);
+            if (pieceFrom && pieceTo && pieceFrom.color === pieceTo.color) {
+              setTimeout(() => {
+                const squareEl = document.querySelector(`#${this._elementId} [data-square="${to}"]`);
+                if (squareEl) {
+                  squareEl.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+                  squareEl.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true }));
+                }
+              }, 0);
+              return false;
+            }
+          } catch (e) {
+            console.warn("Error checking re-selection:", e);
+          }
 
           // Ask the caller if the move is valid
           if (validateMove && !validateMove(from, to)) {

@@ -173,9 +173,9 @@
           <!-- Eval Bar + Board Row -->
           <div id="board-area" class="flex gap-3 items-center justify-center flex-1 min-h-0 w-full">
             <!-- Board Container -->
-            <div id="board-container" class="flex flex-col justify-center min-w-0">
+            <div id="board-container" class="min-w-0">
               <!-- Top Player Card -->
-              <div class="player-card mb-1.5 flex justify-between items-center w-full">
+              <div class="player-card top-player-card flex justify-between items-center w-full">
                 <div class="flex items-center gap-2 flex-1 min-w-0">
                   <div id="top-player-avatar" class="player-avatar black-avatar font-bold">♚</div>
                   <div class="flex flex-col min-w-0">
@@ -191,24 +191,21 @@
                 <div id="top-player-clock" class="player-clock hidden"></div>
               </div>
 
-              <!-- Board and Eval Bar Row -->
-              <div class="board-eval-row flex gap-3 items-stretch justify-center w-full relative min-h-0">
-                <!-- Evaluation Bar -->
-                <div id="left-panel" class="flex flex-col items-center flex-shrink-0">
-                  <div id="eval-bar-container" class="h-full">
-                    <div id="eval-bar-white" style="height: 50%;"></div>
-                    <span id="eval-bar-label" class="eval-bar-label" style="bottom: 8px; color: #21201d;">0.0</span>
-                  </div>
-                </div>
-
-                <!-- Square Board Wrapper -->
-                <div id="board-wrapper" class="relative aspect-square flex-1 min-w-0">
-                  <div id="board"></div>
+              <!-- Evaluation Bar -->
+              <div id="left-panel" class="flex flex-col items-center flex-shrink-0">
+                <div id="eval-bar-container" class="h-full">
+                  <div id="eval-bar-white" style="height: 50%;"></div>
+                  <span id="eval-bar-label" class="eval-bar-label" style="bottom: 8px; color: #21201d;">0.0</span>
                 </div>
               </div>
 
+              <!-- Square Board Wrapper -->
+              <div id="board-wrapper" class="relative aspect-square flex-1 min-w-0">
+                <div id="board"></div>
+              </div>
+
               <!-- Bottom Player Card -->
-              <div class="player-card mt-1.5 flex justify-between items-center w-full">
+              <div class="player-card bottom-player-card flex justify-between items-center w-full">
                 <div class="flex items-center gap-2 flex-1 min-w-0">
                   <div id="bottom-player-avatar" class="player-avatar white-avatar font-bold">♚</div>
                   <div class="flex flex-col min-w-0">
@@ -473,18 +470,18 @@
                   <!-- Accuracy Row -->
                   <div id="accuracy-row" class="flex justify-between items-center">
                     <span class="text-sm font-semibold text-[var(--text-muted)]">Accuracy</span>
-                    <div class="flex gap-3">
-                      <div id="accuracy-white-box" class="w-[52px] py-0.5 bg-[#f0f0f0] text-[#333] text-center font-bold text-[13px] rounded shadow-sm">—</div>
-                      <div id="accuracy-black-box" class="w-[52px] py-0.5 bg-[#333] text-white text-center font-bold text-[13px] rounded border border-[var(--border)] shadow-sm">—</div>
+                    <div class="flex gap-3 items-center">
+                      <div id="accuracy-white-box" class="w-[52px] h-6 flex items-center justify-center bg-[#f0f0f0] text-[#333] font-bold text-[13px] rounded shadow-sm">—</div>
+                      <div id="accuracy-black-box" class="w-[52px] h-6 flex items-center justify-center bg-[#333] text-white font-bold text-[13px] rounded border border-[var(--border)] shadow-sm">—</div>
                     </div>
                   </div>
 
                   <!-- Game Rating Row -->
                   <div id="rating-row" class="flex justify-between items-center hidden">
                     <span class="text-sm font-semibold text-[var(--text-muted)]">Game Rating</span>
-                    <div class="flex gap-3">
-                      <div id="rating-white-box" class="w-[52px] py-0.5 bg-[#f0f0f0] text-[#333] text-center font-bold text-[13px] rounded shadow-sm">—</div>
-                      <div id="rating-black-box" class="w-[52px] py-0.5 bg-[#333] text-white text-center font-bold text-[13px] rounded border border-[var(--border)] shadow-sm">—</div>
+                    <div class="flex gap-3 items-center">
+                      <div id="rating-white-box" class="w-[52px] h-6 flex items-center justify-center bg-[#f0f0f0] text-[#333] font-bold text-[13px] rounded shadow-sm">—</div>
+                      <div id="rating-black-box" class="w-[52px] h-6 flex items-center justify-center bg-[#333] text-white font-bold text-[13px] rounded border border-[var(--border)] shadow-sm">—</div>
                     </div>
                   </div>
                 </div>
