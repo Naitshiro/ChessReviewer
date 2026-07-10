@@ -8,11 +8,29 @@ use shakmaty::Position;
 
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct WdlInfo {
+    pub win: i32,
+    pub draw: i32,
+    pub loss: i32,
+}
+
+impl WdlInfo {
+    pub fn flip(&self) -> Self {
+        Self {
+            win: self.loss,
+            draw: self.draw,
+            loss: self.win,
+        }
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct UciPvInfo {
     pub multipv: usize,
     pub cp: i32,
     pub mate: Option<i32>,
     pub pv: Vec<String>,
+    pub wdl: Option<WdlInfo>,
 }
 
 pub struct StockfishProcess {
@@ -48,6 +66,7 @@ impl StockfishProcess {
         process.send_command(&format!("setoption name Threads value {}", threads)).await?;
         process.send_command(&format!("setoption name Hash value {}", hash)).await?;
         process.send_command("setoption name MultiPV value 3").await?;
+        process.send_command("setoption name UCI_ShowWDL value true").await?;
         process.send_command("isready").await?;
         process.read_until("readyok").await?;
 
@@ -111,8 +130,8 @@ impl StockfishProcess {
             }
 
             if trimmed.starts_with("info ") {
-                if let Some((multipv, cp, mate, pv)) = parse_info_line(trimmed) {
-                    pv_map.insert(multipv, UciPvInfo { multipv, cp, mate, pv });
+                if let Some((multipv, cp, mate, pv, wdl)) = parse_info_line(trimmed) {
+                    pv_map.insert(multipv, UciPvInfo { multipv, cp, mate, pv, wdl });
                 }
             }
         }
@@ -128,91 +147,93 @@ impl StockfishProcess {
         &mut self,
         fen: &str,
         depth: u32,
-        cancel_rx: tokio::sync::oneshot::Receiver<()>,
+        mut cancel_rx: tokio::sync::oneshot::Receiver<()>,
         mut on_info: impl FnMut(serde_json::Value),
     ) -> Result<(), String> {
         self.send_command("isready").await?;
         self.read_until("readyok").await?;
 
+        // Check if already cancelled before starting the engine command
+        match cancel_rx.try_recv() {
+            Ok(_) | Err(tokio::sync::oneshot::error::TryRecvError::Closed) => {
+                return Ok(());
+            }
+            Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {}
+        }
+
         self.send_command(&format!("position fen {}", fen)).await?;
         self.send_command(&format!("go depth {}", depth)).await?;
-
-        // Use an atomic flag for cancellation that the sync on_info callback can check
-        let cancelled = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let cancelled_clone = cancelled.clone();
-
-        // Spawn a task to wait for cancellation signal and set the flag
-        tokio::spawn(async move {
-            let _ = cancel_rx.await;
-            cancelled_clone.store(true, std::sync::atomic::Ordering::SeqCst);
-        });
 
         let mut line = String::new();
 
         loop {
-            if cancelled.load(std::sync::atomic::Ordering::SeqCst) {
-                let _ = self.send_command("stop").await;
-                // Drain until bestmove to leave engine in clean state
-                loop {
-                    line.clear();
-                    let bytes = self.stdout.read_line(&mut line).await.unwrap_or(0);
-                    if bytes == 0 || line.trim().starts_with("bestmove") {
+            line.clear();
+            tokio::select! {
+                _cancel_res = &mut cancel_rx => {
+                    // Engine was cancelled (either got a value or channel was closed/dropped)
+                    let _ = self.send_command("stop").await;
+                    // Drain until bestmove to leave engine in clean state
+                    loop {
+                        line.clear();
+                        let bytes = self.stdout.read_line(&mut line).await.unwrap_or(0);
+                        if bytes == 0 || line.trim().starts_with("bestmove") {
+                            break;
+                        }
+                    }
+                    return Ok(());
+                }
+                read_res = self.stdout.read_line(&mut line) => {
+                    let bytes = read_res.map_err(|e| format!("Failed to read during streaming: {}", e))?;
+                    if bytes == 0 {
                         break;
                     }
-                }
-                return Ok(());
-            }
+                    let trimmed = line.trim();
 
-            line.clear();
-            let bytes = self.stdout.read_line(&mut line).await
-                .map_err(|e| format!("Failed to read during streaming: {}", e))?;
-            if bytes == 0 {
-                break;
-            }
-            let trimmed = line.trim();
-
-            if trimmed.starts_with("bestmove") {
-                break;
-            }
-
-            if trimmed.starts_with("info ") && trimmed.contains(" pv ") {
-                if let Some((multipv, cp, mate, pv)) = parse_info_line(trimmed) {
-                    // Parse depth from info line
-                    let depth_val = extract_token(trimmed, "depth")
-                        .and_then(|s| s.parse::<u32>().ok())
-                        .unwrap_or(0);
-
-                    if pv.is_empty() || depth_val < 1 {
-                        continue;
+                    if trimmed.starts_with("bestmove") {
+                        break;
                     }
 
-                    // Compute from_sq / to_sq from first PV move
-                    let (from_sq, to_sq) = if let Some(first) = pv.first() {
-                        if first.len() >= 4 {
-                            (first[0..2].to_string(), first[2..4].to_string())
-                        } else {
-                            (String::new(), String::new())
+                    if trimmed.starts_with("info ") && trimmed.contains(" pv ") {
+                        if let Some((multipv, cp, mate, pv, wdl)) = parse_info_line(trimmed) {
+                            // Parse depth from info line
+                            let depth_val = extract_token(trimmed, "depth")
+                                .and_then(|s| s.parse::<u32>().ok())
+                                .unwrap_or(0);
+
+                            if pv.is_empty() || depth_val < 1 {
+                                continue;
+                            }
+
+                            // Compute from_sq / to_sq from first PV move
+                            let (from_sq, to_sq) = if let Some(first) = pv.first() {
+                                if first.len() >= 4 {
+                                    (first[0..2].to_string(), first[2..4].to_string())
+                                } else {
+                                    (String::new(), String::new())
+                                }
+                            } else {
+                                (String::new(), String::new())
+                            };
+
+                            // score_cp is relative to side to move; convert to white-absolute later
+                            let score_cp = if let Some(m) = mate {
+                                if m > 0 { 10000 } else { -10000 }
+                            } else {
+                                cp
+                            };
+
+                            on_info(serde_json::json!({
+                                "multipv": multipv,
+                                "depth": depth_val,
+                                "score_cp": score_cp,
+                                "score_mate": mate,
+                                "pv": pv,
+                                "from_sq": from_sq,
+                                "to_sq": to_sq,
+                                "wdl": wdl,
+                            }));
                         }
-                    } else {
-                        (String::new(), String::new())
-                    };
-
-                    // score_cp is relative to side to move; convert to white-absolute later
-                    let score_cp = if let Some(m) = mate {
-                        if m > 0 { 10000 } else { -10000 }
-                    } else {
-                        cp
-                    };
-
-                    on_info(serde_json::json!({
-                        "multipv": multipv,
-                        "depth": depth_val,
-                        "score_cp": score_cp,
-                        "score_mate": mate,
-                        "pv": pv,
-                        "from_sq": from_sq,
-                        "to_sq": to_sq,
-                    }));
+                    }
                 }
             }
         }
@@ -247,9 +268,9 @@ impl StockfishProcess {
             }
 
             if trimmed.starts_with("info ") {
-                if let Some((multipv, cp, mate, pv)) = parse_info_line(trimmed) {
+                if let Some((multipv, cp, mate, pv, wdl)) = parse_info_line(trimmed) {
                     if !pv.is_empty() {
-                        pv_map.insert(multipv, UciPvInfo { multipv, cp, mate, pv });
+                        pv_map.insert(multipv, UciPvInfo { multipv, cp, mate, pv, wdl });
                     }
                 }
             }
@@ -304,7 +325,7 @@ impl StockfishProcess {
 
         self.send_command(&format!("go movetime {}", movetime)).await?;
 
-        let mut best_info = UciPvInfo { multipv: 1, cp: 0, mate: None, pv: vec![] };
+        let mut best_info = UciPvInfo { multipv: 1, cp: 0, mate: None, pv: vec![], wdl: None };
         let mut line = String::new();
 
         loop {
@@ -326,9 +347,10 @@ impl StockfishProcess {
             }
 
             if trimmed.starts_with("info ") {
-                if let Some((_, cp, mate, pv)) = parse_info_line(trimmed) {
+                if let Some((_, cp, mate, pv, wdl)) = parse_info_line(trimmed) {
                     best_info.cp = cp;
                     best_info.mate = mate;
+                    best_info.wdl = wdl;
                     if !pv.is_empty() {
                         best_info.pv = pv;
                     }
@@ -353,7 +375,7 @@ fn extract_token<'a>(line: &'a str, key: &str) -> Option<&'a str> {
     rest.split_whitespace().next()
 }
 
-pub fn parse_info_line(line: &str) -> Option<(usize, i32, Option<i32>, Vec<String>)> {
+pub fn parse_info_line(line: &str) -> Option<(usize, i32, Option<i32>, Vec<String>, Option<WdlInfo>)> {
     // We only care about info lines containing both score and pv info
     if !line.contains(" score ") || !line.contains(" pv ") {
         return None;
@@ -382,6 +404,17 @@ pub fn parse_info_line(line: &str) -> Option<(usize, i32, Option<i32>, Vec<Strin
         }
     }
 
+    // Parse WDL
+    let mut wdl = None;
+    if let Some(idx) = line.find(" wdl ") {
+        let parts: Vec<&str> = line[idx + 5..].split_whitespace().take(3).collect();
+        if parts.len() == 3 {
+            if let (Ok(w), Ok(d), Ok(l)) = (parts[0].parse::<i32>(), parts[1].parse::<i32>(), parts[2].parse::<i32>()) {
+                wdl = Some(WdlInfo { win: w, draw: d, loss: l });
+            }
+        }
+    }
+
     // Parse PV moves
     let mut pv = Vec::new();
     if let Some(idx) = line.find(" pv ") {
@@ -389,7 +422,7 @@ pub fn parse_info_line(line: &str) -> Option<(usize, i32, Option<i32>, Vec<Strin
         pv = moves_str.split_whitespace().map(|s| s.to_string()).collect();
     }
 
-    Some((multipv, cp, mate, pv))
+    Some((multipv, cp, mate, pv, wdl))
 }
 
 #[derive(Clone)]

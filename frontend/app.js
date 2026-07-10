@@ -17,8 +17,9 @@ import {
   renderEvalBar, renderEvalChart, highlightChartMove,
   renderMoveList, setActiveMoveInList,
   renderScorecard, renderAnnotationsScorecard, showToast, setEvalText,
-  CLASS_META, getMateMoves, COMPREHENSIVE_NAG_MAP
-} from './analysis.js?v=7';
+  CLASS_META, getMateMoves, COMPREHENSIVE_NAG_MAP,
+  registerChartClickCallback
+} from './analysis.js?v=8';
 import { TrainingModule } from './training.js';
 
 // ── Constants ───────────────────────────────────────────────────────────
@@ -207,6 +208,10 @@ async function init() {
 
   _setMode(MODE.IDLE);
   _bindControls();
+  registerChartClickCallback(index => {
+    stopAutoplay();
+    navigateTo(index);
+  });
   _updateSoundButtonUI();
   await _checkHealth();
 
@@ -1057,19 +1062,17 @@ function _updatePlayerClocksAndCaptured(idx) {
   const { captured, whiteVal, blackVal } = _calculateCapturedPieces(fen);
 
   const getPiecesHtml = (pCount, color) => {
-    const symbols = color === 'white'
-      ? { p: '♙', n: '♘', b: '♗', r: '♖', q: '♕' }
-      : { p: '♟', n: '♞', b: '♝', r: '♜', q: '♛' };
-
     let html = '';
     // Show in standard sorted order: Pawns, then Bishops, then Knights, then Rooks, then Queens
     const types = ['p', 'b', 'n', 'r', 'q'];
     for (const type of types) {
       const count = pCount[type] || 0;
       if (count > 0) {
-        html += `<span class="captured-piece-group font-sans font-bold leading-none select-none tracking-[-0.05em] mr-1" style="font-size: 14px; vertical-align: middle;">`;
+        const prefix = color === 'white' ? 'w' : 'b';
+        html += `<span class="captured-piece-group">`;
         for (let i = 0; i < count; i++) {
-          html += symbols[type];
+          const pieceId = `${prefix}${type}`;
+          html += `<svg class="captured-piece" viewBox="0 0 40 40"><use href="assets/pieces/neo.svg#${pieceId}"></use></svg>`;
         }
         html += `</span>`;
       }
@@ -1262,7 +1265,7 @@ function _updatePlayerCards() {
 function _triggerEvalBarRender() {
   if (state.liveEngineEnabled && state.analysis.latestLines?.[0]) {
     const line = state.analysis.latestLines[0];
-    renderEvalBar(line.white_cp, line.score_mate, line.game_over, line.winner, state.boardOrientation);
+    renderEvalBar(line.white_cp, line.score_mate, line.game_over, line.winner, state.boardOrientation, line.white_win_prob);
   } else if (state.mode === MODE.REVIEW) {
     const idx = state.review.currentIndex;
     if (idx >= 0) {
@@ -1273,7 +1276,7 @@ function _triggerEvalBarRender() {
       if (c.isCheckmate()) {
         winner = c.turn() === 'w' ? 'black' : 'white';
       }
-      renderEvalBar(m.white_cp || 0, m.score_mate, gameOver, winner, state.boardOrientation);
+      renderEvalBar(m.white_cp || 0, m.score_mate, gameOver, winner, state.boardOrientation, m.white_win_prob);
     } else {
       renderEvalBar(0, null, false, null, state.boardOrientation);
     }
@@ -1281,7 +1284,7 @@ function _triggerEvalBarRender() {
     if (state.liveEngineEnabled) {
       const activeBranch = state.analysis.branchMoves[state.analysis.currentBranchIndex];
       if (activeBranch) {
-        renderEvalBar(activeBranch.white_cp || 0, activeBranch.mate_played, false, null, state.boardOrientation);
+        renderEvalBar(activeBranch.white_cp || 0, activeBranch.mate_played, false, null, state.boardOrientation, activeBranch.white_win_prob);
       } else {
         renderEvalBar(0, null, false, null, state.boardOrientation);
       }
@@ -1331,14 +1334,23 @@ function _navigateToBranch(idx) {
     const forkIdx = state.analysis.forkIndex;
     if (forkIdx >= 0 && state.game.moves[forkIdx]) {
       const m = state.game.moves[forkIdx];
+      if (el.openingName) {
+        el.openingName.textContent = m.opening || '';
+      }
       const from = m.uci.slice(0, 2);
       const to = m.uci.slice(2, 4);
       _drawMarkersForMove(from, to, m);
     } else {
+      if (el.openingName) {
+        el.openingName.textContent = 'Starting Position';
+      }
       board.clearMarkers();
     }
   } else {
     const m = state.analysis.branchMoves[idx];
+    if (el.openingName) {
+      el.openingName.textContent = m.opening || '';
+    }
     const from = m.uci.slice(0, 2);
     const to = m.uci.slice(2, 4);
     _drawMarkersForMove(from, to, m);
@@ -1400,7 +1412,7 @@ export function navigateTo(index) {
       if (c.isCheckmate()) {
         winner = c.turn() === 'w' ? 'black' : 'white';
       }
-      renderEvalBar(m.white_cp || 0, m.score_mate, gameOver, winner, state.boardOrientation);
+      renderEvalBar(m.white_cp || 0, m.score_mate, gameOver, winner, state.boardOrientation, m.white_win_prob);
     }
 
     // Opening name
@@ -1598,11 +1610,15 @@ function _handleBoardMove(from, to, promotion) {
     const mateBestPlies = (state.liveEngineEnabled && state.analysis.latestLines?.[0])
       ? state.analysis.latestLines[0].score_mate
       : (idx + 1 < state.game.moves.length ? state.game.moves[idx + 1].score_mate : null);
+    const mateSecondPlies = (state.liveEngineEnabled && state.analysis.latestLines?.[1])
+      ? state.analysis.latestLines[1].score_mate
+      : null;
 
     _enterAnalysisMode(fen, idx, true);
     state.analysis.chess.move(moveResult.san);
 
     const mateBestMoves = getMateMoves(mateBestPlies, moveResult.color === 'w' ? 'white' : 'black');
+    const mateSecondMoves = getMateMoves(mateSecondPlies, moveResult.color === 'w' ? 'white' : 'black');
 
     state.analysis.branchMoves = [{
       move_number: parseInt(fen.split(' ')[5], 10) || 1,
@@ -1615,11 +1631,18 @@ function _handleBoardMove(from, to, promotion) {
       cp_second: cpSecond,
       cp_played: null,
       white_cp: (state.liveEngineEnabled && state.analysis.latestLines?.[0]) ? (state.analysis.latestLines[0].white_cp || 0) : 0,
+      white_win_prob: (state.liveEngineEnabled && state.analysis.latestLines?.[0]) ? (state.analysis.latestLines[0].white_win_prob || 0.5) : 0.5,
+      white_win: (state.liveEngineEnabled && state.analysis.latestLines?.[0]) ? (state.analysis.latestLines[0].white_win || 0.33) : 0.33,
+      black_win: (state.liveEngineEnabled && state.analysis.latestLines?.[0]) ? (state.analysis.latestLines[0].black_win || 0.33) : 0.33,
+      draw_prob: (state.liveEngineEnabled && state.analysis.latestLines?.[0]) ? (state.analysis.latestLines[0].draw_prob || 0.34) : 0.34,
       best_uci: (state.liveEngineEnabled && state.analysis.latestLines?.[0] && state.analysis.latestLines[0].pv?.length > 0)
         ? state.analysis.latestLines[0].pv[0]
         : null,
       mate_best: mateBestMoves,
+      mate_second: mateSecondMoves,
       mate_played: null,
+      wdl_best: (state.liveEngineEnabled && state.analysis.latestLines?.[0]) ? (state.analysis.latestLines[0].wdl || null) : null,
+      wdl_second: (state.liveEngineEnabled && state.analysis.latestLines?.[1]) ? (state.analysis.latestLines[1].wdl || null) : null,
       classification: null,
       moveResult: moveResult
     }];
@@ -1667,6 +1690,8 @@ function _handleBoardMove(from, to, promotion) {
 
     const mateBestPlies = state.analysis.latestLines?.[0]?.score_mate ?? null;
     const mateBestMoves = getMateMoves(mateBestPlies, moveResult.color === 'w' ? 'white' : 'black');
+    const mateSecondPlies = state.analysis.latestLines?.[1]?.score_mate ?? null;
+    const mateSecondMoves = getMateMoves(mateSecondPlies, moveResult.color === 'w' ? 'white' : 'black');
 
     state.analysis.branchMoves.push({
       move_number: parseInt(fenBefore.split(' ')[5], 10) || 1,
@@ -1679,11 +1704,18 @@ function _handleBoardMove(from, to, promotion) {
       cp_second: cpSecond,
       cp_played: null,
       white_cp: (state.liveEngineEnabled && state.analysis.latestLines?.[0]) ? (state.analysis.latestLines[0].white_cp || 0) : 0,
+      white_win_prob: (state.liveEngineEnabled && state.analysis.latestLines?.[0]) ? (state.analysis.latestLines[0].white_win_prob || 0.5) : 0.5,
+      white_win: (state.liveEngineEnabled && state.analysis.latestLines?.[0]) ? (state.analysis.latestLines[0].white_win || 0.33) : 0.33,
+      black_win: (state.liveEngineEnabled && state.analysis.latestLines?.[0]) ? (state.analysis.latestLines[0].black_win || 0.33) : 0.33,
+      draw_prob: (state.liveEngineEnabled && state.analysis.latestLines?.[0]) ? (state.analysis.latestLines[0].draw_prob || 0.34) : 0.34,
       best_uci: (state.liveEngineEnabled && state.analysis.latestLines?.[0] && state.analysis.latestLines[0].pv?.length > 0)
         ? state.analysis.latestLines[0].pv[0]
         : null,
       mate_best: mateBestMoves,
+      mate_second: mateSecondMoves,
       mate_played: null,
+      wdl_best: (state.liveEngineEnabled && state.analysis.latestLines?.[0]) ? (state.analysis.latestLines[0].wdl || null) : null,
+      wdl_second: (state.liveEngineEnabled && state.analysis.latestLines?.[1]) ? (state.analysis.latestLines[1].wdl || null) : null,
       classification: null,
       moveResult: moveResult
     });
@@ -1903,7 +1935,7 @@ function _handleEngineMessage(msg) {
       // Update eval bar with MultiPV 1 (best line)
       if (msg.multipv === 1) {
         if (state.liveEngineEnabled) {
-          renderEvalBar(msg.white_cp, msg.score_mate, msg.game_over, msg.winner, state.boardOrientation);
+          renderEvalBar(msg.white_cp, msg.score_mate, msg.game_over, msg.winner, state.boardOrientation, msg.white_win_prob);
           if (el.engineDepthBadge) {
             el.engineDepthBadge.classList.remove('hidden');
             el.engineDepthBadge.textContent = `depth ${msg.depth}`;
@@ -1946,8 +1978,15 @@ async function _checkTheory(branchIndex) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sans: allSans })
     });
-    if (!res.ok) return;
     const data = await res.json();
+    const activeBranch = state.analysis.branchMoves[branchIndex];
+    if (activeBranch) {
+      activeBranch.opening = data.opening || '';
+    }
+    if (el.openingName) {
+      el.openingName.textContent = data.opening || '';
+    }
+
     if (data.is_theory) {
       const activeBranch = state.analysis.branchMoves[branchIndex];
       if (activeBranch) {
@@ -1997,9 +2036,22 @@ async function _classifyLiveMove(msg) {
     const cpPlayed = -msg.score_cp;
     activeBranch.cp_played = cpPlayed;
     activeBranch.white_cp = msg.white_cp;
+    activeBranch.white_win_prob = msg.white_win_prob;
+    activeBranch.white_win = msg.white_win;
+    activeBranch.black_win = msg.black_win;
+    activeBranch.draw_prob = msg.draw_prob;
 
     const matePlayedMoves = getMateMoves(msg.score_mate, activeBranch.color);
     activeBranch.mate_played = matePlayedMoves;
+
+    let wdlPlayed = null;
+    if (msg.wdl) {
+      wdlPlayed = {
+        win: msg.wdl.loss,
+        draw: msg.wdl.draw,
+        loss: msg.wdl.win
+      };
+    }
 
     const res = await fetch(`${API_BASE}/api/classify`, {
       method: 'POST',
@@ -2011,9 +2063,13 @@ async function _classifyLiveMove(msg) {
         cp_second: activeBranch.cp_second,
         best_move_uci: activeBranch.best_uci,
         mate_best: activeBranch.mate_best,
+        mate_second: activeBranch.mate_second || null,
         cp_played: cpPlayed,
         mate_played: matePlayedMoves,
-        is_book: activeBranch.is_theory || false
+        is_book: activeBranch.is_theory || false,
+        wdl_best: activeBranch.wdl_best || null,
+        wdl_second: activeBranch.wdl_second || null,
+        wdl_played: wdlPlayed
       })
     });
     if (!res.ok) throw new Error("Classification API failed");

@@ -782,13 +782,23 @@
             </div>
           </div>
 
-          <!-- Win Probability Chart -->
-          <div class="glass-card p-3 shrink-0">
-            <div class="text-xs text-[var(--text-muted)] mb-2 font-semibold uppercase tracking-wider">
-              Win Probability
+          <!-- Evaluation & Win Probability Charts -->
+          <div class="glass-card p-3 shrink-0 flex flex-col gap-4">
+            <div>
+              <div class="text-xs text-[var(--text-muted)] mb-2 font-semibold uppercase tracking-wider">
+                Position Evaluation
+              </div>
+              <div id="eval-chart-container">
+                <canvas id="eval-chart"></canvas>
+              </div>
             </div>
-            <div id="eval-chart-container">
-              <canvas id="eval-chart"></canvas>
+            <div>
+              <div class="text-xs text-[var(--text-muted)] mb-2 font-semibold uppercase tracking-wider">
+                Win Probability (WDL)
+              </div>
+              <div id="wdl-chart-container">
+                <canvas id="wdl-chart"></canvas>
+              </div>
             </div>
           </div>
         </div> <!-- end review-dashboard -->

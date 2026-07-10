@@ -38,8 +38,12 @@ pub struct ClassifyRequest {
     pub cp_second: f64,
     pub cp_played: f64,
     pub mate_best: Option<i32>,
+    pub mate_second: Option<i32>,
     pub mate_played: Option<i32>,
     pub is_book: bool,
+    pub wdl_best: Option<crate::engine::WdlInfo>,
+    pub wdl_second: Option<crate::engine::WdlInfo>,
+    pub wdl_played: Option<crate::engine::WdlInfo>,
 }
 
 #[derive(Deserialize)]
@@ -205,6 +209,7 @@ pub fn parse_pgn(pgn: &str) -> Result<ParsedGame, String> {
     let initial_fen = shakmaty::fen::Fen::from_position(pos.clone(), shakmaty::EnPassantMode::Always).to_string();
     let mut fens = vec![initial_fen];
     let mut move_records = Vec::new();
+    let mut last_opening = "".to_string();
 
     for (i, san_str) in moves_sans.iter().enumerate() {
         let mv = match find_legal_move_permissive(&pos, san_str) {
@@ -239,7 +244,6 @@ pub fn parse_pgn(pgn: &str) -> Result<ParsedGame, String> {
         let book = crate::openings::is_book_sequence(&moves_sans[0..=i]);
         let sacrificed = crate::analysis::is_sacrifice(&pos, &mv, None);
         let uci = shakmaty::uci::Uci::from_move(&mv, shakmaty::CastlingMode::Standard).to_string();
-        let opening_name = crate::openings::get_opening_name(&fen_before).unwrap_or_else(|| "".to_string());
 
         let nags = nags_per_move.get(i).cloned().unwrap_or_default();
         let clk = clks_per_move.get(i).cloned().flatten();
@@ -248,6 +252,13 @@ pub fn parse_pgn(pgn: &str) -> Result<ParsedGame, String> {
 
         let fen_after = shakmaty::fen::Fen::from_position(pos.clone(), shakmaty::EnPassantMode::Always).to_string();
         fens.push(fen_after.clone());
+
+        let mut opening_name = crate::openings::get_opening_name(&fen_after).unwrap_or_else(|| "".to_string());
+        if opening_name.is_empty() {
+            opening_name = last_opening.clone();
+        } else {
+            last_opening = opening_name.clone();
+        }
 
         move_records.push(serde_json::json!({
             "index": i,
@@ -269,6 +280,9 @@ pub fn parse_pgn(pgn: &str) -> Result<ParsedGame, String> {
             "score_mate": serde_json::Value::Null,
             "white_cp": 0,
             "white_win_prob": 0.5,
+            "white_win": 0.33,
+            "black_win": 0.33,
+            "draw_prob": 0.34,
             "p_best": serde_json::Value::Null,
             "p_played": serde_json::Value::Null,
             "delta": 0,
@@ -429,7 +443,30 @@ async fn health_handler(State(state): State<AppState>) -> impl IntoResponse {
 
 async fn check_theory_handler(Json(req): Json<TheoryRequest>) -> impl IntoResponse {
     let is_theory = crate::openings::is_book_sequence(&req.sans);
-    Json(serde_json::json!({ "is_theory": is_theory }))
+
+    // Play the moves to get the final FEN and look up the opening name
+    let mut pos = Chess::default();
+    let mut last_opening = "".to_string();
+
+    for san_str in &req.sans {
+        if let Some(mv) = find_legal_move_permissive(&pos, san_str) {
+            pos = match pos.play(&mv) {
+                Ok(p) => p,
+                Err(_) => break,
+            };
+            let fen_after = shakmaty::fen::Fen::from_position(pos.clone(), shakmaty::EnPassantMode::Always).to_string();
+            if let Some(name) = crate::openings::get_opening_name(&fen_after) {
+                last_opening = name;
+            }
+        } else {
+            break;
+        }
+    }
+
+    Json(serde_json::json!({
+        "is_theory": is_theory,
+        "opening": last_opening,
+    }))
 }
 
 async fn classify_handler(Json(req): Json<ClassifyRequest>) -> impl IntoResponse {
@@ -475,9 +512,9 @@ async fn classify_handler(Json(req): Json<ClassifyRequest>) -> impl IntoResponse
     };
 
     let is_engine_top_choice = req.best_move_uci.as_ref().map(|b| b == &req.move_uci).unwrap_or(false);
-    let p_best = crate::analysis::win_prob(req.cp_best);
-    let p_second_best = crate::analysis::win_prob(req.cp_second);
-    let p_played = crate::analysis::win_prob(req.cp_played);
+    let p_best = crate::analysis::win_prob_from_values(req.wdl_best.as_ref(), req.cp_best);
+    let p_second_best = crate::analysis::win_prob_from_values(req.wdl_second.as_ref(), req.cp_second);
+    let p_played = crate::analysis::win_prob_from_values(req.wdl_played.as_ref(), req.cp_played);
     let delta = (p_best - p_played).max(0.0);
 
     let classification = crate::analysis::classify_move(
@@ -491,6 +528,7 @@ async fn classify_handler(Json(req): Json<ClassifyRequest>) -> impl IntoResponse
         req.cp_second,
         req.cp_played,
         req.mate_best,
+        req.mate_second,
         req.mate_played,
         is_engine_top_choice,
     );
@@ -889,9 +927,11 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
 
         // --- Phase 1: Analyze every FEN position ---
         for (i, fen_str) in parsed.fens.iter().enumerate() {
-            let _ = tx.send(Ok(bytes::Bytes::from(
+            if tx.send(Ok(bytes::Bytes::from(
                 format!("{{\"type\": \"progress\", \"current\": {}, \"total\": {}}}\n", i + 1, total)
-            ))).await;
+            ))).await.is_err() {
+                break;
+            }
 
             let pos = match fen_str.parse::<shakmaty::fen::Fen>() {
                 Ok(f) => f.into_position::<Chess>(shakmaty::CastlingMode::Standard).unwrap_or(Chess::default()),
@@ -903,6 +943,11 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
                 // Draw: relative cp = 0
                 let rel_cp = if pos.is_checkmate() { -10000 } else { 0 };
                 let mate_val: Option<i32> = if pos.is_checkmate() { Some(0) } else { None };
+                let terminal_wdl = if pos.is_checkmate() {
+                    serde_json::json!({"win": 0, "draw": 0, "loss": 1000})
+                } else {
+                    serde_json::json!({"win": 0, "draw": 1000, "loss": 0})
+                };
                 engine_scores.push(serde_json::json!({
                     "fen": fen_str,
                     "relative_cp": rel_cp,
@@ -910,8 +955,14 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
                     "pv1": null, "pv2": null, "pv3": null,
                     "cp1": rel_cp, "cp2": rel_cp, "cp3": rel_cp,
                     "mate1": mate_val, "mate2": null, "mate3": null,
+                    "wdl1": terminal_wdl, "wdl2": null, "wdl3": null,
+                    "relative_wdl": terminal_wdl,
                 }));
                 continue;
+            }
+
+            if tx.is_closed() {
+                break;
             }
 
             if let Ok(pv_list) = state.engine.analyze_position(fen_str, depth).await {
@@ -922,6 +973,8 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
                     "pv1": null, "pv2": null, "pv3": null,
                     "cp1": null, "cp2": null, "cp3": null,
                     "mate1": null, "mate2": null, "mate3": null,
+                    "wdl1": null, "wdl2": null, "wdl3": null,
+                    "relative_wdl": null,
                 });
 
                 for (idx, info) in pv_list.iter().take(3).enumerate() {
@@ -940,16 +993,19 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
                     let key_pv = format!("pv{}", idx + 1);
                     let key_cp = format!("cp{}", idx + 1);
                     let key_mate = format!("mate{}", idx + 1);
+                    let key_wdl = format!("wdl{}", idx + 1);
 
                     // Store the first move UCI of the PV
                     let first_pv_uci = info.pv.first().cloned().unwrap_or_default();
                     score_entry[&key_pv] = serde_json::json!(first_pv_uci);
                     score_entry[&key_cp] = serde_json::json!(cp_val);
                     score_entry[&key_mate] = serde_json::json!(abs_mate);
+                    score_entry[&key_wdl] = serde_json::json!(info.wdl);
 
                     if idx == 0 {
                         score_entry["relative_cp"] = serde_json::json!(cp_val);
                         score_entry["score_mate"] = serde_json::json!(abs_mate);
+                        score_entry["relative_wdl"] = serde_json::json!(info.wdl);
                     }
                 }
                 engine_scores.push(score_entry);
@@ -961,13 +1017,20 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
                     "pv1": null, "pv2": null, "pv3": null,
                     "cp1": 0.0, "cp2": -0.01, "cp3": -0.02,
                     "mate1": null, "mate2": null, "mate3": null,
+                    "wdl1": null, "wdl2": null, "wdl3": null,
+                    "relative_wdl": null,
                 }));
             }
+        }
+
+        if engine_scores.len() < total {
+            return;
         }
 
         // --- Phase 2: Compute move records with correct scores ---
         let mut final_moves = Vec::new();
         let mut brilliant_theory_found = false;
+        let mut last_opening = "".to_string();
 
         for (i, mut m_val) in parsed.moves.into_iter().enumerate() {
             let fen_before = m_val["fen_before"].as_str().unwrap_or("").to_string();
@@ -992,10 +1055,20 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
             let cp_after_relative = score_after["relative_cp"].as_f64().unwrap_or(0.0);
             let cp_played = -cp_after_relative;
 
+            // Helper to parse WDL from JSON
+            let parse_wdl = |v: &serde_json::Value| -> Option<crate::engine::WdlInfo> {
+                serde_json::from_value(v.clone()).ok()
+            };
+
+            let wdl_best = parse_wdl(&score_before["wdl1"]);
+            let wdl_second = parse_wdl(&score_before["wdl2"]);
+            let wdl_after = parse_wdl(&score_after["relative_wdl"]);
+            let wdl_played = wdl_after.as_ref().map(|w| w.flip());
+
             // Win probabilities from current player's perspective
-            let p_best = crate::analysis::win_prob(cp_best);
-            let p_played = crate::analysis::win_prob(cp_played);
-            let p_second_best = crate::analysis::win_prob(cp_second);
+            let p_best = crate::analysis::win_prob_from_values(wdl_best.as_ref(), cp_best);
+            let p_played = crate::analysis::win_prob_from_values(wdl_played.as_ref(), cp_played);
+            let p_second_best = crate::analysis::win_prob_from_values(wdl_second.as_ref(), cp_second);
             let delta = (p_best - p_played).max(0.0);
 
             // Check if the played move was the engine's top choice
@@ -1006,6 +1079,9 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
             // Convert mate scores from White's absolute perspective to the active player's perspective
             let player_white = color == "white";
             let mate_best = score_before["score_mate"].as_i64().map(|m| {
+                if player_white { m as i32 } else { -m as i32 }
+            });
+            let mate_second = score_before["mate2"].as_i64().map(|m| {
                 if player_white { m as i32 } else { -m as i32 }
             });
             let mate_played = score_after["score_mate"].as_i64().map(|m| {
@@ -1065,6 +1141,7 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
                 cp_second,
                 cp_played,
                 mate_best,
+                mate_second,
                 mate_played,
                 is_engine_top_choice,
             );
@@ -1086,10 +1163,19 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
             } else {
                 -cp_after_relative
             };
-            let white_win_prob = crate::analysis::win_prob(white_cp);
+            let white_win_prob = crate::analysis::white_win_prob_from_values(
+                wdl_after.as_ref(),
+                white_cp,
+                board_after_turn.is_white(),
+            );
 
             // Opening name
-            let opening_name = crate::openings::get_opening_name(&fen_before).unwrap_or_else(|| "".to_string());
+            let mut opening_name = crate::openings::get_opening_name(&fen_after).unwrap_or_else(|| "".to_string());
+            if opening_name.is_empty() {
+                opening_name = last_opening.clone();
+            } else {
+                last_opening = opening_name.clone();
+            }
 
             // Build top_moves list (first UCI of each PV)
             let top_moves: Vec<String> = ["pv1", "pv2", "pv3"]
@@ -1101,11 +1187,31 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
             let best_move = score_before["pv1"].as_str().filter(|s| !s.is_empty()).map(|s| s.to_string());
 
             // Populate all expected fields
+            let (w_win, b_win, w_draw) = match wdl_after.as_ref() {
+                Some(w) => {
+                    if board_after_turn.is_white() {
+                        (w.win as f64 / 1000.0, w.loss as f64 / 1000.0, w.draw as f64 / 1000.0)
+                    } else {
+                        (w.loss as f64 / 1000.0, w.win as f64 / 1000.0, w.draw as f64 / 1000.0)
+                    }
+                }
+                None => {
+                    let p = white_win_prob;
+                    let d = 0.5 * (1.0 - (2.0 * p - 1.0).abs());
+                    let w = p - 0.5 * d;
+                    let b = 1.0 - p - 0.5 * d;
+                    (w, b, d)
+                }
+            };
+
             m_val["cp_best"] = serde_json::json!((cp_best * 100.0).round() / 100.0);
             m_val["cp_played"] = serde_json::json!((cp_played * 100.0).round() / 100.0);
             m_val["score_mate"] = score_after["score_mate"].clone();
             m_val["white_cp"] = serde_json::json!((white_cp * 100.0).round() / 100.0);
             m_val["white_win_prob"] = serde_json::json!((white_win_prob * 10000.0).round() / 10000.0);
+            m_val["white_win"] = serde_json::json!((w_win * 10000.0).round() / 10000.0);
+            m_val["black_win"] = serde_json::json!((b_win * 10000.0).round() / 10000.0);
+            m_val["draw_prob"] = serde_json::json!((w_draw * 10000.0).round() / 10000.0);
             m_val["p_best"] = serde_json::json!((p_best * 10000.0).round() / 10000.0);
             m_val["p_played"] = serde_json::json!((p_played * 10000.0).round() / 10000.0);
             m_val["delta"] = serde_json::json!((delta * 10000.0).round() / 10000.0);
@@ -1222,20 +1328,30 @@ async fn handle_ws_socket(socket: WebSocket, state: AppState) {
                                     };
 
                                     let win_p = crate::analysis::win_prob(white_cp as f64);
-                                    let payload = serde_json::json!({
-                                        "type": "info",
-                                        "multipv": 1,
-                                        "depth": 100,
-                                        "score_cp": score_cp,
-                                        "score_mate": 0,
-                                        "white_cp": white_cp,
-                                        "white_win_prob": win_p,
-                                        "pv": [],
-                                        "from_sq": null,
-                                        "to_sq": null,
-                                        "game_over": true,
-                                        "winner": winner_str
-                                    });
+                                    let (w_win, b_win, w_draw) = if winner_str == "white" {
+                                         (1.0, 0.0, 0.0)
+                                     } else if winner_str == "black" {
+                                         (0.0, 1.0, 0.0)
+                                     } else {
+                                         (0.0, 0.0, 1.0)
+                                     };
+                                     let payload = serde_json::json!({
+                                         "type": "info",
+                                         "multipv": 1,
+                                         "depth": 100,
+                                         "score_cp": score_cp,
+                                         "score_mate": 0,
+                                         "white_cp": white_cp,
+                                         "white_win_prob": win_p,
+                                         "white_win": w_win,
+                                         "black_win": b_win,
+                                         "draw_prob": w_draw,
+                                         "pv": [],
+                                         "from_sq": null,
+                                         "to_sq": null,
+                                         "game_over": true,
+                                         "winner": winner_str
+                                     });
                                     let mut w = sender_clone.lock().await;
                                     let _ = w.send(Message::Text(payload.to_string())).await;
                                     return;
@@ -1270,7 +1386,29 @@ async fn handle_ws_socket(socket: WebSocket, state: AppState) {
                                 // Enrich info with white_cp, absolute score_mate, and game_over
                                 let score_cp = info["score_cp"].as_i64().unwrap_or(0) as f64;
                                 let white_cp = if turn_white { score_cp } else { -score_cp };
-                                let white_win_prob = crate::analysis::win_prob(white_cp);
+                                let wdl: Option<crate::engine::WdlInfo> = serde_json::from_value(info["wdl"].clone()).ok();
+                                let white_win_prob = crate::analysis::white_win_prob_from_values(
+                                    wdl.as_ref(),
+                                    white_cp,
+                                    turn_white,
+                                );
+
+                                let (w_win, b_win, w_draw) = match wdl.as_ref() {
+                                    Some(w) => {
+                                        if turn_white {
+                                            (w.win as f64 / 1000.0, w.loss as f64 / 1000.0, w.draw as f64 / 1000.0)
+                                        } else {
+                                            (w.loss as f64 / 1000.0, w.win as f64 / 1000.0, w.draw as f64 / 1000.0)
+                                        }
+                                    }
+                                    None => {
+                                        let p = white_win_prob;
+                                        let d = 0.5 * (1.0 - (2.0 * p - 1.0).abs());
+                                        let w = p - 0.5 * d;
+                                        let b = 1.0 - p - 0.5 * d;
+                                        (w, b, d)
+                                    }
+                                };
 
                                 if let Some(m) = info["score_mate"].as_i64() {
                                     let abs_mate = if turn_white { m } else { -m };
@@ -1279,6 +1417,9 @@ async fn handle_ws_socket(socket: WebSocket, state: AppState) {
 
                                 info["white_cp"] = serde_json::json!(white_cp as i64);
                                 info["white_win_prob"] = serde_json::json!((white_win_prob * 10000.0).round() / 10000.0);
+                                info["white_win"] = serde_json::json!((w_win * 10000.0).round() / 10000.0);
+                                info["black_win"] = serde_json::json!((b_win * 10000.0).round() / 10000.0);
+                                info["draw_prob"] = serde_json::json!((w_draw * 10000.0).round() / 10000.0);
                                 info["game_over"] = serde_json::json!(false);
                                 info["winner"] = serde_json::json!(null);
                                 info["type"] = serde_json::json!("info");

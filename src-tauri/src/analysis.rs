@@ -5,6 +5,32 @@ pub fn win_prob(cp: f64) -> f64 {
     1.0 / (1.0 + (-0.004 * clamped).exp())
 }
 
+pub fn win_prob_from_wdl(wdl: &crate::engine::WdlInfo) -> f64 {
+    (wdl.win as f64 + 0.5 * wdl.draw as f64) / 1000.0
+}
+
+pub fn win_prob_from_values(wdl: Option<&crate::engine::WdlInfo>, cp: f64) -> f64 {
+    match wdl {
+        Some(w) => win_prob_from_wdl(w),
+        None => win_prob(cp),
+    }
+}
+
+pub fn white_win_prob_from_wdl(wdl_after: &crate::engine::WdlInfo, turn_after_is_white: bool) -> f64 {
+    if turn_after_is_white {
+        (wdl_after.win as f64 + 0.5 * wdl_after.draw as f64) / 1000.0
+    } else {
+        (wdl_after.loss as f64 + 0.5 * wdl_after.draw as f64) / 1000.0
+    }
+}
+
+pub fn white_win_prob_from_values(wdl_after: Option<&crate::engine::WdlInfo>, white_cp: f64, turn_after_is_white: bool) -> f64 {
+    match wdl_after {
+        Some(w) => white_win_prob_from_wdl(w, turn_after_is_white),
+        None => win_prob(white_cp),
+    }
+}
+
 pub fn game_accuracy(deltas: &[f64]) -> f64 {
     if deltas.is_empty() {
         return 100.0;
@@ -162,6 +188,7 @@ pub fn classify_move(
     cp_second: f64,
     cp_played: f64,
     mate_best: Option<i32>,
+    mate_second: Option<i32>,
     mate_played: Option<i32>,
     is_engine_top_choice: bool,
 ) -> &'static str {
@@ -179,10 +206,25 @@ pub fn classify_move(
         return "theory";
     }
 
-    if is_engine_top_choice {
-        if adjusted_delta < 0.02 && cp_best > 0.0 && cp_second <= 0.0 {
+    if is_engine_top_choice && !sacrificed {
+        let is_only_mating_move = if let Some(m_best) = mate_best {
+            if m_best > 0 {
+                mate_second.is_none() || mate_second.unwrap() <= 0
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        let has_large_eval_delta = (cp_best - cp_second) >= 500.0;
+
+        if is_only_mating_move || has_large_eval_delta {
             return "great";
         }
+    }
+
+    if is_engine_top_choice {
         return "best";
     }
 
@@ -240,9 +282,24 @@ pub fn classify_move(
         }
     }
 
-    // Great move check
-    if adjusted_delta < 0.02 && cp_best > 0.0 && cp_second <= 0.0 {
-        return "great";
+    // Fallback for win probability flatlining/clamping in winning/losing positions:
+    // Ensure that significant centipawn loss results in a non-zero delta and correct downgrade.
+    if !is_engine_top_choice {
+        let cp_loss = (cp_best - cp_played).max(0.0);
+        let min_delta = if cp_loss >= 200.0 {
+            0.20 // Force blunder
+        } else if cp_loss >= 100.0 {
+            0.10 // Force mistake
+        } else if cp_loss >= 50.0 {
+            0.05 // Force inaccuracy
+        } else if cp_loss >= 20.0 {
+            0.02 // Force good
+        } else if cp_loss > 10.0 {
+            0.001 // Force excellent (cannot be "best")
+        } else {
+            0.0
+        };
+        adjusted_delta = adjusted_delta.max(min_delta);
     }
 
     // Best move check
@@ -263,6 +320,7 @@ pub fn classify_move(
     if adjusted_delta < 0.20 {
         return "mistake";
     }
+    
     "blunder"
 }
 
@@ -386,7 +444,7 @@ pub fn build_accuracy_report(moves: &[serde_json::Value]) -> serde_json::Value {
 
             if p_accuracy >= 95.0 && has_brilliant {
                 base_badge = "brilliant".to_string();
-            } else if p_accuracy == 100.0 || (p_accuracy >= 95.0 && has_great) || (p_accuracy >= 85.0 && has_brilliant) {
+            } else if p_accuracy >= 95.0 || (p_accuracy >= 90.0 && has_great) || (p_accuracy >= 85.0 && has_brilliant) {
                 base_badge = "great".to_string();
             }
 
@@ -396,12 +454,10 @@ pub fn build_accuracy_report(moves: &[serde_json::Value]) -> serde_json::Value {
         }
 
         let mut brilliant_bonus = 0;
-        let mut great_bonus = 0;
+        let great_bonus = 0;
         for b in phase_badges.values() {
             if b == "brilliant" {
                 brilliant_bonus += 500;
-            } else if b == "great" {
-                great_bonus += 100;
             }
         }
 

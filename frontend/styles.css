@@ -730,14 +730,14 @@ img.move-badge {
   text-align: center;
 }
 
-/* ── Win Probability Chart ───────────────────────────────── */
-#eval-chart-container {
+/* ── Win Probability & Evaluation Charts ─────────────────── */
+#eval-chart-container, #wdl-chart-container {
   position: relative;
   height: 100px;
   width: 100%;
 }
 
-#eval-chart {
+#eval-chart, #wdl-chart {
   width: 100%;
   height: 100%;
 }
@@ -1585,4 +1585,28 @@ input[type="number"]::-webkit-inner-spin-button {
   background: rgba(129, 182, 76, 0.15);
   color: var(--accent-green);
   font-weight: bold;
+}
+
+/* ── Captured Pieces (Stacked SVGs) ────────────────────── */
+.captured-piece-group {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+}
+
+.captured-piece {
+  width: 18px;
+  height: 18px;
+  display: block;
+  transition: transform 0.1s ease;
+}
+
+.captured-piece:not(:first-child) {
+  margin-left: -10px;
+}
+
+.captured-piece:hover {
+  transform: scale(1.2) translateY(-2px);
+  position: relative;
+  z-index: 10;
 }

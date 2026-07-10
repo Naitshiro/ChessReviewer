@@ -85,7 +85,7 @@ const evalBarLabel = document.getElementById('eval-bar-label');
  * @param {number} whiteCp - Centipawns from White's perspective (positive = White winning)
  * @param {number|null} mateMoves - Mate-in-N (positive = White mating, negative = Black mating)
  */
-export function renderEvalBar(whiteCp, mateMoves = null, gameOver = false, winner = null, orientation = 'white') {
+export function renderEvalBar(whiteCp, mateMoves = null, gameOver = false, winner = null, orientation = 'white', whiteWinProb = null) {
   if (!evalBarWhite) return;
 
   const container = document.getElementById('eval-bar-container');
@@ -124,8 +124,13 @@ export function renderEvalBar(whiteCp, mateMoves = null, gameOver = false, winne
     }
   } else {
     // Win probability from White's perspective
-    const clampedCp = Math.max(-3000, Math.min(3000, whiteCp || 0));
-    const prob = 1 / (1 + Math.exp(-0.004 * clampedCp));
+    let prob;
+    if (whiteWinProb !== null && whiteWinProb !== undefined) {
+      prob = whiteWinProb;
+    } else {
+      const clampedCp = Math.max(-3000, Math.min(3000, whiteCp || 0));
+      prob = 1 / (1 + Math.exp(-0.004 * clampedCp));
+    }
     // Map 0–1 to 2–98% (leave a small gutter at extremes)
     heightPct = 2 + prob * 96;
 
@@ -162,6 +167,12 @@ export function renderEvalBar(whiteCp, mateMoves = null, gameOver = false, winne
 // ── Win Probability Graph ───────────────────────────────────────────────
 
 let evalChart = null;
+let wdlChart = null;
+let chartClickCallback = null;
+
+export function registerChartClickCallback(callback) {
+  chartClickCallback = callback;
+}
 
 function formatEval(move) {
   if (move.score_mate !== null && move.score_mate !== undefined) {
@@ -177,7 +188,8 @@ function formatEval(move) {
 
 export function renderEvalChart(moves) {
   const ctx = document.getElementById('eval-chart');
-  if (!ctx || typeof Chart === 'undefined') return;
+  const wdlCtx = document.getElementById('wdl-chart');
+  if (!ctx || !wdlCtx || typeof Chart === 'undefined') return;
 
   const labels = moves.map((m, i) => {
     const prefix = m.color === 'white' ? `${m.move_number}.` : `${m.move_number}...`;
@@ -193,122 +205,248 @@ export function renderEvalChart(moves) {
     return Math.round(val * 100) / 100;
   });
 
+  const whiteWinValues = moves.map(m => Math.round((m.white_win || 0) * 100));
+  const blackWinValues = moves.map(m => Math.round((m.black_win || 0) * 100));
+  const drawValues = moves.map(m => Math.round((m.draw_prob || 0) * 100));
+
+  // --- 1. Position Evaluation Chart ---
   if (evalChart) {
     evalChart.moves = moves;
     evalChart.data.labels = labels;
     evalChart.data.datasets[0].data = evalValues;
     evalChart.update('none');
-    return;
+  } else {
+    evalChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          data: evalValues,
+          borderColor: '#ffffff',
+          borderWidth: 2,
+          backgroundColor: 'rgba(255, 255, 255, 0.85)',
+          fill: 'origin',
+          tension: 0.35,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: '#ffffff',
+        }],
+      },
+      plugins: [{
+        id: 'pointBadges',
+        afterDatasetsDraw: (chart) => {
+          const currentMoves = chart.moves;
+          if (!currentMoves) return;
+          const { ctx: canvasCtx } = chart;
+          const meta = chart.getDatasetMeta(0);
+          if (!meta || !meta.data) return;
+
+          canvasCtx.save();
+          meta.data.forEach((point, index) => {
+            const move = currentMoves[index];
+            if (!move) return;
+
+            const cls = move.classification;
+            const x = point.x;
+            const y = point.y;
+
+            // Draw tiny dots for all moves
+            const bgColor = _classColor(cls);
+            canvasCtx.beginPath();
+            canvasCtx.arc(x, y, 2.5, 0, 2 * Math.PI);
+            canvasCtx.fillStyle = bgColor;
+            canvasCtx.fill();
+          });
+          canvasCtx.restore();
+        }
+      }],
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 0 },
+        interaction: { mode: 'index', intersect: false },
+        onClick: (event, activeElements, chart) => {
+          if (activeElements && activeElements.length > 0) {
+            const index = activeElements[0].index;
+            if (chartClickCallback) {
+              chartClickCallback(index);
+            }
+          }
+        },
+        onHover: (event, activeElements, chart) => {
+          chart.canvas.style.cursor = (activeElements && activeElements.length > 0) ? 'pointer' : 'default';
+        },
+        scales: {
+          x: {
+            display: false,
+          },
+          y: {
+            min: -10,
+            max: 10,
+            display: true,
+            ticks: {
+              color: '#bab9b7',
+              font: { size: 9, family: 'var(--font-sans)', weight: '500' },
+              maxTicksLimit: 5,
+              callback: v => {
+                if (v > 0) return `+${v.toFixed(0)}`;
+                if (v < 0) return `${v.toFixed(0)}`;
+                return '0.0';
+              },
+            },
+            grid: {
+              color: (context) => {
+                if (context.tick.value === 0) {
+                  return 'rgba(255, 255, 255, 0.4)';
+                }
+                return 'rgba(255, 255, 255, 0.04)';
+              },
+              lineWidth: (context) => {
+                if (context.tick.value === 0) {
+                  return 1.5;
+                }
+                return 1;
+              }
+            },
+            border: { display: false },
+          },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(30, 29, 27, 0.95)',
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+            borderWidth: 1,
+            titleColor: '#bab9b7',
+            bodyColor: '#ffffff',
+            padding: 8,
+            callbacks: {
+              title: items => items[0]?.label || '',
+              label: item => {
+                const move = moves[item.dataIndex];
+                if (!move) return '';
+                const evalStr = formatEval(move);
+                const prob = Math.round(move.white_win_prob * 100);
+                return `Eval: ${evalStr} (White: ${prob}%)`;
+              },
+            },
+          },
+        },
+      },
+    });
+    evalChart.moves = moves;
   }
 
-  evalChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        data: evalValues,
-        borderColor: '#ffffff',
-        borderWidth: 2,
-        backgroundColor: 'rgba(255, 255, 255, 0.85)',
-        fill: 'origin',
-        tension: 0.35,
-        pointRadius: 0,
-        pointHoverRadius: 5,
-        pointHoverBackgroundColor: '#ffffff',
-      }],
-    },
-    plugins: [{
-      id: 'pointBadges',
-      afterDatasetsDraw: (chart) => {
-        const currentMoves = chart.moves;
-        if (!currentMoves) return;
-        const { ctx: canvasCtx } = chart;
-        const meta = chart.getDatasetMeta(0);
-        if (!meta || !meta.data) return;
-
-        canvasCtx.save();
-        meta.data.forEach((point, index) => {
-          const move = currentMoves[index];
-          if (!move) return;
-
-          const cls = move.classification;
-          const x = point.x;
-          const y = point.y;
-
-          // Draw tiny dots for all moves
-          const bgColor = _classColor(cls);
-          canvasCtx.beginPath();
-          canvasCtx.arc(x, y, 2.5, 0, 2 * Math.PI);
-          canvasCtx.fillStyle = bgColor;
-          canvasCtx.fill();
-        });
-        canvasCtx.restore();
-      }
-    }],
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: { duration: 0 },
-      interaction: { mode: 'index', intersect: false },
-      scales: {
-        x: {
-          display: false,
-        },
-        y: {
-          min: -10,
-          max: 10,
-          display: true,
-          ticks: {
-            color: '#bab9b7',
-            font: { size: 9, family: 'var(--font-sans)', weight: '500' },
-            maxTicksLimit: 5,
-            callback: v => {
-              if (v > 0) return `+${v.toFixed(0)}`;
-              if (v < 0) return `${v.toFixed(0)}`;
-              return '0.0';
-            },
+  // --- 2. Win Probability (WDL) Chart ---
+  if (wdlChart) {
+    wdlChart.moves = moves;
+    wdlChart.data.labels = labels;
+    wdlChart.data.datasets[0].data = whiteWinValues;
+    wdlChart.data.datasets[1].data = blackWinValues;
+    wdlChart.data.datasets[2].data = drawValues;
+    wdlChart.update('none');
+  } else {
+    wdlChart = new Chart(wdlCtx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'White Win',
+            data: whiteWinValues,
+            borderColor: '#ffffff',
+            borderWidth: 1.75,
+            tension: 0.35,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            fill: false,
           },
-          grid: {
-            color: (context) => {
-              if (context.tick.value === 0) {
-                return 'rgba(255, 255, 255, 0.4)';
-              }
-              return 'rgba(255, 255, 255, 0.04)';
+          {
+            label: 'Black Win',
+            data: blackWinValues,
+            borderColor: '#111111',
+            borderWidth: 1.75,
+            tension: 0.35,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            fill: false,
+          },
+          {
+            label: 'Draw',
+            data: drawValues,
+            borderColor: '#8b8987',
+            borderWidth: 1.75,
+            tension: 0.35,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            fill: false,
+          }
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 0 },
+        interaction: { mode: 'index', intersect: false },
+        onClick: (event, activeElements, chart) => {
+          if (activeElements && activeElements.length > 0) {
+            const index = activeElements[0].index;
+            if (chartClickCallback) {
+              chartClickCallback(index);
+            }
+          }
+        },
+        onHover: (event, activeElements, chart) => {
+          chart.canvas.style.cursor = (activeElements && activeElements.length > 0) ? 'pointer' : 'default';
+        },
+        scales: {
+          x: { display: false },
+          y: {
+            min: 0,
+            max: 100,
+            display: true,
+            ticks: {
+              color: '#bab9b7',
+              font: { size: 9, family: 'var(--font-sans)', weight: '500' },
+              maxTicksLimit: 5,
+              callback: v => `${v}%`,
             },
-            lineWidth: (context) => {
-              if (context.tick.value === 0) {
-                return 1.5;
-              }
-              return 1;
+            grid: {
+              color: 'rgba(255, 255, 255, 0.04)',
+            },
+            border: { display: false },
+          },
+        },
+        plugins: {
+          legend: {
+            display: true,
+            labels: {
+              color: '#bab9b7',
+              boxWidth: 8,
+              boxHeight: 8,
+              padding: 10,
+              font: { size: 9, family: 'var(--font-sans)' }
             }
           },
-          border: { display: false },
-        },
-      },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: 'rgba(30, 29, 27, 0.95)',
-          borderColor: 'rgba(255, 255, 255, 0.1)',
-          borderWidth: 1,
-          titleColor: '#bab9b7',
-          bodyColor: '#ffffff',
-          padding: 8,
-          callbacks: {
-            title: items => items[0]?.label || '',
-            label: item => {
-              const move = moves[item.dataIndex];
-              if (!move) return '';
-              const evalStr = formatEval(move);
-              const prob = Math.round(move.white_win_prob * 100);
-              return `Eval: ${evalStr} (White: ${prob}%)`;
+          tooltip: {
+            backgroundColor: 'rgba(30, 29, 27, 0.95)',
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+            borderWidth: 1,
+            titleColor: '#bab9b7',
+            bodyColor: '#ffffff',
+            padding: 8,
+            callbacks: {
+              title: items => items[0]?.label || '',
+              label: item => {
+                return `${item.dataset.label}: ${item.raw}%`;
+              },
             },
           },
         },
       },
-    },
-  });
-  evalChart.moves = moves;
+    });
+    wdlChart.moves = moves;
+  }
 }
 
 /**
@@ -316,11 +454,20 @@ export function renderEvalChart(moves) {
  * @param {number} moveIndex
  */
 export function highlightChartMove(moveIndex) {
-  if (!evalChart) return;
-  evalChart.data.datasets[0].pointRadius = evalChart.data.labels.map(
-    (_, i) => i === moveIndex ? 5 : 0
-  );
-  evalChart.update('none');
+  if (evalChart) {
+    evalChart.data.datasets[0].pointRadius = evalChart.data.labels.map(
+      (_, i) => i === moveIndex ? 5 : 0
+    );
+    evalChart.update('none');
+  }
+  if (wdlChart) {
+    wdlChart.data.datasets.forEach(dataset => {
+      dataset.pointRadius = wdlChart.data.labels.map(
+        (_, i) => i === moveIndex ? 4 : 0
+      );
+    });
+    wdlChart.update('none');
+  }
 }
 
 // ── Move List ───────────────────────────────────────────────────────────
