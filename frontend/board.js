@@ -9,6 +9,8 @@ import { Arrows, ARROW_TYPE } from
   'https://cdn.jsdelivr.net/npm/cm-chessboard@8/src/extensions/arrows/Arrows.js';
 import { Markers, MARKER_TYPE } from
   'https://cdn.jsdelivr.net/npm/cm-chessboard@8/src/extensions/markers/Markers.js';
+import { PromotionDialog, PROMOTION_DIALOG_RESULT_TYPE } from
+  'https://cdn.jsdelivr.net/npm/cm-chessboard@8/src/extensions/promotion-dialog/PromotionDialog.js';
 import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm';
 
 // CDN assets URL for cm-chessboard (piece sprites, CSS)
@@ -20,6 +22,7 @@ const CM_ASSETS = 'https://cdn.jsdelivr.net/npm/cm-chessboard@8/assets/';
     CM_ASSETS + 'chessboard.css',
     CM_ASSETS + 'extensions/arrows/arrows.css',
     CM_ASSETS + 'extensions/markers/markers.css',
+    CM_ASSETS + 'extensions/promotion-dialog/promotion-dialog.css',
   ];
   styles.forEach(href => {
     if (!document.querySelector(`link[href="${href}"]`)) {
@@ -178,6 +181,7 @@ export class BoardManager {
       extensions: [
         { class: Arrows },
         { class: Markers },
+        { class: PromotionDialog },
       ],
     });
 
@@ -280,10 +284,45 @@ export class BoardManager {
             return false;
           }
 
+          // Check for pawn promotion
+          let isPromotion = false;
+          let color = COLOR.white;
+          try {
+            const chess = new Chess(this._currentFen);
+            const piece = chess.get(from);
+            if (piece && piece.type === 'p') {
+              color = piece.color === 'w' ? COLOR.white : COLOR.black;
+              const possibleMoves = chess.moves({ square: from, verbose: true });
+              for (const m of possibleMoves) {
+                if (m.promotion && m.to === to) {
+                  isPromotion = true;
+                  break;
+                }
+              }
+            }
+          } catch (e) {
+            console.warn("Error checking promotion move:", e);
+          }
+
+          if (isPromotion) {
+            this._board.showPromotionDialog(to, color, (result) => {
+              if (result.type === PROMOTION_DIALOG_RESULT_TYPE.pieceSelected) {
+                const promoChar = result.piece.charAt(1); // 'q', 'r', 'b', 'n'
+                if (this._onMoveCallback) {
+                  queueMicrotask(() => this._onMoveCallback(from, to, promoChar));
+                }
+              } else {
+                // Promotion canceled — restore board state
+                this._board.setPosition(this._currentFen, true);
+              }
+            });
+            return true;
+          }
+
           // Notify the app of the move
           if (this._onMoveCallback) {
             // Use a microtask so cm-chessboard finishes its internal animation first
-            queueMicrotask(() => this._onMoveCallback(from, to, event.promotion || null));
+            queueMicrotask(() => this._onMoveCallback(from, to, null));
           }
           return true;
         }

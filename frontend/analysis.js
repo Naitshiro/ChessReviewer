@@ -100,11 +100,26 @@ export function renderEvalBar(whiteCp, mateMoves = null, gameOver = false, winne
   let heightPct;
   let labelText;
 
-  if (gameOver) {
-    if (winner === 'white') {
+  let isWhiteWinner = null;
+  if (winner === 'white') {
+    isWhiteWinner = true;
+  } else if (winner === 'black') {
+    isWhiteWinner = false;
+  } else if (gameOver) {
+    isWhiteWinner = null;
+  } else if (mateMoves === 0) {
+    if (whiteWinProb !== null) {
+      isWhiteWinner = whiteWinProb > 0.5;
+    } else if (whiteCp !== null && whiteCp !== 0) {
+      isWhiteWinner = whiteCp > 0;
+    }
+  }
+
+  if (gameOver || mateMoves === 0) {
+    if (isWhiteWinner === true) {
       heightPct = 100;
       labelText = '1 - 0';
-    } else if (winner === 'black') {
+    } else if (isWhiteWinner === false) {
       heightPct = 0;
       labelText = '0 - 1';
     } else {
@@ -112,25 +127,12 @@ export function renderEvalBar(whiteCp, mateMoves = null, gameOver = false, winne
       labelText = '½ - ½';
     }
   } else if (mateMoves !== null) {
-    if (mateMoves === 0 && whiteCp > 0) {
-      heightPct = 100;
-      labelText = '1 - 0';
-    } else if (mateMoves === 0 && whiteCp < 0) {
-      heightPct = 0;
-      labelText = '0 - 1';
-    } else {
-      heightPct = mateMoves > 0 ? 100 : 0;
-      labelText = mateMoves > 0 ? `M${mateMoves}` : `M${-mateMoves}`;
-    }
+    heightPct = mateMoves > 0 ? 100 : 0;
+    labelText = mateMoves > 0 ? `M${mateMoves}` : `M${-mateMoves}`;
   } else {
-    // Win probability from White's perspective
-    let prob;
-    if (whiteWinProb !== null && whiteWinProb !== undefined) {
-      prob = whiteWinProb;
-    } else {
-      const clampedCp = Math.max(-3000, Math.min(3000, whiteCp || 0));
-      prob = 1 / (1 + Math.exp(-0.004 * clampedCp));
-    }
+    // Visually map centipawn evaluation to a smooth curve (similar to chess.com/lichess)
+    const clampedCp = Math.max(-2000, Math.min(2000, whiteCp || 0));
+    const prob = 1 / (1 + Math.exp(-0.0025 * clampedCp));
     // Map 0–1 to 2–98% (leave a small gutter at extremes)
     heightPct = 2 + prob * 96;
 
@@ -176,6 +178,9 @@ export function registerChartClickCallback(callback) {
 
 function formatEval(move) {
   if (move.score_mate !== null && move.score_mate !== undefined) {
+    if (move.score_mate === 0) {
+      return (move.color === 'white' || move.color === 'w') ? '1-0' : '0-1';
+    }
     const isWhiteMate = move.score_mate > 0;
     return isWhiteMate ? `+M${Math.abs(move.score_mate)}` : `-M${Math.abs(move.score_mate)}`;
   }
@@ -595,6 +600,18 @@ function formatSanWithPieceIcon(san, isWhite) {
     const pieceId = `${colorCode}${pieceMap[pieceChar]}`;
     const rest = san.slice(1);
     return `<span style="display:inline-flex; align-items:center; vertical-align:middle;"><svg style="width:16px; height:16px; margin-bottom: 2px;" viewBox="0 0 40 40"><use href="#${pieceId}"></use></svg>${rest}</span>`;
+  }
+  const promoIndex = san.indexOf('=');
+  if (promoIndex !== -1 && promoIndex < san.length - 1) {
+    const promoChar = san[promoIndex + 1];
+    if (['N', 'B', 'R', 'Q'].includes(promoChar)) {
+      const pieceMap = { 'N': 'n', 'B': 'b', 'R': 'r', 'Q': 'q' };
+      const colorCode = isWhite ? 'w' : 'b';
+      const pieceId = `${colorCode}${pieceMap[promoChar]}`;
+      const prefix = san.slice(0, promoIndex + 1);
+      const rest = san.slice(promoIndex + 2);
+      return `<span style="display:inline-flex; align-items:center; vertical-align:middle;">${prefix}<svg style="width:16px; height:16px; margin-bottom: 2px;" viewBox="0 0 40 40"><use href="#${pieceId}"></use></svg>${rest}</span>`;
+    }
   }
   return san;
 }

@@ -1660,3 +1660,21 @@ input[type="number"]::-webkit-inner-spin-button {
   background-color: var(--accent-green);
   color: #111;
 }
+
+/* ── Promotion Dialog Customization ──────────────────────── */
+svg.cm-chessboard .promotion-dialog-group .promotion-dialog {
+  fill: var(--bg-secondary) !important;
+  fill-opacity: 0.95 !important;
+  stroke: var(--border-light) !important;
+  stroke-width: 1.5px !important;
+}
+
+svg.cm-chessboard .promotion-dialog-group g[data-piece] {
+  transition: transform 0.15s ease, filter 0.15s ease;
+  cursor: pointer;
+}
+
+svg.cm-chessboard .promotion-dialog-group g[data-piece]:hover {
+  transform: scale(1.1);
+  filter: brightness(1.2);
+}

@@ -1329,7 +1329,13 @@ function _triggerEvalBarRender() {
     if (state.liveEngineEnabled) {
       const activeBranch = state.analysis.branchMoves[state.analysis.currentBranchIndex];
       if (activeBranch) {
-        renderEvalBar(activeBranch.white_cp || 0, activeBranch.mate_played, false, null, state.boardOrientation, activeBranch.white_win_prob);
+        const c = new Chess(activeBranch.fen_after);
+        const gameOver = c.isGameOver();
+        let winner = null;
+        if (c.isCheckmate()) {
+          winner = c.turn() === 'w' ? 'black' : 'white';
+        }
+        renderEvalBar(activeBranch.white_cp || 0, activeBranch.mate_played, gameOver, winner, state.boardOrientation, activeBranch.white_win_prob);
       } else {
         renderEvalBar(0, null, false, null, state.boardOrientation);
       }
@@ -1669,7 +1675,7 @@ function _handleBoardMove(from, to, promotion) {
       move_number: parseInt(fen.split(' ')[5], 10) || 1,
       color: moveResult.color === 'w' ? 'white' : 'black',
       san: moveResult.san,
-      uci: moveResult.from + moveResult.to,
+      uci: moveResult.from + moveResult.to + (moveResult.promotion || ''),
       fen_before: fen,
       fen_after: newFen,
       cp_best: cpBest,
@@ -1742,7 +1748,7 @@ function _handleBoardMove(from, to, promotion) {
       move_number: parseInt(fenBefore.split(' ')[5], 10) || 1,
       color: moveResult.color === 'w' ? 'white' : 'black',
       san: moveResult.san,
-      uci: moveResult.from + moveResult.to,
+      uci: moveResult.from + moveResult.to + (moveResult.promotion || ''),
       fen_before: fenBefore,
       fen_after: newFen,
       cp_best: cpBest,
@@ -2431,7 +2437,9 @@ function formatMoveEval(m) {
   if (m.score_mate !== undefined && m.score_mate !== null) {
     if (m.score_mate === 1) return '1-0';
     if (m.score_mate === -1) return '0-1';
-    if (m.score_mate === 0) return '0-1';
+    if (m.score_mate === 0) {
+      return (m.color === 'white' || m.color === 'w') ? '1-0' : '0-1';
+    }
     return m.score_mate > 0 ? `M${m.score_mate}` : `-M${Math.abs(m.score_mate)}`;
   }
   return ((m.white_cp || 0) / 100).toFixed(2);
@@ -2497,7 +2505,16 @@ function _updateEngineLinesPanel() {
       if (showSingleRow) {
         // 1. Played Move Row only
         const playedEval = formatMoveEval(m);
-        const playedAdv = m.white_cp >= 0;
+        let playedAdv;
+        if (m.score_mate !== undefined && m.score_mate !== null) {
+          if (m.score_mate === 0) {
+            playedAdv = (m.color === 'white' || m.color === 'w');
+          } else {
+            playedAdv = m.score_mate > 0;
+          }
+        } else {
+          playedAdv = m.white_cp >= 0;
+        }
         const playedScoreBg = playedAdv ? 'background:#fff;color:#111;' : 'background:#222;color:#fff;';
 
         const label = CLASS_LABELS[m.classification] || m.classification;
@@ -2539,7 +2556,16 @@ function _updateEngineLinesPanel() {
       } else {
         // 2. Both Played Move and Best Move Rows
         const playedEval = formatMoveEval(m);
-        const playedAdv = m.white_cp >= 0;
+        let playedAdv;
+        if (m.score_mate !== undefined && m.score_mate !== null) {
+          if (m.score_mate === 0) {
+            playedAdv = (m.color === 'white' || m.color === 'w');
+          } else {
+            playedAdv = m.score_mate > 0;
+          }
+        } else {
+          playedAdv = m.white_cp >= 0;
+        }
         const playedScoreBg = playedAdv ? 'background:#fff;color:#111;' : 'background:#222;color:#fff;';
 
         const label = CLASS_LABELS[m.classification] || m.classification;
@@ -2630,7 +2656,11 @@ function _updateEngineLinesPanel() {
       else if (line.score_mate === -1) scoreStr = '0-1';
       else if (line.score_mate === 0) {
         const c = new Chess(currentFen);
-        scoreStr = c.turn() === 'w' ? '0-1' : '1-0';
+        if (c.isGameOver() && !c.isCheckmate()) {
+          scoreStr = '1/2-1/2';
+        } else {
+          scoreStr = c.turn() === 'w' ? '1-0' : '0-1';
+        }
       } else {
         scoreStr = line.score_mate > 0 ? `M${line.score_mate}` : `-M${Math.abs(line.score_mate)}`;
       }
@@ -2639,9 +2669,17 @@ function _updateEngineLinesPanel() {
       scoreStr = cp;
     }
 
-    const whiteAdv = (line.score_mate !== undefined && line.score_mate !== null)
-      ? line.score_mate > 0
-      : line.white_cp >= 0;
+    let whiteAdv;
+    if (line.score_mate !== undefined && line.score_mate !== null) {
+      if (line.score_mate === 0) {
+        const c = new Chess(currentFen);
+        whiteAdv = (c.turn() === 'b');
+      } else {
+        whiteAdv = line.score_mate > 0;
+      }
+    } else {
+      whiteAdv = line.white_cp >= 0;
+    }
     const scoreBg = whiteAdv ? 'background:#fff;color:#111;' : 'background:#222;color:#fff;';
 
     const isExpanded = !!state.analysis.expandedLines[idx];

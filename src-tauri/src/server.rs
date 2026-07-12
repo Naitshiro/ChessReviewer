@@ -1345,7 +1345,7 @@ async fn handle_ws_socket(socket: WebSocket, state: AppState) {
                                          "multipv": 1,
                                          "depth": 100,
                                          "score_cp": score_cp,
-                                         "score_mate": 0,
+                                         "score_mate": if pos.is_checkmate() { serde_json::json!(0) } else { serde_json::Value::Null },
                                          "white_cp": white_cp,
                                          "white_win_prob": win_p,
                                          "white_win": w_win,
