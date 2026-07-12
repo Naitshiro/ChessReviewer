@@ -1678,3 +1678,31 @@ svg.cm-chessboard .promotion-dialog-group g[data-piece]:hover {
   transform: scale(1.1);
   filter: brightness(1.2);
 }
+
+/* ── User Right-Click Highlights & Arrows ───────────────── */
+.right-click-highlight {
+  fill: #eb3e3e;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* User-drawn arrows: exact same dimensions as engine arrows, just orange */
+.user-arrow .arrow-head {
+  fill: #f7a22c !important;
+  fill-rule: nonzero;
+}
+
+.user-arrow .arrow-line {
+  stroke: #f7a22c !important;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 13px !important;
+  opacity: 0.85 !important;
+  fill: none;
+  pointer-events: none;
+}
+
+/* Hide piece selection corners */
+.cm-chessboard .marker.marker-frame {
+  display: none !important;
+}

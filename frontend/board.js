@@ -158,6 +158,11 @@ export class BoardManager {
     this._activeBadges = []; // Array of { square, text, type, color }
     this._audio = new ChessAudio();
     this.soundEnabled = localStorage.getItem('chess_sound_enabled') !== 'false';
+
+    // User right-click annotations
+    this._userHighlights = new Set();
+    this._userArrows = new Set();
+    this._previewArrow = null;
   }
 
   /**
@@ -192,6 +197,30 @@ export class BoardManager {
     window.addEventListener('resize', () => {
       this._redrawActiveBadge();
     });
+
+    // Setup right-click highlights and arrows
+    const boardEl = document.getElementById(this._elementId);
+    const boardWrapper = boardEl ? boardEl.parentElement : null;
+    if (boardWrapper) {
+      if (!document.getElementById('board-arrows-overlay')) {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('id', 'board-arrows-overlay');
+        svg.setAttribute('class', 'absolute top-0 left-0 w-full h-full pointer-events-none z-10');
+        svg.setAttribute('viewBox', '0 0 800 800');
+        svg.style.display = 'block';
+        boardWrapper.appendChild(svg);
+      }
+
+      this._contextMenuHandler = this._handleContextMenu.bind(this);
+      this._mouseDownHandler = this._handleMouseDown.bind(this);
+      this._mouseMoveHandler = this._handleMouseMove.bind(this);
+      this._mouseUpHandler = this._handleMouseUp.bind(this);
+
+      boardWrapper.addEventListener('contextmenu', this._contextMenuHandler);
+      boardWrapper.addEventListener('mousedown', this._mouseDownHandler);
+      boardWrapper.addEventListener('mousemove', this._mouseMoveHandler);
+      window.addEventListener('mouseup', this._mouseUpHandler);
+    }
   }
 
   // ── Position ──────────────────────────────────────────────────────────
@@ -213,6 +242,7 @@ export class BoardManager {
       }
     }
 
+    this.clearUserDrawings();
     await this._board.setPosition(fen, animate);
   }
 
@@ -225,6 +255,7 @@ export class BoardManager {
     this._orientation = color === 'black' ? COLOR.black : COLOR.white;
     this._board.setOrientation(this._orientation);
     this._redrawActiveBadge();
+    this.renderUserDrawings();
   }
 
   flipBoard() {
@@ -232,6 +263,7 @@ export class BoardManager {
     this._orientation = this._orientation === COLOR.white ? COLOR.black : COLOR.white;
     this._board.setOrientation(this._orientation);
     this._redrawActiveBadge();
+    this.renderUserDrawings();
   }
 
   // ── Interactivity ─────────────────────────────────────────────────────
@@ -600,9 +632,353 @@ export class BoardManager {
   // ── Cleanup ───────────────────────────────────────────────────────────
 
   destroy() {
+    const boardEl = document.getElementById(this._elementId);
+    const boardWrapper = boardEl ? boardEl.parentElement : null;
+    if (boardWrapper) {
+      if (this._contextMenuHandler) boardWrapper.removeEventListener('contextmenu', this._contextMenuHandler);
+      if (this._mouseDownHandler) boardWrapper.removeEventListener('mousedown', this._mouseDownHandler);
+      if (this._mouseMoveHandler) boardWrapper.removeEventListener('mousemove', this._mouseMoveHandler);
+      const svg = document.getElementById('board-arrows-overlay');
+      if (svg) svg.remove();
+      const highlights = boardWrapper.querySelector('#board-highlights-container');
+      if (highlights) highlights.remove();
+    }
+    if (this._mouseUpHandler) window.removeEventListener('mouseup', this._mouseUpHandler);
+
     if (this._board) {
       this._board.destroy();
       this._board = null;
     }
+  }
+
+  // ── User Right-Click Drawing Logic ────────────────────────────────────
+
+  _handleContextMenu(e) {
+    e.preventDefault();
+  }
+
+  _handleMouseDown(e) {
+    if (e.button === 0) {
+      // Left click: clear user highlights and arrows
+      this.clearUserDrawings();
+    } else if (e.button === 2) {
+      e.preventDefault();
+      const boardWrapper = e.currentTarget;
+      const rect = boardWrapper.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const startSquare = this._getSquareFromCoords(x, y, rect);
+      if (startSquare) {
+        this._rightClickStartSquare = startSquare;
+        this._rightClickActive = true;
+        this._rightClickHasDragged = false;
+      }
+    }
+  }
+
+  _handleMouseMove(e) {
+    if (this._rightClickActive) {
+      const boardWrapper = document.getElementById('board-wrapper');
+      if (!boardWrapper) return;
+      const rect = boardWrapper.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const currentSquare = this._getSquareFromCoords(x, y, rect);
+      if (currentSquare && currentSquare !== this._rightClickStartSquare) {
+        this._rightClickHasDragged = true;
+        this._previewArrow = { from: this._rightClickStartSquare, to: currentSquare };
+      } else {
+        this._previewArrow = null;
+      }
+      this.renderUserDrawings();
+    }
+  }
+
+  _handleMouseUp(e) {
+    if (this._rightClickActive) {
+      if (e.button === 2) {
+        this._rightClickActive = false;
+        const boardWrapper = document.getElementById('board-wrapper');
+        if (!boardWrapper) return;
+        const rect = boardWrapper.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const endSquare = this._getSquareFromCoords(x, y, rect);
+
+        if (this._rightClickHasDragged && endSquare && endSquare !== this._rightClickStartSquare) {
+          this.toggleUserArrow(this._rightClickStartSquare, endSquare);
+        } else if (!this._rightClickHasDragged && endSquare === this._rightClickStartSquare) {
+          this.toggleUserHighlight(this._rightClickStartSquare);
+        }
+        this._previewArrow = null;
+        this.renderUserDrawings();
+      }
+    }
+  }
+
+  _getSquareFromCoords(x, y, rect) {
+    const squareSize = rect.width / 8;
+    const col = Math.floor(x / squareSize);
+    const row = Math.floor(y / squareSize);
+    if (col < 0 || col > 7 || row < 0 || row > 7) return null;
+
+    const isBlack = this._orientation === 'black' || this._orientation === COLOR.black;
+    let file, rank;
+    if (isBlack) {
+      file = 7 - col;
+      rank = row + 1;
+    } else {
+      file = col;
+      rank = 8 - row;
+    }
+    return String.fromCharCode(97 + file) + rank;
+  }
+
+  _squareToColRow(square, isBlack) {
+    if (!square || square.length < 2) return null;
+    const file = square.charCodeAt(0) - 97; // 0..7
+    const rank = parseInt(square.charAt(1), 10) - 1; // 0..7
+
+    let col, row;
+    if (isBlack) {
+      col = 7 - file;
+      row = rank;
+    } else {
+      col = file;
+      row = 7 - rank;
+    }
+    return { col, row };
+  }
+
+  toggleUserHighlight(square) {
+    if (this._userHighlights.has(square)) {
+      this._userHighlights.delete(square);
+    } else {
+      this._userHighlights.add(square);
+    }
+  }
+
+  toggleUserArrow(from, to) {
+    const arrowStr = `${from}${to}`;
+    if (this._userArrows.has(arrowStr)) {
+      this._userArrows.delete(arrowStr);
+    } else {
+      this._userArrows.add(arrowStr);
+    }
+  }
+
+  clearUserDrawings() {
+    this._userHighlights.clear();
+    this._userArrows.clear();
+    this._previewArrow = null;
+
+    const highlightsGroup = this._getHighlightsContainer();
+    if (highlightsGroup) {
+      highlightsGroup.innerHTML = '';
+    }
+
+    this.renderUserDrawings();
+  }
+
+  _getSquareSize(boardSvg) {
+    const rect = boardSvg.querySelector('.square');
+    if (rect) {
+      const w = parseFloat(rect.getAttribute('width'));
+      if (!isNaN(w) && w > 0) return w;
+    }
+    return 40; // Fallback for cm-chessboard v8 default viewBox
+  }
+
+  _getHighlightsContainer() {
+    const boardEl = document.getElementById(this._elementId);
+    if (!boardEl) return null;
+    const boardSvg = boardEl.querySelector('svg');
+    if (!boardSvg) return null;
+
+    let highlightsGroup = boardSvg.querySelector('#board-highlights-container');
+    if (!highlightsGroup) {
+      highlightsGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      highlightsGroup.setAttribute('id', 'board-highlights-container');
+      highlightsGroup.setAttribute('class', 'pointer-events-none');
+      
+      const piecesGroup = boardSvg.querySelector('.pieces-layer') || boardSvg.querySelector('.pieces') || boardSvg.querySelector('g.pieces');
+      if (piecesGroup && piecesGroup.parentNode) {
+        piecesGroup.parentNode.insertBefore(highlightsGroup, piecesGroup);
+      } else {
+        boardSvg.appendChild(highlightsGroup);
+      }
+    }
+    return highlightsGroup;
+  }
+
+  _getArrowsContainer() {
+    const boardEl = document.getElementById(this._elementId);
+    if (!boardEl) return null;
+    const boardSvg = boardEl.querySelector('svg');
+    if (!boardSvg) return null;
+
+    let arrowsGroup = boardSvg.querySelector('#board-user-arrows-container');
+    if (!arrowsGroup) {
+      arrowsGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      arrowsGroup.setAttribute('id', 'board-user-arrows-container');
+      arrowsGroup.setAttribute('class', 'pointer-events-none');
+      boardSvg.appendChild(arrowsGroup);
+    }
+    return arrowsGroup;
+  }
+
+  renderUserDrawings() {
+    const isBlack = this._orientation === 'black' || this._orientation === COLOR.black;
+
+    // 1. Draw Highlights (under pieces)
+    const highlightsGroup = this._getHighlightsContainer();
+    if (highlightsGroup) {
+      highlightsGroup.innerHTML = '';
+      const boardEl = document.getElementById(this._elementId);
+      const boardSvg = boardEl ? boardEl.querySelector('svg') : null;
+      const sqSize = boardSvg ? this._getSquareSize(boardSvg) : 40;
+
+      for (const sq of this._userHighlights) {
+        const coords = this._squareToColRow(sq, isBlack);
+        if (!coords) continue;
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', coords.col * sqSize);
+        rect.setAttribute('y', coords.row * sqSize);
+        rect.setAttribute('width', sqSize);
+        rect.setAttribute('height', sqSize);
+        rect.setAttribute('class', 'right-click-highlight');
+        highlightsGroup.appendChild(rect);
+      }
+    }
+
+    // 2. Draw Arrows (on top of pieces, inside the native board SVG)
+    const boardEl2 = document.getElementById(this._elementId);
+    const boardSvg2 = boardEl2 ? boardEl2.querySelector('svg') : null;
+    const sqSize2 = boardSvg2 ? this._getSquareSize(boardSvg2) : 40;
+    const arrowsGroup = this._getArrowsContainer();
+    if (arrowsGroup) {
+      arrowsGroup.innerHTML = '';
+
+      for (const arrowStr of this._userArrows) {
+        const from = arrowStr.slice(0, 2);
+        const to = arrowStr.slice(2, 4);
+        const arrowEl = this._createArrowSvgElement(from, to, isBlack, false, sqSize2);
+        if (arrowEl) arrowsGroup.appendChild(arrowEl);
+      }
+
+      // Draw Preview Arrow
+      if (this._previewArrow) {
+        const { from, to } = this._previewArrow;
+        const previewEl = this._createArrowSvgElement(from, to, isBlack, true, sqSize2);
+        if (previewEl) arrowsGroup.appendChild(previewEl);
+      }
+    }
+  }
+
+  _createArrowSvgElement(from, to, isBlack, isPreview = false, sqSize = 40) {
+    const fromCoords = this._squareToColRow(from, isBlack);
+    const toCoords = this._squareToColRow(to, isBlack);
+    if (!fromCoords || !toCoords) return null;
+
+    const half = sqSize / 2;
+    const x1 = fromCoords.col * sqSize + half;
+    const y1 = fromCoords.row * sqSize + half;
+    const x2 = toCoords.col * sqSize + half;
+    const y2 = toCoords.row * sqSize + half;
+
+    const colDist = Math.abs(toCoords.col - fromCoords.col);
+    const rowDist = Math.abs(toCoords.row - fromCoords.row);
+    const isKnightMove = (colDist === 2 && rowDist === 1) || (colDist === 1 && rowDist === 2);
+
+    // Use the EXACT same class structure as cm-chessboard's Arrows extension
+    // so we inherit identical dimensions (headSize=7, stroke-width from CSS)
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('class', 'user-arrow');
+    if (isPreview) {
+      g.setAttribute('opacity', '0.6');
+    }
+
+    // The headSize matches cm-chessboard default (7 SVG units in viewBox space)
+    const headSize = 7;
+    // offsetTo matches the cm-chessboard default (0.55 = proportion of a square)
+    const offsetTo = sqSize * 0.55;
+
+    if (isKnightMove) {
+      // L-shaped path for knight moves
+      let xCorner, yCorner;
+      if (colDist === 2) {
+        xCorner = x2;
+        yCorner = y1;
+      } else {
+        xCorner = x1;
+        yCorner = y2;
+      }
+
+      // Direction of the final segment (corner -> target)
+      const dx2 = x2 - xCorner;
+      const dy2 = y2 - yCorner;
+      const L2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+      const u2_x = dx2 / L2;
+      const u2_y = dy2 / L2;
+
+      // Shorten the endpoint by offsetTo for the arrowhead
+      const lineEndX = x2 - u2_x * offsetTo;
+      const lineEndY = y2 - u2_y * offsetTo;
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', `M ${x1} ${y1} L ${xCorner} ${yCorner} L ${lineEndX} ${lineEndY}`);
+      path.setAttribute('class', 'arrow-line');
+      g.appendChild(path);
+
+      // Arrowhead: <use> referencing the same sprite as the engine arrows
+      const angle = Math.atan2(dy2, dx2) * (180 / Math.PI);
+      const headX = x2 - u2_x * offsetTo;
+      const headY = y2 - u2_y * offsetTo;
+      const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+      use.setAttribute('href', `assets/extensions/arrows/arrows.svg#arrowDefault`);
+      use.setAttribute('x', headX - headSize / 2);
+      use.setAttribute('y', headY - headSize / 2);
+      use.setAttribute('width', headSize);
+      use.setAttribute('height', headSize);
+      use.setAttribute('transform', `rotate(${angle}, ${headX}, ${headY})`);
+      use.setAttribute('class', 'arrow-head');
+      g.appendChild(use);
+    } else {
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const L = Math.sqrt(dx * dx + dy * dy);
+      if (L === 0) return null;
+
+      const u_x = dx / L;
+      const u_y = dy / L;
+
+      // Shorten the endpoint by offsetTo for the arrowhead
+      const lineEndX = x2 - u_x * offsetTo;
+      const lineEndY = y2 - u_y * offsetTo;
+
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', x1);
+      line.setAttribute('y1', y1);
+      line.setAttribute('x2', lineEndX);
+      line.setAttribute('y2', lineEndY);
+      line.setAttribute('class', 'arrow-line');
+      g.appendChild(line);
+
+      // Arrowhead: <use> referencing the same sprite as the engine arrows
+      const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+      const headX = x2 - u_x * offsetTo;
+      const headY = y2 - u_y * offsetTo;
+      const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+      use.setAttribute('href', `assets/extensions/arrows/arrows.svg#arrowDefault`);
+      use.setAttribute('x', headX - headSize / 2);
+      use.setAttribute('y', headY - headSize / 2);
+      use.setAttribute('width', headSize);
+      use.setAttribute('height', headSize);
+      use.setAttribute('transform', `rotate(${angle}, ${headX}, ${headY})`);
+      use.setAttribute('class', 'arrow-head');
+      g.appendChild(use);
+    }
+
+    return g;
   }
 }
