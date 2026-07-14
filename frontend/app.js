@@ -2659,7 +2659,7 @@ function _updateEngineLinesPanel() {
         if (c.isGameOver() && !c.isCheckmate()) {
           scoreStr = '1/2-1/2';
         } else {
-          scoreStr = c.turn() === 'w' ? '1-0' : '0-1';
+          scoreStr = c.turn() === 'w' ? '0-1' : '1-0';
         }
       } else {
         scoreStr = line.score_mate > 0 ? `M${line.score_mate}` : `-M${Math.abs(line.score_mate)}`;
