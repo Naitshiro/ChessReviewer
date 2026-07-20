@@ -32,6 +32,25 @@ const MODE = { IDLE: 'idle', REVIEW: 'review', ANALYSIS: 'analysis', TRAINING: '
 /** Normalize FEN to first 4 fields (strips halfmove/fullmove counters) */
 const normFen = fen => (fen || '').split(' ').slice(0, 4).join(' ');
 
+const DEPTH_VALUES = [
+  8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30,
+  40, 50, 60, 70, 80, 90, 100
+];
+
+function getClosestDepthIndex(val) {
+  let closestIdx = 0;
+  let minDiff = Infinity;
+  for (let i = 0; i < DEPTH_VALUES.length; i++) {
+    const diff = Math.abs(DEPTH_VALUES[i] - val);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closestIdx = i;
+    }
+  }
+  return closestIdx;
+}
+
+
 // ── Application State ───────────────────────────────────────────────────
 
 const state = {
@@ -147,6 +166,7 @@ const el = {
   closeAbout: document.getElementById('close-about'),
   settingsDepth: document.getElementById('settings-depth'),
   settingsTimeout: document.getElementById('settings-timeout'),
+  settingsSyzygyContainer: document.getElementById('syzygy-paths-container'),
 
   // Player Cards
   topPlayerName: document.getElementById('top-player-name'),
@@ -176,6 +196,7 @@ const el = {
   fenInput: document.getElementById('fen-input'),
   fenLoadBtn: document.getElementById('fen-load-btn'),
   fenSpinner: document.getElementById('fen-spinner'),
+  fenResetBtn: document.getElementById('fen-reset-btn'),
 };
 
 // ── Board ───────────────────────────────────────────────────────────────
@@ -260,6 +281,110 @@ async function init() {
   document.querySelectorAll('.theme-select-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.theme === savedTheme);
   });
+
+  // Load saved Syzygy paths
+  _renderSyzygyPaths();
+
+  // Send initial paths to backend if present
+  const startupPaths = _getSyzygyPathsFromUI();
+  const nonMptyPaths = startupPaths.map(p => p.trim()).filter(p => p.length > 0);
+  const combined = nonMptyPaths.join(';');
+  if (combined) {
+    _sendSyzygyPathsToBackend(combined);
+  }
+}
+
+function _renderSyzygyPaths() {
+  const container = document.getElementById('syzygy-paths-container');
+  if (!container) return;
+
+  let paths = [];
+  try {
+    paths = JSON.parse(localStorage.getItem('chess_syzygy_paths')) || [];
+  } catch (e) {
+    paths = [];
+  }
+  if (!Array.isArray(paths) || paths.length === 0) {
+    paths = [""];
+  }
+
+  container.innerHTML = '';
+  paths.forEach((path, idx) => {
+    const row = document.createElement('div');
+    row.className = 'flex items-center gap-1.5 syzygy-path-row';
+    row.innerHTML = `
+      <input type="text" value="${path.replace(/"/g, '&quot;')}" placeholder="e.g. C:\\chess\\syzygy"
+        class="flex-1 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2.5 py-1.5 text-[var(--text-primary)] outline-none text-xs focus:border-[var(--accent-green)] placeholder-[var(--text-muted)] transition-all" />
+      <button class="add-path-btn p-1.5 text-[var(--accent-green)] hover:bg-[var(--accent-green)]/10 rounded transition-colors text-sm font-bold" title="Add path">
+        +
+      </button>
+      <button class="remove-path-btn p-1.5 text-[var(--accent-red)] hover:bg-[var(--accent-red)]/10 rounded transition-colors text-sm font-bold" title="Remove path">
+        −
+      </button>
+    `;
+
+    const input = row.querySelector('input');
+    const addBtn = row.querySelector('.add-path-btn');
+    const removeBtn = row.querySelector('.remove-path-btn');
+
+    input.addEventListener('change', () => {
+      _saveAndSyncSyzygyPaths();
+    });
+
+    addBtn.addEventListener('click', () => {
+      let currentPaths = _getSyzygyPathsFromUI();
+      currentPaths.splice(idx + 1, 0, '');
+      localStorage.setItem('chess_syzygy_paths', JSON.stringify(currentPaths));
+      _renderSyzygyPaths();
+    });
+
+    removeBtn.addEventListener('click', () => {
+      let currentPaths = _getSyzygyPathsFromUI();
+      currentPaths.splice(idx, 1);
+      if (currentPaths.length === 0) {
+        currentPaths = [''];
+      }
+      localStorage.setItem('chess_syzygy_paths', JSON.stringify(currentPaths));
+      _renderSyzygyPaths();
+      _saveAndSyncSyzygyPaths();
+    });
+
+    container.appendChild(row);
+  });
+}
+
+function _getSyzygyPathsFromUI() {
+  const container = document.getElementById('syzygy-paths-container');
+  if (!container) return [];
+  const inputs = container.querySelectorAll('input');
+  return Array.from(inputs).map(inp => inp.value);
+}
+
+function _saveAndSyncSyzygyPaths() {
+  const paths = _getSyzygyPathsFromUI();
+  localStorage.setItem('chess_syzygy_paths', JSON.stringify(paths));
+
+  const nonMptyPaths = paths.map(p => p.trim()).filter(p => p.length > 0);
+  const combined = nonMptyPaths.join(';');
+
+  _sendSyzygyPathsToBackend(combined);
+
+  if (state.liveEngineEnabled || state.liveReviewEnabled) _restartCurrentAnalysis();
+}
+
+async function _sendSyzygyPathsToBackend(combinedPath) {
+  try {
+    const res = await fetch(`${API_BASE}/api/settings/syzygy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ syzygy_path: combinedPath })
+    });
+    if (!res.ok) {
+      console.error('Failed to update Syzygy paths on backend:', res.statusText);
+    }
+  } catch (err) {
+    console.error('Error sending Syzygy settings:', err);
+  }
 }
 
 // ── Health Check ────────────────────────────────────────────────────────
@@ -280,8 +405,11 @@ async function _checkHealth() {
       if (banner) banner.classList.add('hidden');
       // Initialize depth slider value from backend config
       if (data.engine?.depth) {
-        if (el.depthSlider) el.depthSlider.value = data.engine.depth;
-        if (el.depthValue) el.depthValue.textContent = data.engine.depth;
+        if (el.depthSlider) {
+          const idx = getClosestDepthIndex(data.engine.depth);
+          el.depthSlider.value = idx;
+          if (el.depthValue) el.depthValue.textContent = DEPTH_VALUES[idx];
+        }
       }
     }
   } catch (e) {
@@ -328,7 +456,9 @@ function _bindControls() {
 
   // Depth slider
   el.depthSlider?.addEventListener('input', () => {
-    if (el.depthValue) el.depthValue.textContent = el.depthSlider.value;
+    const idx = parseInt(el.depthSlider.value, 10);
+    const depthVal = DEPTH_VALUES[idx] || 16;
+    if (el.depthValue) el.depthValue.textContent = depthVal;
   });
 
   // Overlay Toggle
@@ -464,6 +594,8 @@ function _bindControls() {
     }
   });
 
+  // Dynamic Syzygy path inputs handle their own change listeners
+
   // Chessboard theme buttons click
   document.querySelectorAll('.theme-select-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -500,6 +632,7 @@ function _bindControls() {
 
   // FEN Loader bindings
   el.fenLoadBtn?.addEventListener('click', loadFen);
+  el.fenResetBtn?.addEventListener('click', resetFen);
   el.fenInput?.addEventListener('keydown', e => {
     if (e.key === 'Enter') loadFen();
   });
@@ -757,7 +890,6 @@ async function loadFen() {
     };
     _loadGameAnalysis(data);
     showToast('FEN Position Loaded!', 'success');
-    _switchTab('moves');
   } catch (e) {
     showToast(`Failed to load FEN: ${e.message}`, 'error');
     console.error(e);
@@ -767,17 +899,32 @@ async function loadFen() {
   }
 }
 
+async function resetFen() {
+  if (el.fenInput) {
+    el.fenInput.value = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  }
+  await loadFen();
+  if (el.fenInput) {
+    el.fenInput.value = '';
+  }
+}
+
 async function importPgn() {
   stopAutoplay();
-  const pgn = el.pgnInput?.value?.trim();
-  if (!pgn) {
+  const pgnText = el.pgnInput?.value?.trim();
+  if (!pgnText) {
     showToast('Please paste a PGN or list of moves.', 'error');
     return;
   }
 
-  if (isValidFen(pgn)) {
+  if (isValidFen(pgnText)) {
     showToast('This is a FEN string. Please use the FEN Position field below to load custom positions.', 'warning', 6000);
     return;
+  }
+
+  let pgn = pgnText;
+  if (state.game.initialFen && state.game.initialFen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' && !pgnText.includes('[FEN') && !pgnText.includes('/')) {
+    pgn = `[FEN "${state.game.initialFen}"]\n[SetUp "1"]\n\n${pgnText}`;
   }
 
   if (el.importBtn) el.importBtn.disabled = true;
@@ -819,18 +966,24 @@ async function submitAnalysis() {
   }
 
   stopAutoplay();
-  const pgn = el.pgnInput?.value?.trim();
-  if (!pgn) {
+  const pgnText = el.pgnInput?.value?.trim();
+  if (!pgnText) {
     showToast('Please paste a PGN or list of moves.', 'error');
     return;
   }
 
-  if (isValidFen(pgn)) {
+  if (isValidFen(pgnText)) {
     showToast('Batch analysis is not supported for static FEN positions. Use the FEN field to load the position, and then use the Live Engine.', 'warning', 6000);
     return;
   }
 
-  const depth = parseInt(el.depthSlider?.value || '18', 10);
+  let pgn = pgnText;
+  if (state.game.initialFen && state.game.initialFen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' && !pgnText.includes('[FEN') && !pgnText.includes('/')) {
+    pgn = `[FEN "${state.game.initialFen}"]\n[SetUp "1"]\n\n${pgnText}`;
+  }
+
+  const sliderIdx = parseInt(el.depthSlider?.value || '4', 10);
+  const depth = DEPTH_VALUES[sliderIdx] || 16;
 
   // Setup abort controller
   currentAnalysisController = new AbortController();
@@ -883,6 +1036,7 @@ async function submitAnalysis() {
       const lines = buffer.split('\n');
       buffer = lines.pop(); // Keep incomplete line in buffer
 
+      let finished = false;
       for (const line of lines) {
         if (!line.trim()) continue;
         const msg = JSON.parse(line);
@@ -895,10 +1049,13 @@ async function submitAnalysis() {
           _loadGameAnalysis(msg.data);
           showToast('Analysis complete!', 'success');
           _switchTab('moves');
+          finished = true;
+          break;
         } else if (msg.type === "error") {
           throw new Error(msg.detail);
         }
       }
+      if (finished) break;
     }
 
   } catch (e) {
@@ -910,7 +1067,7 @@ async function submitAnalysis() {
     }
   } finally {
     currentAnalysisController = null;
-    if (el.analyzeBtnText) el.analyzeBtnText.textContent = 'Analyze';
+    if (el.analyzeBtnText) el.analyzeBtnText.textContent = 'Analyze PGN';
     if (el.analyzeBtn) {
       el.analyzeBtn.classList.add('btn-primary');
       el.analyzeBtn.classList.remove('btn-danger');
@@ -929,12 +1086,21 @@ function _loadGameAnalysis(data) {
   state.game.accuracy = data.accuracy;
   state.game.initialFen = data.initial_fen ||
     'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  state.game.initialEval = data.initial_eval || null;
+
+  // Reset analysis branch state so stale ghost branches don't render
+  state.analysis.branchMoves = [];
+  state.analysis.forkIndex = null;
+  state.analysis.currentBranchIndex = -1;
+  state.analysis.forkFen = null;
+  state.analysis.latestLines = [];
+  state.analysis.expandedLines = {};
 
   // Render UI
   _triggerMoveListRender();
   renderScorecard(data.accuracy, data.metadata?.depth_used);
   renderAnnotationsScorecard(data.moves);
-  renderEvalChart(data.moves);
+  renderEvalChart(data.moves, data.initial_eval);
 
   // Metadata display
   const metaEl = document.getElementById('game-metadata');
@@ -1323,7 +1489,13 @@ function _triggerEvalBarRender() {
       }
       renderEvalBar(m.white_cp || 0, m.score_mate, gameOver, winner, state.boardOrientation, m.white_win_prob);
     } else {
-      renderEvalBar(0, null, false, null, state.boardOrientation);
+      // At the starting position — use the initial eval from analysis if available
+      const initEval = state.game.initialEval;
+      if (initEval) {
+        renderEvalBar(initEval.white_cp || 0, initEval.score_mate || null, false, null, state.boardOrientation);
+      } else {
+        renderEvalBar(0, null, false, null, state.boardOrientation);
+      }
     }
   } else if (state.mode === MODE.ANALYSIS) {
     if (state.liveEngineEnabled) {
@@ -1477,7 +1649,12 @@ export function navigateTo(index) {
     board.clearMarkers();
     if (!state.liveEngineEnabled) {
       board.clearArrows();
-      renderEvalBar(0, null, false, null, state.boardOrientation);
+      const initEval = state.game.initialEval;
+      if (initEval) {
+        renderEvalBar(initEval.white_cp || 0, initEval.score_mate || null, false, null, state.boardOrientation);
+      } else {
+        renderEvalBar(0, null, false, null, state.boardOrientation);
+      }
     }
     if (el.openingName) el.openingName.textContent = 'Starting Position';
     highlightChartMove(-1);
@@ -1952,6 +2129,11 @@ function _handleEngineMessage(msg) {
   const needsEngine = state.liveEngineEnabled || (state.mode === MODE.ANALYSIS && state.liveReviewEnabled);
   if (!needsEngine) return;
 
+  if (msg.type === 'info' && msg.fen && normFen(msg.fen) !== normFen(_getCurrentFen())) {
+    console.log('[live engine] Discarding stale info message for FEN:', msg.fen);
+    return;
+  }
+
   if (msg.type === 'done') {
     if (el.engineSpinner) el.engineSpinner.classList.add('hidden');
     if (el.badgeDot) el.badgeDot.style.animation = 'none';
@@ -2306,7 +2488,11 @@ function _updatePgnInput() {
     }
   }
 
-  el.pgnInput.value = pgnStr.trim();
+  const val = pgnStr.trim();
+  el.pgnInput.value = val;
+  if (el.analyzeBtn) {
+    el.analyzeBtn.disabled = !val || isValidFen(val);
+  }
 }
 function playEngineLineSequence(pvMoves, targetIndex) {
   const wasEngineEnabled = state.liveEngineEnabled;

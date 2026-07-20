@@ -1706,3 +1706,93 @@ svg.cm-chessboard .promotion-dialog-group g[data-piece]:hover {
 .cm-chessboard .marker.marker-frame {
   display: none !important;
 }
+
+/* ── Custom Range Slider Styling ─────────────────────────── */
+#depth-slider {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 20px;
+  background: transparent;
+  outline: none;
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Chrome, Safari, Opera, Edge Track */
+#depth-slider::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  transition: border-color 0.15s ease;
+}
+
+#depth-slider:focus::-webkit-slider-runnable-track {
+  border-color: var(--accent-green);
+}
+
+/* Chrome, Safari, Opera, Edge Thumb */
+#depth-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  cursor: pointer;
+  border: 2px solid var(--bg-secondary);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  transition: transform 0.1s ease, background-color 0.1s ease;
+  margin-top: -5px; /* Centering thumb on the track: (6px track height / 2) - (16px thumb height / 2) = -5px */
+  position: relative;
+  z-index: 30;
+}
+
+#depth-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  background: #95d05a;
+}
+
+#depth-slider::-webkit-slider-thumb:active {
+  transform: scale(0.95);
+}
+
+/* Firefox Track */
+#depth-slider::-moz-range-track {
+  width: 100%;
+  height: 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  transition: border-color 0.15s ease;
+}
+
+#depth-slider:focus::-moz-range-track {
+  border-color: var(--accent-green);
+}
+
+/* Firefox Thumb */
+#depth-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  cursor: pointer;
+  border: 2px solid var(--bg-secondary);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  transition: transform 0.1s ease, background-color 0.1s ease;
+  position: relative;
+  z-index: 30;
+}
+
+#depth-slider::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  background: #95d05a;
+}
+
+#depth-slider::-moz-range-thumb:active {
+  transform: scale(0.95);
+}

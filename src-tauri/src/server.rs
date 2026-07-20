@@ -25,6 +25,11 @@ pub struct AppState {
 }
 
 #[derive(Deserialize)]
+pub struct SyzygySettingsRequest {
+    pub syzygy_path: String,
+}
+
+#[derive(Deserialize)]
 pub struct TheoryRequest {
     pub sans: Vec<String>,
 }
@@ -131,6 +136,17 @@ fn find_legal_move_permissive(pos: &shakmaty::Chess, raw_san: &str) -> Option<sh
 // PGN Parsing Utility
 // ---------------------------------------------------------------------------
 pub fn parse_pgn(pgn: &str) -> Result<ParsedGame, String> {
+    let mut raw_fen_line = None;
+    for line in pgn.lines() {
+        let trimmed = line.trim();
+        if !trimmed.starts_with('[') && !trimmed.is_empty() {
+            if let Ok(_) = trimmed.parse::<shakmaty::fen::Fen>() {
+                raw_fen_line = Some(trimmed.to_string());
+                break;
+            }
+        }
+    }
+
     let mut headers = std::collections::HashMap::new();
     let mut moves_sans = Vec::new();
     let mut nags_per_move: Vec<Vec<i32>> = Vec::new();
@@ -151,6 +167,11 @@ pub fn parse_pgn(pgn: &str) -> Result<ParsedGame, String> {
                 }
             }
         } else if !trimmed.is_empty() {
+            if let Some(ref rfl) = raw_fen_line {
+                if trimmed == rfl {
+                    continue;
+                }
+            }
             // Strip comments in curly braces or parentheses, but extract NAGs and clk annotations
             let mut clean_line = String::new();
 
@@ -205,7 +226,19 @@ pub fn parse_pgn(pgn: &str) -> Result<ParsedGame, String> {
         clks_per_move.push(None);
     }
 
-    let mut pos = Chess::default();
+    let mut pos = if let Some(ref rfl) = raw_fen_line {
+        let fen = rfl.parse::<shakmaty::fen::Fen>()
+            .map_err(|e| format!("Failed to parse raw FEN line: {}", e))?;
+        fen.into_position::<Chess>(shakmaty::CastlingMode::Standard)
+            .map_err(|e| format!("Invalid chess position from raw FEN: {}", e))?
+    } else if let Some(fen_str) = headers.get("FEN").or_else(|| headers.get("fen")).or_else(|| headers.get("Fen")) {
+        let fen = fen_str.parse::<shakmaty::fen::Fen>()
+            .map_err(|e| format!("Failed to parse FEN header: {}", e))?;
+        fen.into_position::<Chess>(shakmaty::CastlingMode::Standard)
+            .map_err(|e| format!("Invalid chess position from FEN header: {}", e))?
+    } else {
+        Chess::default()
+    };
     let initial_fen = shakmaty::fen::Fen::from_position(pos.clone(), shakmaty::EnPassantMode::Always).to_string();
     let mut fens = vec![initial_fen];
     let mut move_records = Vec::new();
@@ -684,6 +717,14 @@ async fn daily_puzzle_handler() -> Response {
     (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "Failed to load puzzle").into_response()
 }
 
+async fn update_syzygy_handler(
+    State(state): State<AppState>,
+    Json(req): Json<SyzygySettingsRequest>,
+) -> Response {
+    state.engine.set_syzygy_path(req.syzygy_path).await;
+    Json(serde_json::json!({ "status": "ok" })).into_response()
+}
+
 async fn engine_move_handler(State(state): State<AppState>, Json(req): Json<EngineMoveRequest>) -> Response {
     if let Ok(fen) = req.fen.parse::<shakmaty::fen::Fen>() {
         if let Ok(pos) = fen.into_position::<Chess>(shakmaty::CastlingMode::Standard) {
@@ -966,64 +1007,80 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
                 break;
             }
 
-            if let Ok(pv_list) = state.engine.analyze_position(fen_str, depth).await {
-                let mut score_entry = serde_json::json!({
-                    "fen": fen_str,
-                    "relative_cp": 0,
-                    "score_mate": null,
-                    "pv1": null, "pv2": null, "pv3": null,
-                    "cp1": null, "cp2": null, "cp3": null,
-                    "mate1": null, "mate2": null, "mate3": null,
-                    "wdl1": null, "wdl2": null, "wdl3": null,
-                    "relative_wdl": null,
-                });
+            let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel::<()>();
+            let tx_clone = tx.clone();
+            tokio::spawn(async move {
+                tx_clone.closed().await;
+                let _ = cancel_tx.send(());
+            });
 
-                for (idx, info) in pv_list.iter().take(3).enumerate() {
-                    // cp is relative to the side to move (as returned by Stockfish)
-                    let cp_val = if let Some(m) = info.mate {
-                        if m > 0 { 10000 } else { -10000 }
-                    } else {
-                        info.cp
-                    };
-
-                    let abs_mate = info.mate.map(|m| {
-                        let turn_white = pos.turn().is_white();
-                        if turn_white { m } else { -m }
+            match state.engine.analyze_position_cancelable(fen_str, depth, cancel_rx).await {
+                Ok(pv_list) => {
+                    println!("[analyze] fen {}: got {} PV(s)", &fen_str[..fen_str.len().min(40)], pv_list.len());
+                    let mut score_entry = serde_json::json!({
+                        "fen": fen_str,
+                        "relative_cp": 0,
+                        "score_mate": null,
+                        "pv1": null, "pv2": null, "pv3": null,
+                        "cp1": null, "cp2": null, "cp3": null,
+                        "mate1": null, "mate2": null, "mate3": null,
+                        "wdl1": null, "wdl2": null, "wdl3": null,
+                        "relative_wdl": null,
                     });
 
-                    let key_pv = format!("pv{}", idx + 1);
-                    let key_cp = format!("cp{}", idx + 1);
-                    let key_mate = format!("mate{}", idx + 1);
-                    let key_wdl = format!("wdl{}", idx + 1);
+                    for (idx, info) in pv_list.iter().take(3).enumerate() {
+                        // cp is relative to the side to move (as returned by Stockfish)
+                        let cp_val = if let Some(m) = info.mate {
+                            if m > 0 { 10000 } else { -10000 }
+                        } else {
+                            info.cp
+                        };
 
-                    // Store the first move UCI of the PV
-                    let first_pv_uci = info.pv.first().cloned().unwrap_or_default();
-                    score_entry[&key_pv] = serde_json::json!(first_pv_uci);
-                    score_entry[&format!("{}_full", key_pv)] = serde_json::json!(info.pv);
-                    score_entry[&key_cp] = serde_json::json!(cp_val);
-                    score_entry[&key_mate] = serde_json::json!(abs_mate);
-                    score_entry[&key_wdl] = serde_json::json!(info.wdl);
+                        let abs_mate = info.mate.map(|m| {
+                            let turn_white = pos.turn().is_white();
+                            if turn_white { m } else { -m }
+                        });
 
-                    if idx == 0 {
-                        score_entry["relative_cp"] = serde_json::json!(cp_val);
-                        score_entry["score_mate"] = serde_json::json!(abs_mate);
-                        score_entry["relative_wdl"] = serde_json::json!(info.wdl);
+                        let key_pv = format!("pv{}", idx + 1);
+                        let key_cp = format!("cp{}", idx + 1);
+                        let key_mate = format!("mate{}", idx + 1);
+                        let key_wdl = format!("wdl{}", idx + 1);
+
+                        // Store the first move UCI of the PV
+                        let first_pv_uci = info.pv.first().cloned().unwrap_or_default();
+                        score_entry[&key_pv] = serde_json::json!(first_pv_uci);
+                        score_entry[&format!("{}_full", key_pv)] = serde_json::json!(info.pv);
+                        score_entry[&key_cp] = serde_json::json!(cp_val);
+                        score_entry[&key_mate] = serde_json::json!(abs_mate);
+                        score_entry[&key_wdl] = serde_json::json!(info.wdl);
+
+                        if idx == 0 {
+                            score_entry["relative_cp"] = serde_json::json!(cp_val);
+                            score_entry["score_mate"] = serde_json::json!(abs_mate);
+                            score_entry["relative_wdl"] = serde_json::json!(info.wdl);
+                        }
                     }
+                    engine_scores.push(score_entry);
                 }
-                engine_scores.push(score_entry);
-            } else {
-                engine_scores.push(serde_json::json!({
-                    "fen": fen_str,
-                    "relative_cp": 0,
-                    "score_mate": null,
-                    "pv1": null, "pv2": null, "pv3": null,
-                    "pv1_full": null, "pv2_full": null, "pv3_full": null,
-                    "cp1": 0.0, "cp2": -0.01, "cp3": -0.02,
-                    "mate1": null, "mate2": null, "mate3": null,
-                    "wdl1": null, "wdl2": null, "wdl3": null,
-                    "relative_wdl": null,
-                }));
+                Err(e) => {
+                    println!("[analyze] Error for fen {}: {}", &fen_str[..fen_str.len().min(40)], e);
+                    if e == "Cancelled" {
+                        break;
+                    }
+                    engine_scores.push(serde_json::json!({
+                        "fen": fen_str,
+                        "relative_cp": 0,
+                        "score_mate": null,
+                        "pv1": null, "pv2": null, "pv3": null,
+                        "pv1_full": null, "pv2_full": null, "pv3_full": null,
+                        "cp1": 0.0, "cp2": -0.01, "cp3": -0.02,
+                        "mate1": null, "mate2": null, "mate3": null,
+                        "wdl1": null, "wdl2": null, "wdl3": null,
+                        "relative_wdl": null,
+                    }));
+                }
             }
+
         }
 
         if engine_scores.len() < total {
@@ -1250,11 +1307,30 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
             "depth_used": depth,
         });
 
+        // Compute initial position's white_cp from engine_scores[0]
+        let initial_white_cp = if let Some(init_score) = engine_scores.first() {
+            let cp0 = init_score["cp1"].as_f64().unwrap_or(0.0);
+            let mate0 = init_score["score_mate"].as_i64();
+            // engine_scores[0] is for the initial FEN (white to move = fens[0])
+            // The turn of the initial position
+            let init_fen = parsed.fens.first().map(|s| s.as_str()).unwrap_or("");
+            let init_turn_white = init_fen.split_whitespace().nth(1).unwrap_or("w") == "w";
+            let cp0_white = if init_turn_white { cp0 } else { -cp0 };
+            let mate0_white = mate0.map(|m| if init_turn_white { m } else { -m });
+            serde_json::json!({
+                "white_cp": (cp0_white * 100.0).round() / 100.0,
+                "score_mate": mate0_white,
+            })
+        } else {
+            serde_json::json!({ "white_cp": 0, "score_mate": null })
+        };
+
         let final_result = serde_json::json!({
             "type": "result",
             "data": {
                 "metadata": metadata,
                 "initial_fen": parsed.fens.first().cloned().unwrap_or_else(|| "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string()),
+                "initial_eval": initial_white_cp,
                 "moves": final_moves,
                 "accuracy": report
             }
@@ -1369,6 +1445,7 @@ async fn handle_ws_socket(socket: WebSocket, state: AppState) {
                         let turn_white = fen_parts.get(1).copied().unwrap_or("w") == "w";
 
                         let fen_for_analysis = fen_clone.clone();
+                        let fen_for_info = fen_for_analysis.clone();
 
                         // Use an mpsc channel to bridge the sync on_info callback to the async WS sender
                         let (info_tx, mut info_rx) = mpsc::channel::<String>(64);
@@ -1427,6 +1504,7 @@ async fn handle_ws_socket(socket: WebSocket, state: AppState) {
                                 info["draw_prob"] = serde_json::json!((w_draw * 10000.0).round() / 10000.0);
                                 info["game_over"] = serde_json::json!(false);
                                 info["winner"] = serde_json::json!(null);
+                                info["fen"] = serde_json::json!(fen_for_info);
                                 info["type"] = serde_json::json!("info");
 
                                 // Try to send; ignore if buffer is full (drop old updates gracefully)
@@ -1479,6 +1557,7 @@ pub async fn start_axum_server(config: AppConfig) {
         .route("/api/threats", post(threats_handler))
         .route("/api/import", post(import_handler))
         .route("/api/analyze", post(analyze_handler))
+        .route("/api/settings/syzygy", post(update_syzygy_handler))
         .route("/api/openings/list", get(openings_list_handler))
         .route("/api/openings/explorer", post(openings_explorer_handler))
         .route("/api/training/curated-puzzles", get(curated_puzzles_handler))

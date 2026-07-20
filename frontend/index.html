@@ -1,17 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ChessReviewer — Free Chess Analysis</title>
-  <meta name="description" content="Free local chess game review and real-time engine analysis. Alternative to premium chess.com review features." />
+  <meta name="description"
+    content="Free local chess game review and real-time engine analysis. Alternative to premium chess.com review features." />
 
   <!-- Tailwind CSS v3 Play CDN -->
   <script>
-    window.addEventListener('error', function(e) {
+    window.addEventListener('error', function (e) {
       alert("JS Error: " + e.message + "\nFile: " + e.filename + "\nLine: " + e.lineno + ":" + e.colno);
     });
-    window.addEventListener('unhandledrejection', function(e) {
+    window.addEventListener('unhandledrejection', function (e) {
       alert("Unhandled Promise Rejection: " + e.reason);
     });
   </script>
@@ -66,23 +68,28 @@
       <!-- Nav Items -->
       <button id="sidebar-nav-analysis" class="sidebar-nav-item active" title="Analysis">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.3-4.3" />
         </svg>
       </button>
       <button id="sidebar-nav-import" class="sidebar-nav-item" title="Import">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="17 8 12 3 7 8" />
+          <line x1="12" y1="3" x2="12" y2="15" />
         </svg>
       </button>
       <button id="sidebar-nav-settings" class="sidebar-nav-item" title="Settings">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+          <circle cx="12" cy="12" r="3" />
+          <path
+            d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
         </svg>
       </button>
       <button id="sidebar-nav-training" class="sidebar-nav-item" title="Training">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
-          <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"/>
+          <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+          <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5" />
         </svg>
       </button>
 
@@ -91,7 +98,9 @@
       <!-- Bottom branding -->
       <button id="sidebar-nav-about" class="sidebar-nav-item" title="About">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 16v-4" />
+          <path d="M12 8h.01" />
         </svg>
       </button>
     </nav>
@@ -100,7 +109,8 @@
     <div class="flex flex-col flex-1 min-w-0">
 
       <!-- HEADER -->
-      <header class="border-b border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-2.5 flex items-center justify-between gap-4 sticky top-0 z-50">
+      <header
+        class="border-b border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-2.5 flex items-center justify-between gap-4 sticky top-0 z-50">
         <!-- Logo text (for header) -->
         <div class="flex items-center gap-2.5 flex-shrink-0">
           <span class="font-bold text-sm tracking-tight text-[var(--text-primary)]">
@@ -109,31 +119,35 @@
         </div>
 
         <!-- Game metadata -->
-        <div id="game-metadata" class="text-xs text-[var(--text-muted)] font-mono truncate hidden md:block flex-1 text-center"></div>
+        <div id="game-metadata"
+          class="text-xs text-[var(--text-muted)] font-mono truncate hidden md:block flex-1 text-center"></div>
 
         <!-- Mode badge + engine depth -->
         <div class="flex items-center gap-3 flex-shrink-0">
           <span id="engine-depth-badge"
-                class="hidden text-xs font-mono px-2 py-1 rounded bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border)]">
+            class="hidden text-xs font-mono px-2 py-1 rounded bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border)]">
             depth —
           </span>
-          <button id="back-to-review-btn" class="hidden btn-exit-analysis flex items-center gap-1.5" title="Exit Live Analysis">
+          <button id="back-to-review-btn" class="hidden btn-exit-analysis flex items-center gap-1.5"
+            title="Exit Live Analysis">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
+              <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
             Exit Analysis
           </button>
           <div id="mode-badge" class="mode-badge idle">
             <span id="badge-dot" class="badge-dot"></span>
             <span id="badge-text">Idle</span>
-            <span id="engine-spinner" class="spinner w-3 h-3 ml-1 hidden border-[var(--text-muted)] border-t-[var(--text-primary)]"></span>
+            <span id="engine-spinner"
+              class="spinner w-3 h-3 ml-1 hidden border-[var(--text-muted)] border-t-[var(--text-primary)]"></span>
           </div>
         </div>
       </header>
 
       <!-- STOCKFISH SETUP BANNER -->
       <div id="engine-setup-banner" class="hidden px-4 pt-3">
-        <div class="max-w-5xl mx-auto rounded-lg border border-amber-500/30 bg-[var(--bg-card)] p-4 flex items-start gap-4">
+        <div
+          class="max-w-5xl mx-auto rounded-lg border border-amber-500/30 bg-[var(--bg-card)] p-4 flex items-start gap-4">
           <div class="text-2xl flex-shrink-0 mt-0.5">⚙️</div>
           <div class="flex-1 min-w-0">
             <div class="font-semibold text-amber-300 text-sm mb-1">Stockfish Engine Not Found</div>
@@ -141,20 +155,23 @@
               ChessReviewer needs the free <strong>Stockfish</strong> chess engine to analyze games.
             </div>
             <div class="mt-3 flex flex-wrap gap-2 items-center">
-              <a href="https://stockfishchess.org/download/"
-                 target="_blank"
-                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+              <a href="https://stockfishchess.org/download/" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
                         bg-amber-500 hover:bg-amber-400 text-black transition-colors">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
                 Download Stockfish (free)
               </a>
               <span class="text-amber-200/50 text-xs">then set the path in</span>
-              <code class="text-xs bg-black/40 px-2 py-0.5 rounded text-amber-300/80 font-mono">config.json → "stockfish_path"</code>
+              <code
+                class="text-xs bg-black/40 px-2 py-0.5 rounded text-amber-300/80 font-mono">config.json → "stockfish_path"</code>
               <span class="text-amber-200/50 text-xs">and restart the server.</span>
             </div>
           </div>
           <button onclick="document.getElementById('engine-setup-banner').classList.add('hidden')"
-                  class="flex-shrink-0 text-amber-400/60 hover:text-amber-400 transition-colors text-lg leading-none mt-0.5">
+            class="flex-shrink-0 text-amber-400/60 hover:text-amber-400 transition-colors text-lg leading-none mt-0.5">
             ✕
           </button>
         </div>
@@ -168,7 +185,8 @@
         <!-- ─── LEFT/CENTER: Board Column ──────────────────────────── -->
         <div id="board-column" class="flex-1 flex flex-col justify-between items-center min-w-0 h-full py-1">
           <!-- Opening name -->
-          <div id="opening-name" class="text-xs font-semibold truncate text-[var(--text-muted)] self-start w-full px-2 min-h-[18px]"></div>
+          <div id="opening-name"
+            class="text-xs font-semibold truncate text-[var(--text-muted)] self-start w-full px-2 min-h-[18px]"></div>
 
           <!-- Eval Bar + Board Row -->
           <div id="board-area" class="flex gap-3 items-center justify-center flex-1 min-h-0 w-full">
@@ -180,12 +198,16 @@
                   <div id="top-player-avatar" class="player-avatar black-avatar font-bold">♚</div>
                   <div class="flex flex-col min-w-0">
                     <div class="flex items-center gap-1.5 text-sm min-w-0">
-                      <span id="top-player-title" class="hidden text-[10px] bg-[#e53e3e] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"></span>
-                      <span id="top-player-name" class="font-semibold text-[var(--text-primary)] truncate max-w-[150px] sm:max-w-[200px]">Black</span>
+                      <span id="top-player-title"
+                        class="hidden text-[10px] bg-[#e53e3e] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"></span>
+                      <span id="top-player-name"
+                        class="font-semibold text-[var(--text-primary)] truncate max-w-[150px] sm:max-w-[200px]">Black</span>
                       <span id="top-player-elo" class="text-[var(--text-secondary)] text-xs"></span>
                       <span id="top-player-flag" class="text-sm select-none"></span>
                     </div>
-                    <div id="top-player-captured" class="flex items-center flex-wrap gap-0.5 mt-0.5 text-xs text-[var(--text-muted)] min-h-[16px]"></div>
+                    <div id="top-player-captured"
+                      class="flex items-center flex-wrap gap-0.5 mt-0.5 text-xs text-[var(--text-muted)] min-h-[16px]">
+                    </div>
                   </div>
                 </div>
                 <div id="top-player-clock" class="player-clock hidden"></div>
@@ -202,7 +224,8 @@
               <!-- Square Board Wrapper -->
               <div id="board-wrapper" class="relative aspect-square flex-1 min-w-0">
                 <div id="board"></div>
-                <svg id="board-arrows-overlay" class="absolute top-0 left-0 w-full h-full pointer-events-none z-10" viewBox="0 0 800 800" style="display: block;"></svg>
+                <svg id="board-arrows-overlay" class="absolute top-0 left-0 w-full h-full pointer-events-none z-10"
+                  viewBox="0 0 800 800" style="display: block;"></svg>
               </div>
 
               <!-- Bottom Player Card -->
@@ -211,12 +234,16 @@
                   <div id="bottom-player-avatar" class="player-avatar white-avatar font-bold">♚</div>
                   <div class="flex flex-col min-w-0">
                     <div class="flex items-center gap-1.5 text-sm min-w-0">
-                      <span id="bottom-player-title" class="hidden text-[10px] bg-[#e53e3e] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"></span>
-                      <span id="bottom-player-name" class="font-semibold text-[var(--text-primary)] truncate max-w-[150px] sm:max-w-[200px]">White</span>
+                      <span id="bottom-player-title"
+                        class="hidden text-[10px] bg-[#e53e3e] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"></span>
+                      <span id="bottom-player-name"
+                        class="font-semibold text-[var(--text-primary)] truncate max-w-[150px] sm:max-w-[200px]">White</span>
                       <span id="bottom-player-elo" class="text-[var(--text-secondary)] text-xs"></span>
                       <span id="bottom-player-flag" class="text-sm select-none"></span>
                     </div>
-                    <div id="bottom-player-captured" class="flex items-center flex-wrap gap-0.5 mt-0.5 text-xs text-[var(--text-muted)] min-h-[16px]"></div>
+                    <div id="bottom-player-captured"
+                      class="flex items-center flex-wrap gap-0.5 mt-0.5 text-xs text-[var(--text-muted)] min-h-[16px]">
+                    </div>
                   </div>
                 </div>
                 <div id="bottom-player-clock" class="player-clock hidden"></div>
@@ -230,47 +257,51 @@
           <div class="flex items-center justify-center gap-1.5 mt-1">
             <button id="btn-first" class="nav-btn" title="First move (Home)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <path d="M11 19l-7-7 7-7M18 19l-7-7 7-7"/>
+                <path d="M11 19l-7-7 7-7M18 19l-7-7 7-7" />
               </svg>
             </button>
             <button id="btn-prev" class="nav-btn" title="Previous move (←)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <path d="M15 19l-7-7 7-7"/>
+                <path d="M15 19l-7-7 7-7" />
               </svg>
             </button>
             <button id="btn-flip" class="nav-btn" title="Flip board">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
+                <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" />
               </svg>
             </button>
             <button id="btn-play" class="nav-btn" title="Autoplay (Space)">
               <svg id="play-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="6 4 20 12 6 20 6 4"/>
+                <polygon points="6 4 20 12 6 20 6 4" />
               </svg>
               <svg id="pause-icon" class="hidden" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                <rect x="5" y="4" width="4" height="16" rx="1"/>
-                <rect x="15" y="4" width="4" height="16" rx="1"/>
+                <rect x="5" y="4" width="4" height="16" rx="1" />
+                <rect x="15" y="4" width="4" height="16" rx="1" />
               </svg>
             </button>
             <button id="btn-next" class="nav-btn" title="Next move (→)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <path d="M9 5l7 7-7 7"/>
+                <path d="M9 5l7 7-7 7" />
               </svg>
             </button>
             <button id="btn-last" class="nav-btn" title="Last move (End)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <path d="M13 5l7 7-7 7M6 5l7 7-7 7"/>
+                <path d="M13 5l7 7-7 7M6 5l7 7-7 7" />
               </svg>
             </button>
             <button id="btn-sound" class="nav-btn" title="Toggle Sound">
-              <svg id="sound-on-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/>
+              <svg id="sound-on-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5">
+                <path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14" />
               </svg>
-              <svg id="sound-off-icon" class="hidden" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6"/>
+              <svg id="sound-off-icon" class="hidden" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.5">
+                <path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6" />
               </svg>
             </button>
-            <button id="btn-toggle-overlay" class="nav-btn w-auto px-2 font-bold text-[10px] text-[var(--text-muted)] uppercase tracking-wider ml-1" title="Toggle Overlay Priority">
+            <button id="btn-toggle-overlay"
+              class="nav-btn w-auto px-2 font-bold text-[10px] text-[var(--text-muted)] uppercase tracking-wider ml-1"
+              title="Toggle Overlay Priority">
               Class
             </button>
           </div>
@@ -281,63 +312,90 @@
             <label for="live-engine-toggle" class="flex items-center cursor-pointer select-none">
               <div class="relative">
                 <input type="checkbox" id="live-engine-toggle" class="peer sr-only" />
-                <div class="block w-9 h-5 bg-[var(--bg-card)] border border-[var(--border)] rounded-full transition-colors peer-checked:bg-[var(--accent-green)] peer-checked:border-[var(--accent-green)]"></div>
-                <div class="dot absolute left-0.5 top-0.5 bg-[var(--text-muted)] w-4 h-4 rounded-full transition-all peer-checked:translate-x-4 peer-checked:bg-white"></div>
+                <div
+                  class="block w-9 h-5 bg-[var(--bg-card)] border border-[var(--border)] rounded-full transition-colors peer-checked:bg-[var(--accent-green)] peer-checked:border-[var(--accent-green)]">
+                </div>
+                <div
+                  class="dot absolute left-0.5 top-0.5 bg-[var(--text-muted)] w-4 h-4 rounded-full transition-all peer-checked:translate-x-4 peer-checked:bg-white">
+                </div>
               </div>
-              <div class="ml-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+              <div
+                class="ml-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
                 <span class="w-2 h-2 rounded-full bg-[var(--text-muted)] transition-colors" id="live-engine-dot"></span>
                 Engine
               </div>
             </label>
 
             <!-- Best Moves Toggle -->
-            <label for="best-moves-toggle" class="flex items-center cursor-pointer select-none opacity-40 pointer-events-none" id="best-moves-label">
+            <label for="best-moves-toggle"
+              class="flex items-center cursor-pointer select-none opacity-40 pointer-events-none" id="best-moves-label">
               <div class="relative">
                 <input type="checkbox" id="best-moves-toggle" class="peer sr-only" disabled />
-                <div class="block w-9 h-5 bg-[var(--bg-card)] border border-[var(--border)] rounded-full transition-colors peer-checked:bg-[var(--accent-green)] peer-checked:border-[var(--accent-green)]"></div>
-                <div class="dot absolute left-0.5 top-0.5 bg-[var(--text-muted)] w-4 h-4 rounded-full transition-all peer-checked:translate-x-4 peer-checked:bg-white"></div>
+                <div
+                  class="block w-9 h-5 bg-[var(--bg-card)] border border-[var(--border)] rounded-full transition-colors peer-checked:bg-[var(--accent-green)] peer-checked:border-[var(--accent-green)]">
+                </div>
+                <div
+                  class="dot absolute left-0.5 top-0.5 bg-[var(--text-muted)] w-4 h-4 rounded-full transition-all peer-checked:translate-x-4 peer-checked:bg-white">
+                </div>
               </div>
-              <div class="ml-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+              <div
+                class="ml-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
                 <span class="w-2 h-2 rounded-full bg-[var(--text-muted)] transition-colors" id="best-moves-dot"></span>
                 Best
               </div>
             </label>
 
             <!-- Live Review Toggle -->
-            <label for="live-review-toggle" class="flex items-center cursor-pointer select-none opacity-40 pointer-events-none" id="live-review-label">
+            <label for="live-review-toggle"
+              class="flex items-center cursor-pointer select-none opacity-40 pointer-events-none"
+              id="live-review-label">
               <div class="relative">
                 <input type="checkbox" id="live-review-toggle" class="peer sr-only" disabled />
-                <div class="block w-9 h-5 bg-[var(--bg-card)] border border-[var(--border)] rounded-full transition-colors peer-checked:bg-[var(--accent-green)] peer-checked:border-[var(--accent-green)]"></div>
-                <div class="dot absolute left-0.5 top-0.5 bg-[var(--text-muted)] w-4 h-4 rounded-full transition-all peer-checked:translate-x-4 peer-checked:bg-white"></div>
+                <div
+                  class="block w-9 h-5 bg-[var(--bg-card)] border border-[var(--border)] rounded-full transition-colors peer-checked:bg-[var(--accent-green)] peer-checked:border-[var(--accent-green)]">
+                </div>
+                <div
+                  class="dot absolute left-0.5 top-0.5 bg-[var(--text-muted)] w-4 h-4 rounded-full transition-all peer-checked:translate-x-4 peer-checked:bg-white">
+                </div>
               </div>
-              <div class="ml-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+              <div
+                class="ml-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
                 <span class="w-2 h-2 rounded-full bg-[var(--text-muted)] transition-colors" id="live-review-dot"></span>
                 Review
               </div>
             </label>
 
             <!-- Threat Assessment Toggle -->
-            <label for="threat-toggle" class="flex items-center cursor-pointer select-none opacity-40 pointer-events-none" id="threat-label">
+            <label for="threat-toggle"
+              class="flex items-center cursor-pointer select-none opacity-40 pointer-events-none" id="threat-label">
               <div class="relative">
                 <input type="checkbox" id="threat-toggle" class="peer sr-only" disabled />
-                <div class="block w-9 h-5 bg-[var(--bg-card)] border border-[var(--border)] rounded-full transition-colors peer-checked:bg-[var(--accent-green)] peer-checked:border-[var(--accent-green)]"></div>
-                <div class="dot absolute left-0.5 top-0.5 bg-[var(--text-muted)] w-4 h-4 rounded-full transition-all peer-checked:translate-x-4 peer-checked:bg-white"></div>
+                <div
+                  class="block w-9 h-5 bg-[var(--bg-card)] border border-[var(--border)] rounded-full transition-colors peer-checked:bg-[var(--accent-green)] peer-checked:border-[var(--accent-green)]">
+                </div>
+                <div
+                  class="dot absolute left-0.5 top-0.5 bg-[var(--text-muted)] w-4 h-4 rounded-full transition-all peer-checked:translate-x-4 peer-checked:bg-white">
+                </div>
               </div>
-              <div class="ml-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+              <div
+                class="ml-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
                 <span class="w-2 h-2 rounded-full bg-[var(--text-muted)] transition-colors" id="threat-dot"></span>
                 Threats
               </div>
             </label>
-            
+
             <!-- Live Settings (Depth / Timeout) -->
-            <div class="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+            <div
+              class="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
               <div class="flex items-center gap-1.5">
                 <span>Depth</span>
-                <input id="live-depth" type="number" min="1" max="50" value="18" class="w-11 bg-[var(--bg-card)] border border-[var(--border)] rounded px-1 text-[var(--text-primary)] outline-none text-center text-xs" />
+                <input id="live-depth" type="number" min="1" max="50" value="18"
+                  class="w-11 bg-[var(--bg-card)] border border-[var(--border)] rounded px-1 text-[var(--text-primary)] outline-none text-center text-xs" />
               </div>
               <div class="flex items-center gap-1.5">
                 <span>T/O</span>
-                <input id="live-timeout" type="number" min="0" max="100" value="0" class="w-11 bg-[var(--bg-card)] border border-[var(--border)] rounded px-1 text-[var(--text-primary)] outline-none text-center text-xs" />
+                <input id="live-timeout" type="number" min="0" max="100" value="0"
+                  class="w-11 bg-[var(--bg-card)] border border-[var(--border)] rounded px-1 text-[var(--text-primary)] outline-none text-center text-xs" />
               </div>
             </div>
           </div>
@@ -354,723 +412,923 @@
             </div>
           </div>
 
-        <div id="review-dashboard" class="flex flex-col flex-1 min-h-0 gap-3">
-          <!-- Tabs Container -->
-          <div class="glass-card flex-1 min-h-0 overflow-hidden flex flex-col">
-            <!-- Panel Header (chess.com style) -->
-            <div class="panel-header">
-              <div class="panel-header-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-                </svg>
+          <div id="review-dashboard" class="flex flex-col flex-1 min-h-0 gap-3">
+            <!-- Tabs Container -->
+            <div class="glass-card flex-1 min-h-0 overflow-hidden flex flex-col">
+              <!-- Panel Header (chess.com style) -->
+              <div class="panel-header">
+                <div class="panel-header-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="11" cy="11" r="8" />
+                    <path d="m21 21-4.3-4.3" />
+                  </svg>
+                </div>
+                <span>Game Review</span>
               </div>
-              <span>Game Review</span>
+
+              <div class="flex border-b border-[var(--border)] shrink-0">
+                <button id="tab-import" class="tab-btn active">Import</button>
+                <button id="tab-summary" class="tab-btn">Summary</button>
+                <button id="tab-moves" class="tab-btn">Moves</button>
+              </div>
+
+              <div class="flex-1 overflow-y-auto min-h-0">
+                <!-- ── Import Panel ──────────────────────────────────── -->
+                <div id="panel-import" class="p-3 flex flex-col gap-5">
+
+                  <!-- Section 1: Import PGN / Moves -->
+                  <div class="flex flex-col gap-3">
+                    <div class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Import PGN or Moves
+                    </div>
+                    <textarea id="pgn-input" placeholder="Paste PGN here… e.g. 1. e4 e5 2. Nf3 Nc6"
+                      class="min-h-[100px] resize-none"></textarea>
+
+                    <div class="flex items-center gap-3 mt-1.5 text-xs text-[var(--text-muted)] select-none w-full">
+                      <span class="shrink-0 w-[72px] flex items-baseline gap-1.5">
+                        <span>Depth</span>
+                        <span id="depth-value" class="font-mono font-bold text-[var(--text-primary)] text-xs">16</span>
+                      </span>
+                      <div class="relative flex-1 h-8 flex items-center">
+                        <!-- Range Slider -->
+                        <input id="depth-slider" type="range" min="0" max="18" value="4"
+                          class="w-full cursor-pointer relative z-10 block" />
+
+                        <!-- Snap ticks overlay (positioned above track with wide hover zones to avoid blocking dragging) -->
+                        <div class="absolute left-[8px] right-[8px] top-[11px] h-0 flex pointer-events-none z-20">
+                          <!-- Fast (8) - Index 0 (0%) -->
+                          <div
+                            class="absolute w-4 h-4 flex justify-center items-end -translate-x-1/2 -translate-y-full cursor-pointer pointer-events-auto group z-20"
+                            style="left: 0%;"
+                            onclick="const s = document.getElementById('depth-slider'); s.value = 0; s.dispatchEvent(new Event('input'));">
+                            <div
+                              class="w-[2px] h-2 bg-[var(--accent-green)] group-hover:bg-[#95d05a] transition-colors rounded-t shadow-sm">
+                            </div>
+                            <div
+                              class="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-[10px] bg-slate-800 text-white rounded shadow-md whitespace-nowrap z-50">
+                              Fast (8)
+                            </div>
+                          </div>
+
+                          <!-- Standard (16) - Index 4 (22.22%) -->
+                          <div
+                            class="absolute w-4 h-4 flex justify-center items-end -translate-x-1/2 -translate-y-full cursor-pointer pointer-events-auto group z-20"
+                            style="left: 22.22%;"
+                            onclick="const s = document.getElementById('depth-slider'); s.value = 4; s.dispatchEvent(new Event('input'));">
+                            <div
+                              class="w-[2px] h-2 bg-[var(--accent-green)] group-hover:bg-[#95d05a] transition-colors rounded-t shadow-sm">
+                            </div>
+                            <div
+                              class="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-[10px] bg-slate-800 text-white rounded shadow-md whitespace-nowrap z-50">
+                              Standard (16)
+                            </div>
+                          </div>
+
+                          <!-- Deep (22) - Index 7 (38.89%) -->
+                          <div
+                            class="absolute w-4 h-4 flex justify-center items-end -translate-x-1/2 -translate-y-full cursor-pointer pointer-events-auto group z-20"
+                            style="left: 38.89%;"
+                            onclick="const s = document.getElementById('depth-slider'); s.value = 7; s.dispatchEvent(new Event('input'));">
+                            <div
+                              class="w-[2px] h-2 bg-[var(--accent-green)] group-hover:bg-[#95d05a] transition-colors rounded-t shadow-sm">
+                            </div>
+                            <div
+                              class="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-[10px] bg-slate-800 text-white rounded shadow-md whitespace-nowrap z-50">
+                              Deep (22)
+                            </div>
+                          </div>
+
+                          <!-- Max (28) - Index 10 (55.56%) -->
+                          <div
+                            class="absolute w-4 h-4 flex justify-center items-end -translate-x-1/2 -translate-y-full cursor-pointer pointer-events-auto group z-20"
+                            style="left: 55.56%;"
+                            onclick="const s = document.getElementById('depth-slider'); s.value = 10; s.dispatchEvent(new Event('input'));">
+                            <div
+                              class="w-[2px] h-2 bg-[var(--accent-green)] group-hover:bg-[#95d05a] transition-colors rounded-t shadow-sm">
+                            </div>
+                            <div
+                              class="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-[10px] bg-slate-800 text-white rounded shadow-md whitespace-nowrap z-50">
+                              Max (28)
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="flex gap-2 mt-1">
+                      <button id="import-btn" class="btn-secondary flex-1 justify-center px-2 py-2 text-xs">
+                        <span id="import-spinner" class="spinner hidden"></span>
+                        <span>Import PGN</span>
+                      </button>
+                      <button id="analyze-btn"
+                        class="btn-primary btn-cta-pulse flex-1 justify-center px-2 py-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled>
+                        <span id="loading-spinner" class="spinner hidden"></span>
+                        <span id="analyze-btn-text">Analyze PGN</span>
+                        <svg id="analyze-btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                          stroke="currentColor" stroke-width="2.5">
+                          <path d="M5 12h14M12 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div id="analysis-progress-container" class="hidden mt-1 px-1">
+                      <div class="flex justify-between text-xs text-[var(--text-muted)] mb-1.5">
+                        <span id="analysis-progress-text">Analyzing moves...</span>
+                        <span id="analysis-progress-pct" class="font-mono">0%</span>
+                      </div>
+                      <div
+                        class="w-full bg-[var(--bg-primary)] rounded-full h-1.5 border border-[var(--border)] overflow-hidden">
+                        <div id="analysis-progress-fill"
+                          class="bg-[var(--accent-green)] h-1.5 rounded-full transition-all duration-300 ease-out"
+                          style="width: 0%"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Section 2: Load FEN Position -->
+                  <div class="border-t border-[var(--border)] pt-3 flex flex-col gap-3">
+                    <div class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Load FEN Position
+                    </div>
+                    <div class="flex gap-2">
+                      <input id="fen-input" type="text" placeholder="Paste FEN here…"
+                        class="flex-1 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2.5 py-1.5 text-xs text-[var(--text-primary)] outline-none placeholder-[var(--text-muted)] focus:border-[var(--accent-green)] transition-all" />
+                      <button id="fen-load-btn"
+                        class="btn-secondary px-3 py-1.5 text-xs flex items-center justify-center gap-1.5 shrink-0">
+                        <span id="fen-spinner" class="spinner hidden"></span>
+                        <span>Load FEN</span>
+                      </button>
+                      <button id="fen-reset-btn"
+                        class="btn-secondary px-3 py-1.5 text-xs flex items-center justify-center gap-1.5 shrink-0"
+                        title="Reset to Starting Position">
+                        <span>Reset</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Section 3: Load from Chess.com -->
+                  <div class="border-t border-[var(--border)] pt-3 flex flex-col gap-3">
+                    <div class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Load from Chess.com
+                    </div>
+                    <div class="flex gap-2">
+                      <input id="chesscom-username" type="text" placeholder="Chess.com Username"
+                        class="flex-1 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2.5 py-1.5 text-xs text-[var(--text-primary)] outline-none placeholder-[var(--text-muted)] focus:border-[var(--accent-green)] transition-all" />
+                      <button id="chesscom-fetch-btn"
+                        class="btn-secondary px-3 py-1.5 text-xs flex items-center justify-center gap-1.5 shrink-0">
+                        <span id="chesscom-spinner" class="spinner hidden"></span>
+                        <span>Fetch Games</span>
+                      </button>
+                    </div>
+                    <div id="chesscom-archive-container" class="hidden flex flex-col gap-1">
+                      <label for="chesscom-archive-select"
+                        class="text-[10px] text-[var(--text-secondary)] font-medium">Select Month</label>
+                      <select id="chesscom-archive-select"
+                        class="bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2.5 py-1 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent-green)] transition-all">
+                        <!-- Filled dynamically -->
+                      </select>
+                    </div>
+                    <div id="chesscom-games-list"
+                      class="max-h-[160px] overflow-y-auto flex flex-col gap-1.5 mt-1 hidden">
+                      <!-- Chess.com game cards will be injected here -->
+                    </div>
+                  </div>
+
+                </div>
+
+                <!-- ── Summary Panel ─────────────────────────────────── -->
+                <div id="panel-summary" class="hidden p-3 flex flex-col gap-4">
+
+                  <!-- Accuracy & Rating Layout -->
+                  <div class="flex flex-col gap-3">
+                    <!-- Accuracy Row -->
+                    <div id="accuracy-row" class="flex justify-between items-center">
+                      <span class="text-sm font-semibold text-[var(--text-muted)]">Accuracy</span>
+                      <div class="flex gap-3 items-center">
+                        <div id="accuracy-white-box"
+                          class="w-[52px] h-6 flex items-center justify-center bg-[#f0f0f0] text-[#333] font-bold text-[13px] rounded shadow-sm">
+                          —</div>
+                        <div id="accuracy-black-box"
+                          class="w-[52px] h-6 flex items-center justify-center bg-[#333] text-white font-bold text-[13px] rounded border border-[var(--border)] shadow-sm">
+                          —</div>
+                      </div>
+                    </div>
+
+                    <!-- Game Rating Row -->
+                    <div id="rating-row" class="flex justify-between items-center hidden">
+                      <span class="text-sm font-semibold text-[var(--text-muted)]">Game Rating</span>
+                      <div class="flex gap-3 items-center">
+                        <div id="rating-white-box"
+                          class="w-[52px] h-6 flex items-center justify-center bg-[#f0f0f0] text-[#333] font-bold text-[13px] rounded shadow-sm">
+                          —</div>
+                        <div id="rating-black-box"
+                          class="w-[52px] h-6 flex items-center justify-center bg-[#333] text-white font-bold text-[13px] rounded border border-[var(--border)] shadow-sm">
+                          —</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Game Phases -->
+                  <div id="game-phases-container" class="border-t border-[var(--border)] pt-3 hidden">
+                    <div
+                      class="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2 flex justify-between items-center">
+                      <span>Game Phases</span>
+                      <div class="flex justify-between items-center w-[56px] mr-1">
+                        <div
+                          class="w-6 h-5 flex justify-center items-center bg-[#f0f0f0] text-[#333] font-bold text-[10px] rounded">
+                          W</div>
+                        <div
+                          class="w-6 h-5 flex justify-center items-center bg-[#333] text-white font-bold text-[10px] rounded border border-[var(--border)]">
+                          B</div>
+                      </div>
+                    </div>
+                    <div class="flex flex-col gap-2 text-sm text-[var(--text-secondary)]">
+                      <div class="flex justify-between items-center" id="phase-row-opening">
+                        <span>Opening</span>
+                        <div class="flex justify-between items-center w-[56px] mr-1">
+                          <div id="phase-badge-white-opening"
+                            class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">
+                            —</div>
+                          <div id="phase-badge-black-opening"
+                            class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">
+                            —</div>
+                        </div>
+                      </div>
+                      <div class="flex justify-between items-center" id="phase-row-middlegame">
+                        <span>Middlegame</span>
+                        <div class="flex justify-between items-center w-[56px] mr-1">
+                          <div id="phase-badge-white-middlegame"
+                            class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">
+                            —</div>
+                          <div id="phase-badge-black-middlegame"
+                            class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">
+                            —</div>
+                        </div>
+                      </div>
+                      <div class="flex justify-between items-center" id="phase-row-endgame">
+                        <span>Endgame</span>
+                        <div class="flex justify-between items-center w-[56px] mr-1">
+                          <div id="phase-badge-white-endgame"
+                            class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">
+                            —</div>
+                          <div id="phase-badge-black-endgame"
+                            class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">
+                            —</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Classification scorecards -->
+                  <div class="border-t border-[var(--border)] pt-3">
+                    <div
+                      class="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2 flex justify-between items-center">
+                      <span>Classifications</span>
+                      <div class="flex justify-between items-center w-[56px] mr-1">
+                        <div
+                          class="w-6 h-5 flex justify-center items-center bg-[#f0f0f0] text-[#333] font-bold text-[10px] rounded">
+                          W</div>
+                        <div
+                          class="w-6 h-5 flex justify-center items-center bg-[#333] text-white font-bold text-[10px] rounded border border-[var(--border)]">
+                          B</div>
+                      </div>
+                    </div>
+                    <div id="scorecard-merged" class="flex flex-col gap-2 text-sm text-[var(--text-secondary)]">
+                      <div class="text-[var(--text-muted)] text-xs italic text-center py-2">Analyze a game to see
+                        results.</div>
+                    </div>
+                  </div>
+
+                  <!-- Annotations scorecards -->
+                  <div class="border-t border-[var(--border)] pt-3" id="annotations-container" style="display: none;">
+                    <div
+                      class="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2 flex justify-between items-center">
+                      <span>Annotations</span>
+                      <div class="flex justify-between items-center w-[56px] mr-1">
+                        <div
+                          class="w-6 h-5 flex justify-center items-center bg-[#f0f0f0] text-[#333] font-bold text-[10px] rounded">
+                          W</div>
+                        <div
+                          class="w-6 h-5 flex justify-center items-center bg-[#333] text-white font-bold text-[10px] rounded border border-[var(--border)]">
+                          B</div>
+                      </div>
+                    </div>
+                    <div id="annotations-list" class="flex flex-col gap-2 text-sm text-[var(--text-secondary)]">
+                    </div>
+                  </div>
+
+                  <!-- Legend Section inside summary panel -->
+                  <div class="border-t border-[var(--border)] pt-4 mt-2">
+                    <div class="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Move
+                      Legends</div>
+                    <div class="flex flex-col gap-1.5">
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/brilliant.svg" alt="!!"> Brilliant
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A difficult to find
+                          sacrifice or game-changing move.</div>
+                      </div>
+
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/great.svg" alt="!"> Great Move
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">The only good move
+                          in a critical position.</div>
+                      </div>
+
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/best.svg" alt="★"> Best
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">The optimal move
+                          according to the engine.</div>
+                      </div>
+
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/excellent.svg" alt="✦"> Excellent
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A very strong move
+                          that maintains your advantage.</div>
+                      </div>
+
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/good.svg" alt="✓"> Good
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A solid move, though
+                          somewhat less optimal.</div>
+                      </div>
+
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/theory.svg" alt="⌕"> Theory
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">An established
+                          opening theory move.</div>
+                      </div>
+
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/inaccuracy.svg" alt="?!"> Inaccuracy
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A suboptimal move
+                          that slightly worsens your position.</div>
+                      </div>
+
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/mistake.svg" alt="?"> Mistake
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A weak move that
+                          loses a significant advantage.</div>
+                      </div>
+
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/blunder.svg" alt="??"> Blunder
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A terrible move that
+                          drastically worsens your position.</div>
+                      </div>
+                    </div>
+
+                    <div class="mt-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">
+                      Annotation Legends</div>
+                    <div class="flex flex-col gap-1.5">
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_brilliant.svg" alt="!!"> Brilliant Move
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">An excellent and
+                          hard to find move.</div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_good.svg" alt="!"> Good Move
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A good, strong move.
+                        </div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_interesting.svg" alt="!?"> Speculative
+                          / Interesting
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">An interesting but
+                          perhaps not fully sound move.</div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_dubious.svg" alt="?!"> Dubious Move
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A move that is
+                          questionable or slightly bad.</div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_mistake.svg" alt="?"> Poor Move /
+                          Mistake
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A poor move that
+                          should be avoided.</div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_blunder.svg" alt="??"> Blunder
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A terrible move that
+                          likely loses the game.</div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_forced.svg" alt="□"> Forced
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">The only legal or
+                          reasonable move.</div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_balanced.svg" alt="="> Balanced
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Even or quiet
+                          position with equal chances.</div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_unclear.svg" alt="∞"> Unclear
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">The position is
+                          complex and unclear.</div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_white_slight_advantage.svg" alt="⩲">
+                          White Slight Advantage
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">White has a slight
+                          advantage.</div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_black_slight_advantage.svg" alt="⩱">
+                          Black Slight Advantage
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Black has a slight
+                          advantage.</div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_white_moderate_advantage.svg" alt="±">
+                          White Moderate Advantage
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">White has a moderate
+                          advantage.</div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_black_moderate_advantage.svg" alt="∓">
+                          Black Moderate Advantage
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Black has a moderate
+                          advantage.</div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_white_decisive_advantage.svg" alt="+-">
+                          White Decisive Advantage
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">White has a winning
+                          or crushing advantage.</div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_black_decisive_advantage.svg" alt="-+">
+                          Black Decisive Advantage
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Black has a winning
+                          or crushing advantage.</div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_zugzwang.svg" alt="⨀"> Zugzwang
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player is forced to
+                          make a move that worsens their position.</div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_space.svg" alt="○"> Space
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has a
+                          moderate space advantage.</div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_development.svg" alt="⟳"> Development
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has a
+                          development advantage.</div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_initiative.svg" alt="↑"> Initiative
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has the
+                          initiative.</div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_attack.svg" alt="→"> Attack
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has a strong
+                          attack.</div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_compensation.svg" alt="⯹"> Compensation
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has
+                          sufficient compensation for a disadvantage.</div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_counterplay.svg" alt="⇆"> Counterplay
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has active
+                          counterplay.</div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_time_trouble.svg" alt="⨁"> Time Trouble
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player is in severe
+                          time trouble.</div>
+                      </div>
+                      <div class="flex flex-col mb-1.5">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <img class="move-badge" src="assets/markers/annotation_novelty.svg" alt="N"> Novelty
+                        </div>
+                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A new move that
+                          deviates from known theory.</div>
+                      </div>
+                    </div>
+                    <div
+                      class="mt-2 pt-2 border-t border-[var(--border)] text-[10px] text-[var(--text-muted)] leading-4">
+                      Drag a piece to a <em>different</em> square than the game move to enter live analysis mode.
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ── Moves Panel ────────────────────────────────────── -->
+                <div id="panel-moves" class="hidden p-2">
+                  <div id="move-list" class="move-list">
+                    <div class="text-center text-[var(--text-muted)] text-xs py-6 italic">
+                      Paste a PGN inside the Import tab to load/analyze.
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div class="flex border-b border-[var(--border)] shrink-0">
-              <button id="tab-import"  class="tab-btn active">Import</button>
-              <button id="tab-summary" class="tab-btn">Summary</button>
-              <button id="tab-moves"   class="tab-btn">Moves</button>
+            <!-- Evaluation & Win Probability Charts -->
+            <div class="glass-card shrink-0 flex flex-col min-h-[160px]">
+              <div class="flex border-b border-[var(--border)] shrink-0">
+                <button id="chart-tab-eval" class="tab-btn active">Evaluation</button>
+                <button id="chart-tab-wdl" class="tab-btn">Win Chance</button>
+              </div>
+              <div class="p-3 flex-1 flex flex-col justify-center">
+                <!-- Evaluation Chart Container -->
+                <div id="eval-chart-wrapper" class="w-full">
+                  <div id="eval-chart-container">
+                    <canvas id="eval-chart"></canvas>
+                  </div>
+                </div>
+                <!-- WDL Chart Container -->
+                <div id="wdl-chart-wrapper" class="w-full hidden">
+                  <div id="wdl-chart-container">
+                    <canvas id="wdl-chart"></canvas>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div> <!-- end review-dashboard -->
+
+          <!-- ── Training Dashboard ───────────────────────────────── -->
+          <div id="training-dashboard" class="glass-card flex-1 min-h-0 overflow-hidden flex flex-col hidden">
+            <!-- Training Header -->
+            <div
+              class="panel-header flex items-center justify-between gap-3 px-3.5 py-2.5 bg-[var(--bg-secondary)] border-b border-[var(--border)] shrink-0">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-sm tracking-tight text-[var(--text-primary)]"
+                  id="training-header-title">Training Hub</span>
+              </div>
+              <button id="btn-training-back"
+                class="hidden text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors flex items-center gap-1">
+                ✕ Exit Mode
+              </button>
             </div>
 
-            <div class="flex-1 overflow-y-auto min-h-0">
-              <!-- ── Import Panel ──────────────────────────────────── -->
-              <div id="panel-import" class="p-3 flex flex-col gap-5">
-                
-                <!-- Section 1: Import PGN / Moves -->
-                <div class="flex flex-col gap-3">
-                  <div class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Import PGN or Moves</div>
-                  <textarea
-                    id="pgn-input"
-                    placeholder="Paste PGN here… e.g. 1. e4 e5 2. Nf3 Nc6"
-                    class="min-h-[100px] resize-none"
-                  ></textarea>
-                  
-                  <div class="flex items-center justify-between gap-2 text-xs text-[var(--text-muted)] mt-1">
-                    <span>Depth</span>
-                    <input id="depth-slider" type="range" min="8" max="30" value="18" class="flex-1" />
-                    <span id="depth-value" class="font-mono w-4 text-right text-[var(--text-primary)]">18</span>
+            <div class="flex-1 overflow-y-auto min-h-0 p-3 flex flex-col">
+
+              <!-- 1. Training Hub Menu -->
+              <div id="training-menu" class="flex flex-col gap-3">
+                <div class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1">Select a Training
+                  Module</div>
+
+                <button id="menu-btn-puzzles" class="training-menu-card">
+                  <span class="card-icon">🧩</span>
+                  <span class="card-content">
+                    <span class="card-title">Tactics Training</span>
+                    <span class="card-desc">Solve daily or curated chess puzzles</span>
+                  </span>
+                </button>
+
+                <button id="menu-btn-openings" class="training-menu-card">
+                  <span class="card-icon">📖</span>
+                  <span class="card-content">
+                    <span class="card-title">Opening Trainer</span>
+                    <span class="card-desc">Practice and memorize opening theory</span>
+                  </span>
+                </button>
+
+                <button id="menu-btn-engine" class="training-menu-card">
+                  <span class="card-icon">🤖</span>
+                  <span class="card-content">
+                    <span class="card-title">Play vs Engine</span>
+                    <span class="card-desc">Face Stockfish with scaled ELO ratings</span>
+                  </span>
+                </button>
+
+                <button id="menu-btn-coordinates" class="training-menu-card">
+                  <span class="card-icon">🎯</span>
+                  <span class="card-content">
+                    <span class="card-title">Coordinate Trainer</span>
+                    <span class="card-desc">Find chess squares on a 30s timer</span>
+                  </span>
+                </button>
+              </div>
+
+              <!-- 2. Tactics Panel -->
+              <div id="training-panel-puzzles" class="hidden flex flex-col gap-4 flex-1">
+                <div class="flex flex-col gap-2.5">
+                  <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Select Puzzle
+                    Source</label>
+                  <div class="flex gap-2">
+                    <button id="btn-puzzle-daily" class="btn-primary flex-1 py-2 text-xs">Lichess Daily</button>
+                    <button id="btn-puzzle-curated" class="btn-secondary flex-1 py-2 text-xs">Offline List</button>
+                  </div>
+                </div>
+
+                <div id="puzzle-select-container" class="hidden flex flex-col gap-1.5">
+                  <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Choose
+                    Puzzle</label>
+                  <select id="select-curated-puzzles"
+                    class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent-green)]">
+                    <!-- curations injected here -->
+                  </select>
+                </div>
+
+                <div id="puzzle-active-info" class="hidden border-t border-[var(--border)] pt-3 flex flex-col gap-3">
+                  <div
+                    class="flex justify-between items-center bg-[var(--bg-primary)] p-2.5 rounded border border-[var(--border)]">
+                    <div class="flex flex-col">
+                      <span id="puzzle-title" class="font-bold text-xs text-[var(--text-primary)]">Philidor's
+                        Legacy</span>
+                      <span id="puzzle-theme" class="text-[10px] text-[var(--text-muted)] mt-0.5">Smothered Mate</span>
+                    </div>
+                    <span id="puzzle-rating"
+                      class="font-mono text-xs font-bold text-[var(--accent-green)] bg-[var(--accent-green)]/15 px-2 py-0.5 rounded">1500
+                      ELO</span>
+                  </div>
+
+                  <p id="puzzle-desc" class="text-xs text-[var(--text-secondary)] leading-relaxed italic"></p>
+
+                  <div id="puzzle-feedback"
+                    class="text-center py-2 px-3 rounded text-xs font-semibold select-none min-h-[32px] flex items-center justify-center">
+                    Click Start to begin
                   </div>
 
                   <div class="flex gap-2 mt-1">
-                    <button id="import-btn" class="btn-secondary flex-1 justify-center px-2 py-2 text-xs">
-                      <span id="import-spinner" class="spinner hidden"></span>
-                      <span>Import PGN</span>
-                    </button>
-                    <button id="analyze-btn" class="btn-primary btn-cta-pulse flex-1 justify-center px-2 py-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                      <span id="loading-spinner" class="spinner hidden"></span>
-                      <span id="analyze-btn-text">Analyze PGN</span>
-                      <svg id="analyze-btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <path d="M5 12h14M12 5l7 7-7 7"/>
-                      </svg>
-                    </button>
-                  </div>
-
-                  <!-- Progress Bar -->
-                  <div id="analysis-progress-container" class="hidden mt-1 px-1">
-                    <div class="flex justify-between text-xs text-[var(--text-muted)] mb-1.5">
-                      <span id="analysis-progress-text">Analyzing moves...</span>
-                      <span id="analysis-progress-pct" class="font-mono">0%</span>
-                    </div>
-                    <div class="w-full bg-[var(--bg-primary)] rounded-full h-1.5 border border-[var(--border)] overflow-hidden">
-                      <div id="analysis-progress-fill" class="bg-[var(--accent-green)] h-1.5 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Section 2: Load FEN Position -->
-                <div class="border-t border-[var(--border)] pt-3 flex flex-col gap-3">
-                  <div class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Load FEN Position</div>
-                  <div class="flex gap-2">
-                    <input
-                      id="fen-input"
-                      type="text"
-                      placeholder="Paste FEN here… e.g. 8/8/8/8/4k3/8/8/4K3 w - - 0 1"
-                      class="flex-1 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2.5 py-1.5 text-xs text-[var(--text-primary)] outline-none placeholder-[var(--text-muted)] focus:border-[var(--accent-green)] transition-all"
-                    />
-                    <button id="fen-load-btn" class="btn-secondary px-3 py-1.5 text-xs flex items-center justify-center gap-1.5 shrink-0">
-                      <span id="fen-spinner" class="spinner hidden"></span>
-                      <span>Load FEN</span>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Section 3: Load from Chess.com -->
-                <div class="border-t border-[var(--border)] pt-3 flex flex-col gap-3">
-                  <div class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Load from Chess.com</div>
-                  <div class="flex gap-2">
-                    <input
-                      id="chesscom-username"
-                      type="text"
-                      placeholder="Chess.com Username"
-                      class="flex-1 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2.5 py-1.5 text-xs text-[var(--text-primary)] outline-none placeholder-[var(--text-muted)] focus:border-[var(--accent-green)] transition-all"
-                    />
-                    <button id="chesscom-fetch-btn" class="btn-secondary px-3 py-1.5 text-xs flex items-center justify-center gap-1.5 shrink-0">
-                      <span id="chesscom-spinner" class="spinner hidden"></span>
-                      <span>Fetch Games</span>
-                    </button>
-                  </div>
-                  <div id="chesscom-archive-container" class="hidden flex flex-col gap-1">
-                    <label for="chesscom-archive-select" class="text-[10px] text-[var(--text-secondary)] font-medium">Select Month</label>
-                    <select id="chesscom-archive-select" class="bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2.5 py-1 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent-green)] transition-all">
-                      <!-- Filled dynamically -->
-                    </select>
-                  </div>
-                  <div id="chesscom-games-list" class="max-h-[160px] overflow-y-auto flex flex-col gap-1.5 mt-1 hidden">
-                    <!-- Chess.com game cards will be injected here -->
-                  </div>
-                </div>
-
-              </div>
-
-              <!-- ── Summary Panel ─────────────────────────────────── -->
-              <div id="panel-summary" class="hidden p-3 flex flex-col gap-4">
-
-                <!-- Accuracy & Rating Layout -->
-                <div class="flex flex-col gap-3">
-                  <!-- Accuracy Row -->
-                  <div id="accuracy-row" class="flex justify-between items-center">
-                    <span class="text-sm font-semibold text-[var(--text-muted)]">Accuracy</span>
-                    <div class="flex gap-3 items-center">
-                      <div id="accuracy-white-box" class="w-[52px] h-6 flex items-center justify-center bg-[#f0f0f0] text-[#333] font-bold text-[13px] rounded shadow-sm">—</div>
-                      <div id="accuracy-black-box" class="w-[52px] h-6 flex items-center justify-center bg-[#333] text-white font-bold text-[13px] rounded border border-[var(--border)] shadow-sm">—</div>
-                    </div>
-                  </div>
-
-                  <!-- Game Rating Row -->
-                  <div id="rating-row" class="flex justify-between items-center hidden">
-                    <span class="text-sm font-semibold text-[var(--text-muted)]">Game Rating</span>
-                    <div class="flex gap-3 items-center">
-                      <div id="rating-white-box" class="w-[52px] h-6 flex items-center justify-center bg-[#f0f0f0] text-[#333] font-bold text-[13px] rounded shadow-sm">—</div>
-                      <div id="rating-black-box" class="w-[52px] h-6 flex items-center justify-center bg-[#333] text-white font-bold text-[13px] rounded border border-[var(--border)] shadow-sm">—</div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Game Phases -->
-                <div id="game-phases-container" class="border-t border-[var(--border)] pt-3 hidden">
-                  <div class="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2 flex justify-between items-center">
-                    <span>Game Phases</span>
-                    <div class="flex justify-between items-center w-[56px] mr-1">
-                      <div class="w-6 h-5 flex justify-center items-center bg-[#f0f0f0] text-[#333] font-bold text-[10px] rounded">W</div>
-                      <div class="w-6 h-5 flex justify-center items-center bg-[#333] text-white font-bold text-[10px] rounded border border-[var(--border)]">B</div>
-                    </div>
-                  </div>
-                  <div class="flex flex-col gap-2 text-sm text-[var(--text-secondary)]">
-                    <div class="flex justify-between items-center" id="phase-row-opening">
-                      <span>Opening</span>
-                      <div class="flex justify-between items-center w-[56px] mr-1">
-                        <div id="phase-badge-white-opening" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
-                        <div id="phase-badge-black-opening" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
-                      </div>
-                    </div>
-                    <div class="flex justify-between items-center" id="phase-row-middlegame">
-                      <span>Middlegame</span>
-                      <div class="flex justify-between items-center w-[56px] mr-1">
-                        <div id="phase-badge-white-middlegame" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
-                        <div id="phase-badge-black-middlegame" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
-                      </div>
-                    </div>
-                    <div class="flex justify-between items-center" id="phase-row-endgame">
-                      <span>Endgame</span>
-                      <div class="flex justify-between items-center w-[56px] mr-1">
-                        <div id="phase-badge-white-endgame" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
-                        <div id="phase-badge-black-endgame" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Classification scorecards -->
-                <div class="border-t border-[var(--border)] pt-3">
-                  <div class="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2 flex justify-between items-center">
-                    <span>Classifications</span>
-                    <div class="flex justify-between items-center w-[56px] mr-1">
-                      <div class="w-6 h-5 flex justify-center items-center bg-[#f0f0f0] text-[#333] font-bold text-[10px] rounded">W</div>
-                      <div class="w-6 h-5 flex justify-center items-center bg-[#333] text-white font-bold text-[10px] rounded border border-[var(--border)]">B</div>
-                    </div>
-                  </div>
-                  <div id="scorecard-merged" class="flex flex-col gap-2 text-sm text-[var(--text-secondary)]">
-                    <div class="text-[var(--text-muted)] text-xs italic text-center py-2">Analyze a game to see results.</div>
-                  </div>
-                </div>
-
-                <!-- Annotations scorecards -->
-                <div class="border-t border-[var(--border)] pt-3" id="annotations-container" style="display: none;">
-                  <div class="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2 flex justify-between items-center">
-                    <span>Annotations</span>
-                    <div class="flex justify-between items-center w-[56px] mr-1">
-                      <div class="w-6 h-5 flex justify-center items-center bg-[#f0f0f0] text-[#333] font-bold text-[10px] rounded">W</div>
-                      <div class="w-6 h-5 flex justify-center items-center bg-[#333] text-white font-bold text-[10px] rounded border border-[var(--border)]">B</div>
-                    </div>
-                  </div>
-                  <div id="annotations-list" class="flex flex-col gap-2 text-sm text-[var(--text-secondary)]">
-                  </div>
-                </div>
-
-                <!-- Legend Section inside summary panel -->
-                <div class="border-t border-[var(--border)] pt-4 mt-2">
-                  <div class="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Move Legends</div>
-                  <div class="flex flex-col gap-1.5">
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/brilliant.svg" alt="!!"> Brilliant
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A difficult to find sacrifice or game-changing move.</div>
-                    </div>
-                    
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/great.svg" alt="!"> Great Move
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">The only good move in a critical position.</div>
-                    </div>
-                    
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/best.svg" alt="★"> Best
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">The optimal move according to the engine.</div>
-                    </div>
-                    
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/excellent.svg" alt="✦"> Excellent
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A very strong move that maintains your advantage.</div>
-                    </div>
-                    
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/good.svg" alt="✓"> Good
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A solid move, though somewhat less optimal.</div>
-                    </div>
-                    
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/theory.svg" alt="⌕"> Theory
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">An established opening theory move.</div>
-                    </div>
-                    
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/inaccuracy.svg" alt="?!"> Inaccuracy
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A suboptimal move that slightly worsens your position.</div>
-                    </div>
-                    
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/mistake.svg" alt="?"> Mistake
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A weak move that loses a significant advantage.</div>
-                    </div>
-                    
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/blunder.svg" alt="??"> Blunder
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A terrible move that drastically worsens your position.</div>
-                    </div>
-                  </div>
-
-                  <div class="mt-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Annotation Legends</div>
-                  <div class="flex flex-col gap-1.5">
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_brilliant.svg" alt="!!"> Brilliant Move
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">An excellent and hard to find move.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_good.svg" alt="!"> Good Move
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A good, strong move.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_interesting.svg" alt="!?"> Speculative / Interesting
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">An interesting but perhaps not fully sound move.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_dubious.svg" alt="?!"> Dubious Move
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A move that is questionable or slightly bad.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_mistake.svg" alt="?"> Poor Move / Mistake
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A poor move that should be avoided.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_blunder.svg" alt="??"> Blunder
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A terrible move that likely loses the game.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_forced.svg" alt="□"> Forced
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">The only legal or reasonable move.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_balanced.svg" alt="="> Balanced
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Even or quiet position with equal chances.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_unclear.svg" alt="∞"> Unclear
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">The position is complex and unclear.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_white_slight_advantage.svg" alt="⩲"> White Slight Advantage
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">White has a slight advantage.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_black_slight_advantage.svg" alt="⩱"> Black Slight Advantage
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Black has a slight advantage.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_white_moderate_advantage.svg" alt="±"> White Moderate Advantage
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">White has a moderate advantage.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_black_moderate_advantage.svg" alt="∓"> Black Moderate Advantage
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Black has a moderate advantage.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_white_decisive_advantage.svg" alt="+-"> White Decisive Advantage
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">White has a winning or crushing advantage.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_black_decisive_advantage.svg" alt="-+"> Black Decisive Advantage
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Black has a winning or crushing advantage.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_zugzwang.svg" alt="⨀"> Zugzwang
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player is forced to make a move that worsens their position.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_space.svg" alt="○"> Space
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has a moderate space advantage.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_development.svg" alt="⟳"> Development
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has a development advantage.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_initiative.svg" alt="↑"> Initiative
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has the initiative.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_attack.svg" alt="→"> Attack
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has a strong attack.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_compensation.svg" alt="⯹"> Compensation
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has sufficient compensation for a disadvantage.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_counterplay.svg" alt="⇆"> Counterplay
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has active counterplay.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_time_trouble.svg" alt="⨁"> Time Trouble
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player is in severe time trouble.</div>
-                    </div>
-                    <div class="flex flex-col mb-1.5">
-                      <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                        <img class="move-badge" src="assets/markers/annotation_novelty.svg" alt="N"> Novelty
-                      </div>
-                      <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A new move that deviates from known theory.</div>
-                    </div>
-                  </div>
-                  <div class="mt-2 pt-2 border-t border-[var(--border)] text-[10px] text-[var(--text-muted)] leading-4">
-                    Drag a piece to a <em>different</em> square than the game move to enter live analysis mode.
+                    <button id="btn-puzzle-action" class="btn-primary flex-1 py-2 text-xs">Start Puzzle</button>
+                    <button id="btn-puzzle-hint" class="btn-secondary flex-1 py-2 text-xs" disabled>Get Hint</button>
+                    <button id="btn-puzzle-reveal" class="btn-secondary flex-1 py-2 text-xs" disabled>Solution</button>
                   </div>
                 </div>
               </div>
 
-              <!-- ── Moves Panel ────────────────────────────────────── -->
-              <div id="panel-moves" class="hidden p-2">
-                <div id="move-list" class="move-list">
-                  <div class="text-center text-[var(--text-muted)] text-xs py-6 italic">
-                    Paste a PGN inside the Import tab to load/analyze.
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Evaluation & Win Probability Charts -->
-          <div class="glass-card p-3 shrink-0 flex flex-col gap-4">
-            <div>
-              <div class="text-xs text-[var(--text-muted)] mb-2 font-semibold uppercase tracking-wider">
-                Position Evaluation
-              </div>
-              <div id="eval-chart-container">
-                <canvas id="eval-chart"></canvas>
-              </div>
-            </div>
-            <div>
-              <div class="text-xs text-[var(--text-muted)] mb-2 font-semibold uppercase tracking-wider">
-                Win Probability (WDL)
-              </div>
-              <div id="wdl-chart-container">
-                <canvas id="wdl-chart"></canvas>
-              </div>
-            </div>
-          </div>
-        </div> <!-- end review-dashboard -->
-
-        <!-- ── Training Dashboard ───────────────────────────────── -->
-        <div id="training-dashboard" class="glass-card flex-1 min-h-0 overflow-hidden flex flex-col hidden">
-          <!-- Training Header -->
-          <div class="panel-header flex items-center justify-between gap-3 px-3.5 py-2.5 bg-[var(--bg-secondary)] border-b border-[var(--border)] shrink-0">
-            <div class="flex items-center gap-2">
-              <span class="font-bold text-sm tracking-tight text-[var(--text-primary)]" id="training-header-title">Training Hub</span>
-            </div>
-            <button id="btn-training-back" class="hidden text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors flex items-center gap-1">
-              ✕ Exit Mode
-            </button>
-          </div>
-
-          <div class="flex-1 overflow-y-auto min-h-0 p-3 flex flex-col">
-            
-            <!-- 1. Training Hub Menu -->
-            <div id="training-menu" class="flex flex-col gap-3">
-              <div class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1">Select a Training Module</div>
-              
-              <button id="menu-btn-puzzles" class="training-menu-card">
-                <span class="card-icon">🧩</span>
-                <span class="card-content">
-                  <span class="card-title">Tactics Training</span>
-                  <span class="card-desc">Solve daily or curated chess puzzles</span>
-                </span>
-              </button>
-
-              <button id="menu-btn-openings" class="training-menu-card">
-                <span class="card-icon">📖</span>
-                <span class="card-content">
-                  <span class="card-title">Opening Trainer</span>
-                  <span class="card-desc">Practice and memorize opening theory</span>
-                </span>
-              </button>
-
-              <button id="menu-btn-engine" class="training-menu-card">
-                <span class="card-icon">🤖</span>
-                <span class="card-content">
-                  <span class="card-title">Play vs Engine</span>
-                  <span class="card-desc">Face Stockfish with scaled ELO ratings</span>
-                </span>
-              </button>
-
-              <button id="menu-btn-coordinates" class="training-menu-card">
-                <span class="card-icon">🎯</span>
-                <span class="card-content">
-                  <span class="card-title">Coordinate Trainer</span>
-                  <span class="card-desc">Find chess squares on a 30s timer</span>
-                </span>
-              </button>
-            </div>
-
-            <!-- 2. Tactics Panel -->
-            <div id="training-panel-puzzles" class="hidden flex flex-col gap-4 flex-1">
-              <div class="flex flex-col gap-2.5">
-                <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Select Puzzle Source</label>
-                <div class="flex gap-2">
-                  <button id="btn-puzzle-daily" class="btn-primary flex-1 py-2 text-xs">Lichess Daily</button>
-                  <button id="btn-puzzle-curated" class="btn-secondary flex-1 py-2 text-xs">Offline List</button>
-                </div>
-              </div>
-
-              <div id="puzzle-select-container" class="hidden flex flex-col gap-1.5">
-                <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Choose Puzzle</label>
-                <select id="select-curated-puzzles" class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent-green)]">
-                  <!-- curations injected here -->
-                </select>
-              </div>
-
-              <div id="puzzle-active-info" class="hidden border-t border-[var(--border)] pt-3 flex flex-col gap-3">
-                <div class="flex justify-between items-center bg-[var(--bg-primary)] p-2.5 rounded border border-[var(--border)]">
-                  <div class="flex flex-col">
-                    <span id="puzzle-title" class="font-bold text-xs text-[var(--text-primary)]">Philidor's Legacy</span>
-                    <span id="puzzle-theme" class="text-[10px] text-[var(--text-muted)] mt-0.5">Smothered Mate</span>
-                  </div>
-                  <span id="puzzle-rating" class="font-mono text-xs font-bold text-[var(--accent-green)] bg-[var(--accent-green)]/15 px-2 py-0.5 rounded">1500 ELO</span>
-                </div>
-
-                <p id="puzzle-desc" class="text-xs text-[var(--text-secondary)] leading-relaxed italic"></p>
-                
-                <div id="puzzle-feedback" class="text-center py-2 px-3 rounded text-xs font-semibold select-none min-h-[32px] flex items-center justify-center">
-                  Click Start to begin
-                </div>
-
-                <div class="flex gap-2 mt-1">
-                  <button id="btn-puzzle-action" class="btn-primary flex-1 py-2 text-xs">Start Puzzle</button>
-                  <button id="btn-puzzle-hint" class="btn-secondary flex-1 py-2 text-xs" disabled>Get Hint</button>
-                  <button id="btn-puzzle-reveal" class="btn-secondary flex-1 py-2 text-xs" disabled>Solution</button>
-                </div>
-              </div>
-            </div>
-
-            <!-- 3. Opening Trainer Panel -->
-            <div id="training-panel-openings" class="hidden flex flex-col gap-4 flex-1">
-              <div class="flex flex-col gap-1.5">
-                <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Choose Opening</label>
-                <select id="select-opening" class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent-green)]">
-                  <!-- openings injected here -->
-                </select>
-              </div>
-
-              <div class="flex flex-col gap-2">
-                <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Play Side</label>
-                <div class="flex gap-2">
-                  <button id="btn-opening-side-white" class="btn-primary flex-1 py-1.5 text-xs">As White</button>
-                  <button id="btn-opening-side-black" class="btn-secondary flex-1 py-1.5 text-xs">As Black</button>
-                </div>
-              </div>
-
-              <div class="border-t border-[var(--border)] pt-3 flex flex-col gap-3 flex-1 min-h-0">
-                <div id="opening-info" class="bg-[var(--bg-primary)] p-2.5 rounded border border-[var(--border)] flex flex-col gap-1">
-                  <span id="opening-title" class="font-bold text-xs">Ruy Lopez</span>
-                  <span id="opening-desc" class="text-[10px] text-[var(--text-muted)] leading-relaxed">Practice the classical Spanish opening.</span>
-                </div>
-
-                <div id="opening-feedback" class="text-center py-1.5 px-3 rounded text-xs font-semibold select-none min-h-[30px] flex items-center justify-center bg-[var(--bg-primary)] border border-[var(--border)]">
-                  Click Start to practice
-                </div>
-
-                <div id="opening-moves-container" class="hidden flex flex-col gap-1.5 flex-1 min-h-0">
-                  <span class="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Theory Moves</span>
-                  <div id="opening-moves-list" class="flex-1 overflow-y-auto bg-[var(--bg-primary)] border border-[var(--border)] rounded p-2 font-mono text-xs text-[var(--text-secondary)] leading-6">
-                    <!-- moves injected here -->
-                  </div>
-                </div>
-
-                <div id="opening-explorer-container" class="hidden flex flex-col gap-1.5 flex-1 min-h-0 border-t border-[var(--border)] pt-2">
-                  <div class="flex items-center justify-between">
-                    <span class="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Popular Responses</span>
-                    <label class="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-[var(--text-muted)] select-none">
-                      <input type="checkbox" id="toggle-opening-engine" class="rounded border-[var(--border)] bg-[var(--bg-primary)] text-[var(--accent-green)] focus:ring-0 focus:ring-offset-0" />
-                      Stockfish
-                    </label>
-                  </div>
-                  <div class="flex-1 overflow-y-auto bg-[var(--bg-primary)] border border-[var(--border)] rounded min-h-[140px]">
-                    <table class="w-full text-xs text-left border-collapse font-sans">
-                      <thead>
-                        <tr class="border-b border-[var(--border)] text-[9px] text-[var(--text-muted)] uppercase font-semibold bg-[var(--bg-secondary)]">
-                          <th class="p-1.5">Move</th>
-                          <th class="p-1.5 text-right">Pop (%)</th>
-                          <th class="p-1.5 text-right">W/D/B (%)</th>
-                          <th class="p-1.5 text-right">Eval</th>
-                        </tr>
-                      </thead>
-                      <tbody id="opening-explorer-tbody">
-                        <!-- rows injected dynamically -->
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <button id="btn-opening-start" class="btn-primary w-full py-2 text-xs">Start Training</button>
-              </div>
-            </div>
-
-            <!-- 4. Play vs Engine Panel -->
-            <div id="training-panel-engine" class="hidden flex flex-col gap-4 flex-1">
-              <div class="flex flex-col gap-1">
-                <div class="flex justify-between items-center">
-                  <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Engine ELO</label>
-                  <span id="engine-elo-display" class="font-mono text-xs font-bold text-[var(--accent-green)] bg-[var(--accent-green)]/15 px-2 py-0.5 rounded">1500 ELO</span>
-                </div>
-                <input id="engine-elo-slider" type="range" min="800" max="3200" step="200" value="1400" class="w-full mt-1.5" />
-                <div id="engine-strength-label" class="text-[10px] text-[var(--text-muted)] text-right mt-0.5 font-semibold">1400 - Intermediate</div>
-              </div>
-
-              <div class="flex flex-col gap-2">
-                <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Play As</label>
-                <div class="flex gap-2">
-                  <button id="btn-engine-side-white" class="btn-primary flex-1 py-1.5 text-xs">White</button>
-                  <button id="btn-engine-side-black" class="btn-secondary flex-1 py-1.5 text-xs">Black</button>
-                  <button id="btn-engine-side-random" class="btn-secondary flex-1 py-1.5 text-xs">Random</button>
-                </div>
-              </div>
-
-              <div class="border-t border-[var(--border)] pt-3 flex flex-col gap-3 flex-1 min-h-0">
-                <div id="engine-game-status" class="text-center py-2 px-3 rounded text-xs font-semibold select-none bg-[var(--bg-primary)] border border-[var(--border)] min-h-[32px] flex items-center justify-center">
-                  Ready to play vs Stockfish
-                </div>
-
-                <div id="engine-moves-container" class="hidden flex flex-col gap-1.5 flex-1 min-h-0">
-                  <span class="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Game Moves</span>
-                  <div id="engine-moves-list" class="flex-1 overflow-y-auto bg-[var(--bg-primary)] border border-[var(--border)] rounded p-2.5 font-mono text-xs leading-6">
-                    <!-- game moves here -->
-                  </div>
-                </div>
-
-                <div class="flex gap-2 shrink-0">
-                  <button id="btn-engine-start" class="btn-primary flex-1 py-2 text-xs">Start Game</button>
-                  <button id="btn-engine-review" class="btn-secondary flex-1 py-2 text-xs hidden">Review Game</button>
-                  <button id="btn-engine-resign" class="btn-secondary flex-1 py-2 text-xs hidden">Resign</button>
-                </div>
-              </div>
-            </div>
-
-            <!-- 5. Coordinate Trainer Panel -->
-            <div id="training-panel-coordinates" class="hidden flex flex-col gap-4 flex-1">
-              <div id="coordinates-start-screen" class="flex flex-col gap-4 flex-1">
-                <div class="bg-[var(--bg-primary)] p-3 rounded border border-[var(--border)] text-xs text-[var(--text-secondary)] leading-relaxed">
-                  🎯 <strong>Coordinate Trainer</strong> improves your chessboard visualization.
-                  <ul class="list-disc pl-4 mt-1.5 flex flex-col gap-1">
-                    <li>You will have <strong>30 seconds</strong>.</li>
-                    <li>Find and click the coordinate target shown on the screen.</li>
-                    <li>Pieces are hidden. Board is empty.</li>
-                  </ul>
+              <!-- 3. Opening Trainer Panel -->
+              <div id="training-panel-openings" class="hidden flex flex-col gap-4 flex-1">
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Choose
+                    Opening</label>
+                  <select id="select-opening"
+                    class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent-green)]">
+                    <!-- openings injected here -->
+                  </select>
                 </div>
 
                 <div class="flex flex-col gap-2">
-                  <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Orientation</label>
+                  <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Play Side</label>
                   <div class="flex gap-2">
-                    <button id="btn-coords-side-white" class="btn-primary flex-1 py-1.5 text-xs">White</button>
-                    <button id="btn-coords-side-black" class="btn-secondary flex-1 py-1.5 text-xs">Black</button>
+                    <button id="btn-opening-side-white" class="btn-primary flex-1 py-1.5 text-xs">As White</button>
+                    <button id="btn-opening-side-black" class="btn-secondary flex-1 py-1.5 text-xs">As Black</button>
                   </div>
                 </div>
 
-                <div id="coords-high-score" class="text-center py-2 px-3 rounded text-xs font-semibold bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-secondary)]">
-                  Personal Best: —
-                </div>
+                <div class="border-t border-[var(--border)] pt-3 flex flex-col gap-3 flex-1 min-h-0">
+                  <div id="opening-info"
+                    class="bg-[var(--bg-primary)] p-2.5 rounded border border-[var(--border)] flex flex-col gap-1">
+                    <span id="opening-title" class="font-bold text-xs">Ruy Lopez</span>
+                    <span id="opening-desc" class="text-[10px] text-[var(--text-muted)] leading-relaxed">Practice the
+                      classical Spanish opening.</span>
+                  </div>
 
-                <button id="btn-coords-start" class="btn-primary w-full py-2 text-xs mt-auto">Start Challenge</button>
+                  <div id="opening-feedback"
+                    class="text-center py-1.5 px-3 rounded text-xs font-semibold select-none min-h-[30px] flex items-center justify-center bg-[var(--bg-primary)] border border-[var(--border)]">
+                    Click Start to practice
+                  </div>
+
+                  <div id="opening-moves-container" class="hidden flex flex-col gap-1.5 flex-1 min-h-0">
+                    <span class="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Theory
+                      Moves</span>
+                    <div id="opening-moves-list"
+                      class="flex-1 overflow-y-auto bg-[var(--bg-primary)] border border-[var(--border)] rounded p-2 font-mono text-xs text-[var(--text-secondary)] leading-6">
+                      <!-- moves injected here -->
+                    </div>
+                  </div>
+
+                  <div id="opening-explorer-container"
+                    class="hidden flex flex-col gap-1.5 flex-1 min-h-0 border-t border-[var(--border)] pt-2">
+                    <div class="flex items-center justify-between">
+                      <span class="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Popular
+                        Responses</span>
+                      <label
+                        class="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-[var(--text-muted)] select-none">
+                        <input type="checkbox" id="toggle-opening-engine"
+                          class="rounded border-[var(--border)] bg-[var(--bg-primary)] text-[var(--accent-green)] focus:ring-0 focus:ring-offset-0" />
+                        Stockfish
+                      </label>
+                    </div>
+                    <div
+                      class="flex-1 overflow-y-auto bg-[var(--bg-primary)] border border-[var(--border)] rounded min-h-[140px]">
+                      <table class="w-full text-xs text-left border-collapse font-sans">
+                        <thead>
+                          <tr
+                            class="border-b border-[var(--border)] text-[9px] text-[var(--text-muted)] uppercase font-semibold bg-[var(--bg-secondary)]">
+                            <th class="p-1.5">Move</th>
+                            <th class="p-1.5 text-right">Pop (%)</th>
+                            <th class="p-1.5 text-right">W/D/B (%)</th>
+                            <th class="p-1.5 text-right">Eval</th>
+                          </tr>
+                        </thead>
+                        <tbody id="opening-explorer-tbody">
+                          <!-- rows injected dynamically -->
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <button id="btn-opening-start" class="btn-primary w-full py-2 text-xs">Start Training</button>
+                </div>
               </div>
 
-              <div id="coordinates-active-screen" class="hidden flex flex-col gap-4 items-center justify-center flex-1 py-4">
-                <!-- Timer & Score HUD -->
-                <div class="flex justify-between items-center w-full px-2">
-                  <div class="flex flex-col items-start">
-                    <span class="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Score</span>
-                    <span id="coords-score" class="text-xl font-bold font-mono text-[var(--text-primary)]">0</span>
+              <!-- 4. Play vs Engine Panel -->
+              <div id="training-panel-engine" class="hidden flex flex-col gap-4 flex-1">
+                <div class="flex flex-col gap-1">
+                  <div class="flex justify-between items-center">
+                    <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Engine
+                      ELO</label>
+                    <span id="engine-elo-display"
+                      class="font-mono text-xs font-bold text-[var(--accent-green)] bg-[var(--accent-green)]/15 px-2 py-0.5 rounded">1500
+                      ELO</span>
                   </div>
-                  <div class="flex flex-col items-end">
-                    <span class="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Time</span>
-                    <span id="coords-timer" class="text-xl font-bold font-mono text-[var(--accent-red)]">30s</span>
+                  <input id="engine-elo-slider" type="range" min="800" max="3200" step="200" value="1400"
+                    class="w-full mt-1.5" />
+                  <div id="engine-strength-label"
+                    class="text-[10px] text-[var(--text-muted)] text-right mt-0.5 font-semibold">1400 - Intermediate
                   </div>
                 </div>
 
-                <!-- Target Square -->
-                <div class="flex flex-col items-center justify-center bg-[var(--bg-primary)] border-2 border-[var(--border-light)] rounded-xl w-36 h-36 my-2 shadow-2xl">
-                  <span class="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1">Click Square</span>
-                  <span id="coords-target" class="text-5xl font-extrabold font-mono text-[var(--accent-green)]">e4</span>
+                <div class="flex flex-col gap-2">
+                  <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Play As</label>
+                  <div class="flex gap-2">
+                    <button id="btn-engine-side-white" class="btn-primary flex-1 py-1.5 text-xs">White</button>
+                    <button id="btn-engine-side-black" class="btn-secondary flex-1 py-1.5 text-xs">Black</button>
+                    <button id="btn-engine-side-random" class="btn-secondary flex-1 py-1.5 text-xs">Random</button>
+                  </div>
                 </div>
 
-                <div id="coords-active-feedback" class="text-center text-xs font-semibold text-[var(--text-muted)] select-none h-4">
-                  Get Ready!
+                <div class="border-t border-[var(--border)] pt-3 flex flex-col gap-3 flex-1 min-h-0">
+                  <div id="engine-game-status"
+                    class="text-center py-2 px-3 rounded text-xs font-semibold select-none bg-[var(--bg-primary)] border border-[var(--border)] min-h-[32px] flex items-center justify-center">
+                    Ready to play vs Stockfish
+                  </div>
+
+                  <div id="engine-moves-container" class="hidden flex flex-col gap-1.5 flex-1 min-h-0">
+                    <span class="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Game
+                      Moves</span>
+                    <div id="engine-moves-list"
+                      class="flex-1 overflow-y-auto bg-[var(--bg-primary)] border border-[var(--border)] rounded p-2.5 font-mono text-xs leading-6">
+                      <!-- game moves here -->
+                    </div>
+                  </div>
+
+                  <div class="flex gap-2 shrink-0">
+                    <button id="btn-engine-start" class="btn-primary flex-1 py-2 text-xs">Start Game</button>
+                    <button id="btn-engine-review" class="btn-secondary flex-1 py-2 text-xs hidden">Review Game</button>
+                    <button id="btn-engine-resign" class="btn-secondary flex-1 py-2 text-xs hidden">Resign</button>
+                  </div>
                 </div>
               </div>
 
-              <div id="coordinates-results-screen" class="hidden flex flex-col gap-4 items-center justify-center flex-1 py-4">
-                <div class="text-4xl">🏆</div>
-                <h4 class="font-bold text-base text-[var(--text-primary)]">Challenge Completed!</h4>
-                
-                <div class="flex flex-col gap-1.5 bg-[var(--bg-primary)] border border-[var(--border)] p-3 rounded-lg w-full text-sm font-semibold">
-                  <div class="flex justify-between">
-                    <span class="text-[var(--text-muted)]">Correct Clicks:</span>
-                    <span id="coords-result-score" class="font-mono text-[var(--text-primary)]">15</span>
+              <!-- 5. Coordinate Trainer Panel -->
+              <div id="training-panel-coordinates" class="hidden flex flex-col gap-4 flex-1">
+                <div id="coordinates-start-screen" class="flex flex-col gap-4 flex-1">
+                  <div
+                    class="bg-[var(--bg-primary)] p-3 rounded border border-[var(--border)] text-xs text-[var(--text-secondary)] leading-relaxed">
+                    🎯 <strong>Coordinate Trainer</strong> improves your chessboard visualization.
+                    <ul class="list-disc pl-4 mt-1.5 flex flex-col gap-1">
+                      <li>You will have <strong>30 seconds</strong>.</li>
+                      <li>Find and click the coordinate target shown on the screen.</li>
+                      <li>Pieces are hidden. Board is empty.</li>
+                    </ul>
                   </div>
-                  <div class="flex justify-between">
-                    <span class="text-[var(--text-muted)]">Total Attempts:</span>
-                    <span id="coords-result-attempts" class="font-mono text-[var(--text-primary)]">18</span>
+
+                  <div class="flex flex-col gap-2">
+                    <label
+                      class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Orientation</label>
+                    <div class="flex gap-2">
+                      <button id="btn-coords-side-white" class="btn-primary flex-1 py-1.5 text-xs">White</button>
+                      <button id="btn-coords-side-black" class="btn-secondary flex-1 py-1.5 text-xs">Black</button>
+                    </div>
                   </div>
-                  <div class="flex justify-between border-t border-[var(--border)] pt-1.5 mt-1.5">
-                    <span class="text-[var(--text-muted)]">Accuracy:</span>
-                    <span id="coords-result-accuracy" class="font-mono text-[var(--accent-green)]">83%</span>
+
+                  <div id="coords-high-score"
+                    class="text-center py-2 px-3 rounded text-xs font-semibold bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-secondary)]">
+                    Personal Best: —
+                  </div>
+
+                  <button id="btn-coords-start" class="btn-primary w-full py-2 text-xs mt-auto">Start Challenge</button>
+                </div>
+
+                <div id="coordinates-active-screen"
+                  class="hidden flex flex-col gap-4 items-center justify-center flex-1 py-4">
+                  <!-- Timer & Score HUD -->
+                  <div class="flex justify-between items-center w-full px-2">
+                    <div class="flex flex-col items-start">
+                      <span class="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Score</span>
+                      <span id="coords-score" class="text-xl font-bold font-mono text-[var(--text-primary)]">0</span>
+                    </div>
+                    <div class="flex flex-col items-end">
+                      <span class="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Time</span>
+                      <span id="coords-timer" class="text-xl font-bold font-mono text-[var(--accent-red)]">30s</span>
+                    </div>
+                  </div>
+
+                  <!-- Target Square -->
+                  <div
+                    class="flex flex-col items-center justify-center bg-[var(--bg-primary)] border-2 border-[var(--border-light)] rounded-xl w-36 h-36 my-2 shadow-2xl">
+                    <span class="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1">Click
+                      Square</span>
+                    <span id="coords-target"
+                      class="text-5xl font-extrabold font-mono text-[var(--accent-green)]">e4</span>
+                  </div>
+
+                  <div id="coords-active-feedback"
+                    class="text-center text-xs font-semibold text-[var(--text-muted)] select-none h-4">
+                    Get Ready!
                   </div>
                 </div>
 
-                <button id="btn-coords-retry" class="btn-primary w-full py-2 text-xs">Play Again</button>
+                <div id="coordinates-results-screen"
+                  class="hidden flex flex-col gap-4 items-center justify-center flex-1 py-4">
+                  <div class="text-4xl">🏆</div>
+                  <h4 class="font-bold text-base text-[var(--text-primary)]">Challenge Completed!</h4>
+
+                  <div
+                    class="flex flex-col gap-1.5 bg-[var(--bg-primary)] border border-[var(--border)] p-3 rounded-lg w-full text-sm font-semibold">
+                    <div class="flex justify-between">
+                      <span class="text-[var(--text-muted)]">Correct Clicks:</span>
+                      <span id="coords-result-score" class="font-mono text-[var(--text-primary)]">15</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-[var(--text-muted)]">Total Attempts:</span>
+                      <span id="coords-result-attempts" class="font-mono text-[var(--text-primary)]">18</span>
+                    </div>
+                    <div class="flex justify-between border-t border-[var(--border)] pt-1.5 mt-1.5">
+                      <span class="text-[var(--text-muted)]">Accuracy:</span>
+                      <span id="coords-result-accuracy" class="font-mono text-[var(--accent-green)]">83%</span>
+                    </div>
+                  </div>
+
+                  <button id="btn-coords-retry" class="btn-primary w-full py-2 text-xs">Play Again</button>
+                </div>
               </div>
+
             </div>
-
           </div>
-        </div>
 
         </div>
         <!-- end right panel -->
@@ -1117,22 +1375,41 @@
 
         <!-- Engine Settings Option -->
         <div class="flex flex-col gap-3 border-t border-[var(--border)] pt-4">
-          <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Live Engine Configuration</label>
-          
+          <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Live Engine
+            Configuration</label>
+
           <div class="flex items-center justify-between gap-4">
             <span class="text-sm text-[var(--text-secondary)]">Analysis Depth</span>
-            <input id="settings-depth" type="number" min="8" max="30" value="18" class="w-16 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] outline-none text-center text-sm focus:border-[var(--accent-green)]" />
+            <input id="settings-depth" type="number" min="8" max="30" value="18"
+              class="w-16 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] outline-none text-center text-sm focus:border-[var(--accent-green)]" />
           </div>
 
           <div class="flex items-center justify-between gap-4">
             <span class="text-sm text-[var(--text-secondary)]">Search Timeout (seconds)</span>
-            <input id="settings-timeout" type="number" min="0" max="100" value="0" class="w-16 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] outline-none text-center text-sm focus:border-[var(--accent-green)]" />
+            <input id="settings-timeout" type="number" min="0" max="100" value="0"
+              class="w-16 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] outline-none text-center text-sm focus:border-[var(--accent-green)]" />
           </div>
         </div>
 
+        <!-- Syzygy Configuration Option -->
+        <div class="flex flex-col gap-3 border-t border-[var(--border)] pt-4">
+          <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Syzygy Endgame Tablebases</label>
+          <div class="text-[10px] text-[var(--text-muted)] leading-relaxed mb-1">
+            Specify the directories containing Syzygy WDL/DTZ files. Multiple paths can be configured. If any path is filled, Syzygy path configuration will be enabled for Stockfish.
+          </div>
+
+          <div id="syzygy-paths-container" class="flex flex-col gap-2">
+            <!-- Dynamic path input rows will be injected here -->
+          </div>
+        </div>
+
+
+
         <!-- Note about config.json -->
-        <div class="text-[10px] text-[var(--text-muted)] leading-relaxed bg-[var(--bg-primary)] p-2.5 rounded border border-[var(--border)]">
-          💡 CPU Threads and Hash table size configurations can be edited in <code class="font-mono text-[var(--text-secondary)]">config.json</code> in the project root folder.
+        <div
+          class="text-[10px] text-[var(--text-muted)] leading-relaxed bg-[var(--bg-primary)] p-2.5 rounded border border-[var(--border)]">
+          💡 CPU Threads and Hash table size configurations can be edited in <code
+            class="font-mono text-[var(--text-secondary)]">config.json</code> in the project root folder.
         </div>
       </div>
     </div>
@@ -1147,18 +1424,23 @@
       </div>
       <div class="modal-body flex flex-col gap-4 p-4 text-sm leading-relaxed text-[var(--text-secondary)]">
         <div class="flex items-center gap-3">
-          <div class="w-12 h-12 rounded-lg bg-[var(--accent-green)] flex items-center justify-center text-3xl shadow-lg shadow-green-950/20">♟</div>
+          <div
+            class="w-12 h-12 rounded-lg bg-[var(--accent-green)] flex items-center justify-center text-3xl shadow-lg shadow-green-950/20">
+            ♟</div>
           <div>
-            <h4 class="font-bold text-[var(--text-primary)] text-base">ChessReviewer <span class="text-xs font-normal text-[var(--text-muted)]">v1.0.0</span></h4>
+            <h4 class="font-bold text-[var(--text-primary)] text-base">ChessReviewer <span
+                class="text-xs font-normal text-[var(--text-muted)]">v1.0.0</span></h4>
             <p class="text-xs text-[var(--text-muted)]">Free Local Game Review & Analysis</p>
           </div>
         </div>
 
         <p class="mt-2 text-xs">
-          ChessReviewer is a web application designed to bring advanced, commercial-grade chess game analysis directly to your local computer for free.
+          ChessReviewer is a web application designed to bring advanced, commercial-grade chess game analysis directly
+          to your local computer for free.
         </p>
 
-        <div class="flex flex-col gap-1 bg-[var(--bg-primary)] p-3 rounded border border-[var(--border)] text-xs text-[var(--text-muted)] mt-1">
+        <div
+          class="flex flex-col gap-1 bg-[var(--bg-primary)] p-3 rounded border border-[var(--border)] text-xs text-[var(--text-muted)] mt-1">
           <div class="flex justify-between">
             <span>Local Engine:</span>
             <span class="font-mono text-[var(--text-secondary)]">Stockfish (UCI)</span>
@@ -1191,4 +1473,5 @@
   <script type="module" src="app.js?v=10"></script>
 
 </body>
+
 </html>

@@ -110,11 +110,14 @@ impl StockfishProcess {
         self.send_command("isready").await?;
         self.read_until("readyok").await?;
 
+        // Always ensure MultiPV=3 before batch analysis
+        self.send_command("setoption name MultiPV value 3").await?;
         self.send_command(&format!("position fen {}", fen)).await?;
         self.send_command(&format!("go depth {}", depth)).await?;
 
         let mut pv_map: std::collections::HashMap<usize, UciPvInfo> = std::collections::HashMap::new();
         let mut line = String::new();
+        let mut line_count = 0usize;
 
         loop {
             line.clear();
@@ -124,6 +127,11 @@ impl StockfishProcess {
                 return Err("Stockfish process exited during analysis".to_string());
             }
             let trimmed = line.trim();
+            line_count += 1;
+
+            if line_count <= 5 || trimmed.starts_with("bestmove") {
+                println!("[engine] raw line {}: {}", line_count, trimmed);
+            }
 
             if trimmed.starts_with("bestmove") {
                 break;
@@ -131,11 +139,82 @@ impl StockfishProcess {
 
             if trimmed.starts_with("info ") {
                 if let Some((multipv, cp, mate, pv, wdl)) = parse_info_line(trimmed) {
+                    println!("[engine] parsed: multipv={} cp={} mate={:?} pv={:?}", multipv, cp, mate, pv.first());
                     pv_map.insert(multipv, UciPvInfo { multipv, cp, mate, pv, wdl });
+                } else if trimmed.contains(" pv ") || trimmed.contains(" score ") {
+                    println!("[engine] parse_info_line returned None for: {}", &trimmed[..trimmed.len().min(120)]);
                 }
             }
         }
 
+        println!("[engine] analyze_position done: {} lines read, {} PVs found", line_count, pv_map.len());
+        let mut results: Vec<UciPvInfo> = pv_map.into_values().collect();
+        results.sort_by_key(|r| r.multipv);
+        Ok(results)
+    }
+
+    /// Analyze a position with MultiPV=3 and support early cancellation via oneshot receiver.
+    pub async fn analyze_position_cancelable(
+        &mut self,
+        fen: &str,
+        depth: u32,
+        mut cancel_rx: tokio::sync::oneshot::Receiver<()>,
+    ) -> Result<Vec<UciPvInfo>, String> {
+        self.send_command("isready").await?;
+        self.read_until("readyok").await?;
+
+        // Always ensure MultiPV=3 before batch analysis
+        self.send_command("setoption name MultiPV value 3").await?;
+        self.send_command(&format!("position fen {}", fen)).await?;
+        self.send_command(&format!("go depth {}", depth)).await?;
+
+        let mut pv_map: std::collections::HashMap<usize, UciPvInfo> = std::collections::HashMap::new();
+        let mut line = String::new();
+        let mut line_count = 0usize;
+
+        loop {
+            line.clear();
+            tokio::select! {
+                _cancel_res = &mut cancel_rx => {
+                    // Send stop command to Stockfish
+                    let _ = self.send_command("stop").await;
+                    // Drain stdout until bestmove to keep engine clean
+                    loop {
+                        line.clear();
+                        let bytes = self.stdout.read_line(&mut line).await.unwrap_or(0);
+                        if bytes == 0 || line.trim().starts_with("bestmove") {
+                            break;
+                        }
+                    }
+                    return Err("Cancelled".to_string());
+                }
+                read_res = self.stdout.read_line(&mut line) => {
+                    let bytes = read_res.map_err(|e| format!("Failed to read line during analysis: {}", e))?;
+                    if bytes == 0 {
+                        return Err("Stockfish process exited during analysis".to_string());
+                    }
+                    let trimmed = line.trim();
+                    line_count += 1;
+
+                    if line_count <= 5 || trimmed.starts_with("bestmove") {
+                        println!("[engine] raw line {}: {}", line_count, trimmed);
+                    }
+
+                    if trimmed.starts_with("bestmove") {
+                        break;
+                    }
+
+                    if trimmed.starts_with("info ") {
+                        if let Some((multipv, cp, mate, pv, wdl)) = parse_info_line(trimmed) {
+                            println!("[engine] parsed: multipv={} cp={} mate={:?} pv={:?}", multipv, cp, mate, pv.first());
+                            pv_map.insert(multipv, UciPvInfo { multipv, cp, mate, pv, wdl });
+                        }
+                    }
+                }
+            }
+        }
+
+        println!("[engine] analyze_position done: {} lines read, {} PVs found", line_count, pv_map.len());
         let mut results: Vec<UciPvInfo> = pv_map.into_values().collect();
         results.sort_by_key(|r| r.multipv);
         Ok(results)
@@ -172,11 +251,16 @@ impl StockfishProcess {
                 _cancel_res = &mut cancel_rx => {
                     // Engine was cancelled (either got a value or channel was closed/dropped)
                     let _ = self.send_command("stop").await;
+                    println!("[live engine] stop");
                     // Drain until bestmove to leave engine in clean state
                     loop {
                         line.clear();
                         let bytes = self.stdout.read_line(&mut line).await.unwrap_or(0);
-                        if bytes == 0 || line.trim().starts_with("bestmove") {
+                        let trimmed = line.trim();
+                        if !trimmed.is_empty() {
+                            println!("[live engine] drain: {}", trimmed);
+                        }
+                        if bytes == 0 || trimmed.starts_with("bestmove") {
                             break;
                         }
                     }
@@ -189,7 +273,12 @@ impl StockfishProcess {
                     }
                     let trimmed = line.trim();
 
+                    if trimmed.starts_with("info ") && trimmed.contains(" pv ") {
+                        println!("[live engine] {}", trimmed);
+                    }
+
                     if trimmed.starts_with("bestmove") {
+                        println!("[live engine] {}", trimmed);
                         break;
                     }
 
@@ -429,6 +518,7 @@ pub fn parse_info_line(line: &str) -> Option<(usize, i32, Option<i32>, Vec<Strin
 pub struct EngineManager {
     inner: Arc<Mutex<Option<StockfishProcess>>>,
     config: AppConfig,
+    syzygy_path: Arc<Mutex<String>>,
 }
 
 impl EngineManager {
@@ -436,6 +526,7 @@ impl EngineManager {
         Self {
             inner: Arc::new(Mutex::new(None)),
             config,
+            syzygy_path: Arc::new(Mutex::new(String::new())),
         }
     }
 
@@ -453,21 +544,90 @@ impl EngineManager {
         };
 
         if needs_spawn {
-            let process = StockfishProcess::spawn(
+            let mut process = StockfishProcess::spawn(
                 &self.config.stockfish_path,
                 self.config.engine_threads,
                 self.config.engine_hash_mb,
             ).await?;
+
+            // Check syzygy paths and configure if filled
+            let path = self.syzygy_path.lock().await.clone();
+            let path_trimmed = path.trim();
+            if !path_trimmed.is_empty() {
+                let cmd1 = format!("setoption name SyzygyPath value {}", path_trimmed);
+                println!("[EngineManager] Sent to Stockfish: {}", cmd1);
+                process.send_command(&cmd1).await?;
+
+                let cmd2 = "setoption name SyzygyProbeDepth value 1".to_string();
+                println!("[EngineManager] Sent to Stockfish: {}", cmd2);
+                process.send_command(&cmd2).await?;
+
+                process.send_command("isready").await?;
+                let response = process.read_until("readyok").await?;
+                println!("[EngineManager] Stockfish response: {:?}", response);
+            }
+
             *lock = Some(process);
         }
         Ok(())
     }
+
+    pub async fn set_syzygy_path(&self, path: String) {
+        {
+            let mut path_lock = self.syzygy_path.lock().await;
+            *path_lock = path.clone();
+        }
+
+        let mut lock = self.inner.lock().await;
+        if let Some(process) = lock.as_mut() {
+            let path_trimmed = path.trim();
+            if !path_trimmed.is_empty() {
+                let cmd1 = format!("setoption name SyzygyPath value {}", path_trimmed);
+                println!("[EngineManager] Sent to Stockfish (dynamic): {}", cmd1);
+                let _ = process.send_command(&cmd1).await;
+
+                let cmd2 = "setoption name SyzygyProbeDepth value 1".to_string();
+                println!("[EngineManager] Sent to Stockfish (dynamic): {}", cmd2);
+                let _ = process.send_command(&cmd2).await;
+
+                let _ = process.send_command("isready").await;
+                if let Ok(response) = process.read_until("readyok").await {
+                    println!("[EngineManager] Stockfish response: {:?}", response);
+                }
+            } else {
+                let cmd = "setoption name SyzygyPath value <empty>".to_string();
+                println!("[EngineManager] Sent to Stockfish (clear): {}", cmd);
+                let _ = process.send_command(&cmd).await;
+                let _ = process.send_command("isready").await;
+                if let Ok(response) = process.read_until("readyok").await {
+                    println!("[EngineManager] Stockfish response: {:?}", response);
+                }
+            }
+        }
+    }
+
+
 
     pub async fn analyze_position(&self, fen: &str, depth: u32) -> Result<Vec<UciPvInfo>, String> {
         self.ensure_ready().await?;
         let mut lock = self.inner.lock().await;
         if let Some(process) = lock.as_mut() {
             process.analyze_position(fen, depth).await
+        } else {
+            Err("Engine not initialized".to_string())
+        }
+    }
+
+    pub async fn analyze_position_cancelable(
+        &self,
+        fen: &str,
+        depth: u32,
+        cancel_rx: tokio::sync::oneshot::Receiver<()>,
+    ) -> Result<Vec<UciPvInfo>, String> {
+        self.ensure_ready().await?;
+        let mut lock = self.inner.lock().await;
+        if let Some(process) = lock.as_mut() {
+            process.analyze_position_cancelable(fen, depth, cancel_rx).await
         } else {
             Err("Engine not initialized".to_string())
         }

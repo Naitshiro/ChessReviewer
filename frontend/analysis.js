@@ -191,32 +191,99 @@ function formatEval(move) {
   return '0.00';
 }
 
-export function renderEvalChart(moves) {
+export function renderEvalChart(moves, initialEval) {
   const ctx = document.getElementById('eval-chart');
   const wdlCtx = document.getElementById('wdl-chart');
   if (!ctx || !wdlCtx || typeof Chart === 'undefined') return;
 
-  const labels = moves.map((m, i) => {
+  // Helper: convert white_cp (centipawns) or score_mate to log-scaled chart value
+  function evalToChartVal(white_cp, score_mate) {
+    let evalPawns = 0.0;
+    if (score_mate !== null && score_mate !== undefined) {
+      if (score_mate === 0) {
+        evalPawns = 20.0; // checkmate
+      } else {
+        evalPawns = score_mate > 0 ? 20.0 : -20.0;
+      }
+    } else if (white_cp !== null && white_cp !== undefined) {
+      evalPawns = white_cp / 100.0;
+    }
+    const sign = Math.sign(evalPawns);
+    const absX = Math.abs(evalPawns);
+    const val = sign * (5.0 / Math.log(4.0)) * Math.log(3.0 * absX + 1.0);
+    return Math.round(Math.max(-10, Math.min(10, val)) * 100) / 100;
+  }
+
+  const moveLabels = moves.map((m) => {
     const prefix = m.color === 'white' ? `${m.move_number}.` : `${m.move_number}...`;
     return `${prefix}${m.san}`;
   });
 
-  // Map win probability to -10 to +10 range
-  // 0.5 (equal) -> 0.0
-  // 1.0 (white winning) -> +10.0
-  // 0.0 (black winning) -> -10.0
-  const evalValues = moves.map(m => {
-    const val = (m.white_win_prob - 0.5) * 20.0;
-    return Math.round(val * 100) / 100;
-  });
+  const moveEvalValues = moves.map(m => evalToChartVal(m.white_cp, m.score_mate));
+
+  // Prepend the initial position eval as a "Start" anchor point
+  let labels, evalValues;
+  if (initialEval) {
+    labels = ['Start', ...moveLabels];
+    evalValues = [evalToChartVal(initialEval.white_cp, initialEval.score_mate), ...moveEvalValues];
+  } else {
+    labels = moveLabels;
+    evalValues = moveEvalValues;
+  }
+
+  // Map evaluation directly to equivalent pawns, then scale logarithmically to [-10, +10]
+  // Such that:
+  // 0.0 pawns -> 0.0 Y-axis
+  // 1.0 pawn -> 5.0 Y-axis (middle tick)
+  // 5.0 pawns -> 10.0 Y-axis (top tick)
+
+  // Helper: estimate WDL probabilities from cp/mate for starting position
+  function getInitialWdl(initEval) {
+    if (!initEval) {
+      return { whiteWin: 33, blackWin: 33, draw: 34 };
+    }
+    if (initEval.score_mate !== null && initEval.score_mate !== undefined) {
+      return initEval.score_mate > 0 
+        ? { whiteWin: 100, blackWin: 0, draw: 0 }
+        : { whiteWin: 0, blackWin: 100, draw: 0 };
+    }
+    const cp = initEval.white_cp || 0;
+    const wp = 1.0 / (1.0 + Math.pow(10, -cp / 400.0));
+    const d = 0.65 * Math.exp(-Math.pow(cp / 300.0, 2));
+    let w = wp - 0.5 * d;
+    let l = 1.0 - wp - 0.5 * d;
+    w = Math.max(0.0, Math.min(1.0, w));
+    l = Math.max(0.0, Math.min(1.0, l));
+    const d_clamped = Math.max(0.0, Math.min(1.0, 1.0 - w - l));
+    return {
+      whiteWin: Math.round(w * 100),
+      blackWin: Math.round(l * 100),
+      draw: Math.round(d_clamped * 100)
+    };
+  }
 
   const whiteWinValues = moves.map(m => Math.round((m.white_win || 0) * 100));
   const blackWinValues = moves.map(m => Math.round((m.black_win || 0) * 100));
   const drawValues = moves.map(m => Math.round((m.draw_prob || 0) * 100));
 
+  let wdlLabels, wdlWhiteWin, wdlBlackWin, wdlDraw;
+  if (initialEval) {
+    const initWdl = getInitialWdl(initialEval);
+    wdlLabels = ['Start', ...moveLabels];
+    wdlWhiteWin = [initWdl.whiteWin, ...whiteWinValues];
+    wdlBlackWin = [initWdl.blackWin, ...blackWinValues];
+    wdlDraw = [initWdl.draw, ...drawValues];
+  } else {
+    wdlLabels = moveLabels;
+    wdlWhiteWin = whiteWinValues;
+    wdlBlackWin = blackWinValues;
+    wdlDraw = drawValues;
+  }
+
   // --- 1. Position Evaluation Chart ---
   if (evalChart) {
     evalChart.moves = moves;
+    evalChart.initialEval = initialEval;
     evalChart.data.labels = labels;
     evalChart.data.datasets[0].data = evalValues;
     evalChart.update('none');
@@ -245,10 +312,11 @@ export function renderEvalChart(moves) {
           const { ctx: canvasCtx } = chart;
           const meta = chart.getDatasetMeta(0);
           if (!meta || !meta.data) return;
+          const offset = chart.initialEval ? 1 : 0;
 
           canvasCtx.save();
           meta.data.forEach((point, index) => {
-            const move = currentMoves[index];
+            const move = currentMoves[index - offset];
             if (!move) return;
 
             const cls = move.classification;
@@ -272,9 +340,11 @@ export function renderEvalChart(moves) {
         interaction: { mode: 'index', intersect: false },
         onClick: (event, activeElements, chart) => {
           if (activeElements && activeElements.length > 0) {
-            const index = activeElements[0].index;
-            if (chartClickCallback) {
-              chartClickCallback(index);
+            const chartIdx = activeElements[0].index;
+            const offset = chart.initialEval ? 1 : 0;
+            const moveIdx = chartIdx - offset;
+            if (chartClickCallback && moveIdx >= 0) {
+              chartClickCallback(moveIdx);
             }
           }
         },
@@ -291,12 +361,17 @@ export function renderEvalChart(moves) {
             display: true,
             ticks: {
               color: '#bab9b7',
-              font: { size: 9, family: 'var(--font-sans)', weight: '500' },
+              font: { size: 9, family: 'var(--font-mono)', weight: '500' },
+              stepSize: 5,
               maxTicksLimit: 5,
               callback: v => {
-                if (v > 0) return `+${v.toFixed(0)}`;
-                if (v < 0) return `${v.toFixed(0)}`;
-                return '0.0';
+                const rounded = Math.round(v);
+                if (rounded === 10) return '+5.0';
+                if (rounded === 5) return '+1.0';
+                if (rounded === 0) return ' 0.0';
+                if (rounded === -5) return '-1.0';
+                if (rounded === -10) return '-5.0';
+                return '';
               },
             },
             grid: {
@@ -319,6 +394,7 @@ export function renderEvalChart(moves) {
         plugins: {
           legend: { display: false },
           tooltip: {
+            displayColors: false,
             backgroundColor: 'rgba(30, 29, 27, 0.95)',
             borderColor: 'rgba(255, 255, 255, 0.1)',
             borderWidth: 1,
@@ -328,11 +404,14 @@ export function renderEvalChart(moves) {
             callbacks: {
               title: items => items[0]?.label || '',
               label: item => {
-                const move = moves[item.dataIndex];
+                const offset = evalChart?.initialEval ? 1 : 0;
+                if (offset === 1 && item.dataIndex === 0) {
+                  const initEval = evalChart.initialEval;
+                  return `Eval: ${formatEval(initEval)}`;
+                }
+                const move = moves[item.dataIndex - offset];
                 if (!move) return '';
-                const evalStr = formatEval(move);
-                const prob = Math.round(move.white_win_prob * 100);
-                return `Eval: ${evalStr} (White: ${prob}%)`;
+                return `Eval: ${formatEval(move)}`;
               },
             },
           },
@@ -340,25 +419,27 @@ export function renderEvalChart(moves) {
       },
     });
     evalChart.moves = moves;
+    evalChart.initialEval = initialEval;
   }
 
   // --- 2. Win Probability (WDL) Chart ---
   if (wdlChart) {
     wdlChart.moves = moves;
-    wdlChart.data.labels = labels;
-    wdlChart.data.datasets[0].data = whiteWinValues;
-    wdlChart.data.datasets[1].data = blackWinValues;
-    wdlChart.data.datasets[2].data = drawValues;
+    wdlChart.initialEval = initialEval;
+    wdlChart.data.labels = wdlLabels;
+    wdlChart.data.datasets[0].data = wdlWhiteWin;
+    wdlChart.data.datasets[1].data = wdlBlackWin;
+    wdlChart.data.datasets[2].data = wdlDraw;
     wdlChart.update('none');
   } else {
     wdlChart = new Chart(wdlCtx, {
       type: 'line',
       data: {
-        labels,
+        labels: wdlLabels,
         datasets: [
           {
             label: 'White Win',
-            data: whiteWinValues,
+            data: wdlWhiteWin,
             borderColor: '#ffffff',
             borderWidth: 1.75,
             tension: 0.35,
@@ -368,7 +449,7 @@ export function renderEvalChart(moves) {
           },
           {
             label: 'Black Win',
-            data: blackWinValues,
+            data: wdlBlackWin,
             borderColor: '#111111',
             borderWidth: 1.75,
             tension: 0.35,
@@ -378,7 +459,7 @@ export function renderEvalChart(moves) {
           },
           {
             label: 'Draw',
-            data: drawValues,
+            data: wdlDraw,
             borderColor: '#8b8987',
             borderWidth: 1.75,
             tension: 0.35,
@@ -395,9 +476,11 @@ export function renderEvalChart(moves) {
         interaction: { mode: 'index', intersect: false },
         onClick: (event, activeElements, chart) => {
           if (activeElements && activeElements.length > 0) {
-            const index = activeElements[0].index;
-            if (chartClickCallback) {
-              chartClickCallback(index);
+            const chartIdx = activeElements[0].index;
+            const offset = chart.initialEval ? 1 : 0;
+            const moveIdx = chartIdx - offset;
+            if (chartClickCallback && moveIdx >= 0) {
+              chartClickCallback(moveIdx);
             }
           }
         },
@@ -451,6 +534,7 @@ export function renderEvalChart(moves) {
       },
     });
     wdlChart.moves = moves;
+    wdlChart.initialEval = initialEval;
   }
 }
 
@@ -459,13 +543,18 @@ export function renderEvalChart(moves) {
  * @param {number} moveIndex
  */
 export function highlightChartMove(moveIndex) {
+  // When the chart has an initial eval "Start" point prepended, offset move indices by 1
+  const chartOffset = (evalChart && evalChart.initialEval) ? 1 : 0;
+  const chartIndex = moveIndex < 0 ? -1 : moveIndex + chartOffset;
+
   if (evalChart) {
     evalChart.data.datasets[0].pointRadius = evalChart.data.labels.map(
-      (_, i) => i === moveIndex ? 5 : 0
+      (_, i) => i === chartIndex ? 5 : 0
     );
     evalChart.update('none');
   }
   if (wdlChart) {
+    // WDL chart doesn't have the Start offset (it only has move data)
     wdlChart.data.datasets.forEach(dataset => {
       dataset.pointRadius = wdlChart.data.labels.map(
         (_, i) => i === moveIndex ? 4 : 0
@@ -951,3 +1040,38 @@ export function showToast(message, type = 'info', duration = 4000) {
 export function setEvalText(text) {
   if (evalBarLabel) evalBarLabel.textContent = text;
 }
+
+// Chart Tab switching logic
+function _initChartTabs() {
+  const chartTabEval = document.getElementById('chart-tab-eval');
+  const chartTabWdl = document.getElementById('chart-tab-wdl');
+  const evalChartWrapper = document.getElementById('eval-chart-wrapper');
+  const wdlChartWrapper = document.getElementById('wdl-chart-wrapper');
+
+  if (chartTabEval && chartTabWdl && evalChartWrapper && wdlChartWrapper) {
+    chartTabEval.addEventListener('click', () => {
+      chartTabEval.classList.add('active');
+      chartTabWdl.classList.remove('active');
+      evalChartWrapper.classList.remove('hidden');
+      wdlChartWrapper.classList.add('hidden');
+      if (evalChart) {
+        evalChart.resize();
+        evalChart.update();
+      }
+    });
+
+    chartTabWdl.addEventListener('click', () => {
+      chartTabWdl.classList.add('active');
+      chartTabEval.classList.remove('active');
+      wdlChartWrapper.classList.remove('hidden');
+      evalChartWrapper.classList.add('hidden');
+      if (wdlChart) {
+        wdlChart.resize();
+        wdlChart.update();
+      }
+    });
+  }
+}
+
+// Initialize immediately
+_initChartTabs();

@@ -178,7 +178,7 @@ pub fn is_sacrifice(pos: &Chess, mv: &Move, mate_played: Option<i32>) -> bool {
 }
 
 pub fn classify_move(
-    delta: f64,
+    _delta: f64,
     _p_best: f64,
     _p_second_best: f64,
     p_played: f64,
@@ -192,10 +192,6 @@ pub fn classify_move(
     mate_played: Option<i32>,
     is_engine_top_choice: bool,
 ) -> &'static str {
-    let mut adjusted_delta = delta;
-    if is_engine_top_choice {
-        adjusted_delta = 0.0;
-    }
 
     // Brilliant checks (needs material sacrifice, high win probability, and within evaluation loss threshold)
     if sacrificed && p_played >= 0.45 && (cp_best - cp_played) <= 50.0 {
@@ -282,45 +278,29 @@ pub fn classify_move(
         }
     }
 
-    // Fallback for win probability flatlining/clamping in winning/losing positions:
-    // Ensure that significant centipawn loss results in a non-zero delta and correct downgrade.
-    if !is_engine_top_choice {
-        let cp_loss = (cp_best - cp_played).max(0.0);
-        let min_delta = if cp_loss >= 200.0 {
-            0.20 // Force blunder
-        } else if cp_loss >= 100.0 {
-            0.10 // Force mistake
-        } else if cp_loss >= 50.0 {
-            0.05 // Force inaccuracy
-        } else if cp_loss >= 20.0 {
-            0.02 // Force good
-        } else if cp_loss > 10.0 {
-            0.001 // Force excellent (cannot be "best")
-        } else {
-            0.0
-        };
-        adjusted_delta = adjusted_delta.max(min_delta);
-    }
+    // 2. Non-mating values classification based on centipawn loss (cp_loss)
+    let cp_loss = (cp_best - cp_played).max(0.0);
+    
+    // Check if the evaluation of the position before the move is double digit (10 or more)
+    let multiplier = if cp_best.abs() >= 1000.0 { 5.0 } else { 1.0 };
+    
+    let excellent_threshold = 40.0 * multiplier;
+    let good_threshold = 90.0 * multiplier;
+    let inaccuracy_threshold = 160.0 * multiplier;
+    let mistake_threshold = 500.0 * multiplier;
 
-    // Best move check
-    if adjusted_delta == 0.0 {
-        return "best";
-    }
-
-    // Delta-based checks
-    if adjusted_delta < 0.02 {
+    if cp_loss < excellent_threshold {
         return "excellent";
     }
-    if adjusted_delta < 0.05 {
+    if cp_loss < good_threshold {
         return "good";
     }
-    if adjusted_delta < 0.10 {
+    if cp_loss < inaccuracy_threshold {
         return "inaccuracy";
     }
-    if adjusted_delta < 0.20 {
+    if cp_loss < mistake_threshold {
         return "mistake";
     }
-    
     "blunder"
 }
 

@@ -898,10 +898,10 @@ export class BoardManager {
       g.setAttribute('opacity', '0.6');
     }
 
-    // The headSize matches cm-chessboard default (7 SVG units in viewBox space)
-    const headSize = 7;
-    // offsetTo matches the cm-chessboard default (0.55 = proportion of a square)
-    const offsetTo = sqSize * 0.55;
+    // The headSize matches cm-chessboard default scaled to 800x800 viewBox (7 * 20)
+    const headSize = 140;
+    // offsetTo matches the cm-chessboard default scaled to 800x800 viewBox (0.55 * 20)
+    const offsetTo = 11;
 
     if (isKnightMove) {
       // L-shaped path for knight moves
