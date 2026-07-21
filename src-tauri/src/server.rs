@@ -1370,10 +1370,8 @@ async fn handle_ws_socket(socket: WebSocket, state: AppState) {
         if let Message::Text(text) = msg {
             if let Ok(val) = serde_json::from_str::<serde_json::Value>(&text) {
                 let msg_type = val["type"].as_str().unwrap_or("");
-                println!("[server ws] received type: {}", msg_type);
 
                 if msg_type == "set_fen" {
-                    println!("[server ws] set_fen: {}", text);
                     // Cancel any previous analysis
                     if let Some(cancel) = current_cancel.take() {
                         let _ = cancel.send(());

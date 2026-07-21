@@ -1822,6 +1822,7 @@ function _handleBoardMove(from, to, promotion) {
     }
 
     const newFen = chess.fen();
+    board.setPosition(newFen, false);
 
     // Check if this matches the game's next move (compare normalized FENs)
     if (idx + 1 < state.game.moves.length) {
@@ -2064,9 +2065,36 @@ function _redrawBoardArrows() {
 
 // ── WebSocket Management ────────────────────────────────────────────────
 
+let wsAnalysisDebounceTimer = null;
+let pendingEngineUiFrame = false;
+
+function _scheduleEngineUiUpdate() {
+  if (pendingEngineUiFrame) return;
+  pendingEngineUiFrame = true;
+  requestAnimationFrame(() => {
+    pendingEngineUiFrame = false;
+    if (state.liveEngineEnabled) {
+      _redrawBoardArrows();
+      _updateEngineLinesPanel();
+    }
+    const bestLine = state.analysis.latestLines[0];
+    if (bestLine && state.liveEngineEnabled) {
+      renderEvalBar(bestLine.white_cp, bestLine.score_mate, bestLine.game_over, bestLine.winner, state.boardOrientation, bestLine.white_win_prob);
+      if (el.engineDepthBadge) {
+        el.engineDepthBadge.classList.remove('hidden');
+        el.engineDepthBadge.textContent = `depth ${bestLine.depth}`;
+      }
+    }
+  });
+}
+
 function _startWebSocketAnalysis(fen) {
   const needsAnalysis = state.liveEngineEnabled || (state.mode === MODE.ANALYSIS && state.liveReviewEnabled);
   if (!needsAnalysis) return;
+
+  if (wsAnalysisDebounceTimer) {
+    clearTimeout(wsAnalysisDebounceTimer);
+  }
 
   // Clear previous arrows and analysis lines when analyzing a new position
   state.analysis.latestLines = [];
@@ -2075,6 +2103,12 @@ function _startWebSocketAnalysis(fen) {
   if (el.engineSpinner) el.engineSpinner.classList.remove('hidden');
   if (el.badgeDot) el.badgeDot.style.animation = 'blink-dot 1s ease-in-out infinite';
 
+  wsAnalysisDebounceTimer = setTimeout(() => {
+    _sendWebSocketAnalysis(fen);
+  }, 60);
+}
+
+function _sendWebSocketAnalysis(fen) {
   const depth = parseInt(el.liveDepthInput?.value || '18', 10);
   const timeout = parseInt(el.liveTimeoutInput?.value || '0', 10);
 
@@ -2129,6 +2163,10 @@ function _startWebSocketAnalysis(fen) {
 }
 
 function _teardownWebSocket() {
+  if (wsAnalysisDebounceTimer) {
+    clearTimeout(wsAnalysisDebounceTimer);
+    wsAnalysisDebounceTimer = null;
+  }
   if (state.analysis.ws) {
     state.analysis.ws.close();
     state.analysis.ws = null;
@@ -2141,7 +2179,6 @@ function _handleEngineMessage(msg) {
   if (!needsEngine) return;
 
   if (msg.type === 'info' && msg.fen && normFen(msg.fen) !== normFen(_getCurrentFen())) {
-    console.log('[live engine] Discarding stale info message for FEN:', msg.fen);
     return;
   }
 
@@ -2169,28 +2206,14 @@ function _handleEngineMessage(msg) {
       // Update our latestLines array
       state.analysis.latestLines[pvIdx] = msg;
 
-      if (state.liveEngineEnabled) {
-        // Draw arrows for all known lines
-        _redrawBoardArrows();
+      // Batch UI updates cleanly at 60 FPS
+      _scheduleEngineUiUpdate();
 
-        // Update Engine Lines panel
-        _updateEngineLinesPanel();
-      }
-
-      // Update eval bar with MultiPV 1 (best line)
       if (msg.multipv === 1) {
-        if (state.liveEngineEnabled) {
-          renderEvalBar(msg.white_cp, msg.score_mate, msg.game_over, msg.winner, state.boardOrientation, msg.white_win_prob);
-          if (el.engineDepthBadge) {
-            el.engineDepthBadge.classList.remove('hidden');
-            el.engineDepthBadge.textContent = `depth ${msg.depth}`;
-          }
-        }
-
         // Classify branch move if pending or holding temporary theory badge
         if (state.liveReviewEnabled && state.analysis.branchMoves && state.analysis.branchMoves.length > 0) {
           const activeBranch = state.analysis.branchMoves[state.analysis.currentBranchIndex];
-          const targetDepth = parseInt(el.liveDepthInput.value, 10) || 18;
+          const targetDepth = parseInt(el.liveDepthInput?.value || '18', 10);
           if (activeBranch && (!activeBranch.classification || activeBranch.classification === 'theory') && msg.depth >= targetDepth) {
             _classifyLiveMove(msg);
           }
@@ -2204,7 +2227,6 @@ function _handleEngineMessage(msg) {
       break;
 
     case 'pong':
-      // Keepalive received, nothing to do
       break;
 
     default:

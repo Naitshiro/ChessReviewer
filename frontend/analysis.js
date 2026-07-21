@@ -197,11 +197,15 @@ export function renderEvalChart(moves, initialEval) {
   if (!ctx || !wdlCtx || typeof Chart === 'undefined') return;
 
   // Helper: convert white_cp (centipawns) or score_mate to log-scaled chart value
-  function evalToChartVal(white_cp, score_mate) {
+  function evalToChartVal(white_cp, score_mate, color = 'white') {
     let evalPawns = 0.0;
     if (score_mate !== null && score_mate !== undefined) {
       if (score_mate === 0) {
-        evalPawns = 20.0; // checkmate
+        if (white_cp !== null && white_cp !== undefined && white_cp !== 0) {
+          evalPawns = white_cp > 0 ? 20.0 : -20.0;
+        } else {
+          evalPawns = color === 'white' ? 20.0 : -20.0;
+        }
       } else {
         evalPawns = score_mate > 0 ? 20.0 : -20.0;
       }
@@ -219,13 +223,13 @@ export function renderEvalChart(moves, initialEval) {
     return `${prefix}${m.san}`;
   });
 
-  const moveEvalValues = moves.map(m => evalToChartVal(m.white_cp, m.score_mate));
+  const moveEvalValues = moves.map(m => evalToChartVal(m.white_cp, m.score_mate, m.color));
 
   // Prepend the initial position eval as a "Start" anchor point
   let labels, evalValues;
   if (initialEval) {
     labels = ['Start', ...moveLabels];
-    evalValues = [evalToChartVal(initialEval.white_cp, initialEval.score_mate), ...moveEvalValues];
+    evalValues = [evalToChartVal(initialEval.white_cp, initialEval.score_mate, 'white'), ...moveEvalValues];
   } else {
     labels = moveLabels;
     evalValues = moveEvalValues;

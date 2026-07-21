@@ -138,25 +138,17 @@ impl StockfishProcess {
             let trimmed = line.trim();
             line_count += 1;
 
-            if line_count <= 5 || trimmed.starts_with("bestmove") {
-                println!("[engine] raw line {}: {}", line_count, trimmed);
-            }
-
             if trimmed.starts_with("bestmove") {
                 break;
             }
 
             if trimmed.starts_with("info ") {
                 if let Some((multipv, cp, mate, pv, wdl)) = parse_info_line(trimmed) {
-                    println!("[engine] parsed: multipv={} cp={} mate={:?} pv={:?}", multipv, cp, mate, pv.first());
                     pv_map.insert(multipv, UciPvInfo { multipv, cp, mate, pv, wdl });
-                } else if trimmed.contains(" pv ") || trimmed.contains(" score ") {
-                    println!("[engine] parse_info_line returned None for: {}", &trimmed[..trimmed.len().min(120)]);
                 }
             }
         }
 
-        println!("[engine] analyze_position done: {} lines read, {} PVs found", line_count, pv_map.len());
         let mut results: Vec<UciPvInfo> = pv_map.into_values().collect();
         results.sort_by_key(|r| r.multipv);
         Ok(results)
@@ -205,17 +197,12 @@ impl StockfishProcess {
                     let trimmed = line.trim();
                     line_count += 1;
 
-                    if line_count <= 5 || trimmed.starts_with("bestmove") {
-                        println!("[engine] raw line {}: {}", line_count, trimmed);
-                    }
-
                     if trimmed.starts_with("bestmove") {
                         break;
                     }
 
                     if trimmed.starts_with("info ") {
                         if let Some((multipv, cp, mate, pv, wdl)) = parse_info_line(trimmed) {
-                            println!("[engine] parsed: multipv={} cp={} mate={:?} pv={:?}", multipv, cp, mate, pv.first());
                             pv_map.insert(multipv, UciPvInfo { multipv, cp, mate, pv, wdl });
                         }
                     }
@@ -223,7 +210,6 @@ impl StockfishProcess {
             }
         }
 
-        println!("[engine] analyze_position done: {} lines read, {} PVs found", line_count, pv_map.len());
         let mut results: Vec<UciPvInfo> = pv_map.into_values().collect();
         results.sort_by_key(|r| r.multipv);
         Ok(results)
@@ -238,19 +224,16 @@ impl StockfishProcess {
         mut cancel_rx: tokio::sync::oneshot::Receiver<()>,
         mut on_info: impl FnMut(serde_json::Value),
     ) -> Result<(), String> {
-        println!("[live engine] STARTING STREAM FOR: {}", fen);
         
         // 1. Stop any ongoing search and ensure Stockfish is ready
         let _ = self.send_command("stop").await;
         self.send_command("isready").await?;
         self.read_until("readyok").await?;
-        println!("[live engine] READY 1");
 
         // 2. Ensure MultiPV is set to 3 for live streaming analysis
         self.send_command("setoption name MultiPV value 3").await?;
         self.send_command("isready").await?;
         self.read_until("readyok").await?;
-        println!("[live engine] READY 2");
 
         // 3. Check if already cancelled before starting the engine command
         match cancel_rx.try_recv() {
@@ -274,28 +257,18 @@ impl StockfishProcess {
                     let _ = self.send_command("stop").await;
                     let _ = self.send_command("isready").await;
                     let _ = self.read_until("readyok").await;
-                    println!("[live engine] stopped & ready");
                     return Ok(());
                 }
                 read_res = self.stdout.read_line(&mut line) => {
                     let bytes = read_res.map_err(|e| format!("Failed to read line during analysis stream: {}", e))?;
-                    // FIX 1: Catch silent EOF crashes!
                     if bytes == 0 {
-                        println!("[live engine] 🛑 ERROR: Stockfish process pipe closed unexpectedly (Crash/EOF).");
+                        eprintln!("[live engine] Stockfish process pipe closed unexpectedly.");
                         break;
                     }
                     
                     let trimmed = line.trim();
 
-                    // FIX 2: Print absolutely everything Stockfish says so we know it's alive
-                    println!("[live engine] RAW: {}", trimmed);
-
-                    if trimmed.starts_with("info ") && trimmed.contains(" score ") {
-                        println!("[live engine] {}", trimmed);
-                    }
-
                     if trimmed.starts_with("bestmove") {
-                        println!("[live engine] {}", trimmed);
                         let parts: Vec<&str> = trimmed.split_whitespace().collect();
                         if parts.len() >= 2 && parts[1] != "(none)" {
                             let bm = parts[1].to_string();
@@ -606,16 +579,13 @@ impl EngineManager {
             let path_trimmed = path.trim();
             if !path_trimmed.is_empty() {
                 let cmd1 = format!("setoption name SyzygyPath value {}", path_trimmed);
-                println!("[EngineManager] Sent to Stockfish: {}", cmd1);
                 process.send_command(&cmd1).await?;
 
                 let cmd2 = "setoption name SyzygyProbeDepth value 16".to_string();
-                println!("[EngineManager] Sent to Stockfish: {}", cmd2);
                 process.send_command(&cmd2).await?;
 
                 process.send_command("isready").await?;
-                let response = process.read_until("readyok").await?;
-                println!("[EngineManager] Stockfish response: {:?}", response);
+                let _ = process.read_until("readyok").await?;
             }
 
             *lock = Some(process);
@@ -634,25 +604,18 @@ impl EngineManager {
             let path_trimmed = path.trim();
             if !path_trimmed.is_empty() {
                 let cmd1 = format!("setoption name SyzygyPath value {}", path_trimmed);
-                println!("[EngineManager] Sent to Stockfish (dynamic): {}", cmd1);
                 let _ = process.send_command(&cmd1).await;
 
                 let cmd2 = "setoption name SyzygyProbeDepth value 16".to_string();
-                println!("[EngineManager] Sent to Stockfish (dynamic): {}", cmd2);
                 let _ = process.send_command(&cmd2).await;
 
                 let _ = process.send_command("isready").await;
-                if let Ok(response) = process.read_until("readyok").await {
-                    println!("[EngineManager] Stockfish response: {:?}", response);
-                }
+                let _ = process.read_until("readyok").await;
             } else {
                 let cmd = "setoption name SyzygyPath value <empty>".to_string();
-                println!("[EngineManager] Sent to Stockfish (clear): {}", cmd);
                 let _ = process.send_command(&cmd).await;
                 let _ = process.send_command("isready").await;
-                if let Ok(response) = process.read_until("readyok").await {
-                    println!("[EngineManager] Stockfish response: {:?}", response);
-                }
+                let _ = process.read_until("readyok").await;
             }
         }
     }

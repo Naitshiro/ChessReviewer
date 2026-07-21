@@ -324,12 +324,8 @@ export class BoardManager {
             const piece = chess.get(from);
             if (piece && piece.type === 'p') {
               color = piece.color === 'w' ? COLOR.white : COLOR.black;
-              const possibleMoves = chess.moves({ square: from, verbose: true });
-              for (const m of possibleMoves) {
-                if (m.promotion && m.to === to) {
-                  isPromotion = true;
-                  break;
-                }
+              if ((piece.color === 'w' && to[1] === '8') || (piece.color === 'b' && to[1] === '1')) {
+                isPromotion = true;
               }
             }
           } catch (e) {
