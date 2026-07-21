@@ -58,11 +58,17 @@ pub fn get_config_path() -> PathBuf {
 pub fn load_config() -> AppConfig {
     let path = get_config_path();
     if path.exists() {
-        if let Ok(content) = fs::read_to_string(path) {
-            if let Ok(config) = serde_json::from_str::<AppConfig>(&content) {
+        if let Ok(content) = fs::read_to_string(&path) {
+            if let Ok(mut config) = serde_json::from_str::<AppConfig>(&content) {
+                config.stockfish_path = config.stockfish_path.trim().trim_matches('"').to_string();
+                println!("[Config] Loaded config from {:?}: stockfish_path = '{}'", path, config.stockfish_path);
                 return config;
+            } else {
+                eprintln!("[Config] WARNING: Failed to parse JSON content of {:?}", path);
             }
         }
+    } else {
+        eprintln!("[Config] WARNING: config.json not found at {:?}", path);
     }
     AppConfig::default()
 }

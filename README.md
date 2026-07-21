@@ -31,7 +31,7 @@ Edit `config.json` in the project root and set the path to your Stockfish execut
 
 ```json
 {
-  "stockfish_path": "C:\\ChessEngines\\stockfish\\stockfish-windows-x86-64-avx2.exe",
+  "stockfish_path": "C:\\ChessEngines\\stockfish\\stockfish-windows-x86-64-avxvnni.exe",
   "engine_threads": 4,
   "engine_hash_mb": 2048,
   "analysis_depth": 12,

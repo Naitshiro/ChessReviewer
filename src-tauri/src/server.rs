@@ -265,10 +265,15 @@ pub fn parse_pgn(pgn: &str) -> Result<ParsedGame, String> {
             non_pawn_material += (board.queens() & color_bb).count() as i32 * 900;
         }
 
-        // Match Python: non_pawn_material <= 22 pieces (in centipawns: 2200)
-        let phase = if move_number <= 12 {
+        let book = crate::openings::is_book_sequence(&moves_sans[0..=i]);
+
+        let white_queens = (board.queens() & board.by_color(Color::White)).count();
+        let black_queens = (board.queens() & board.by_color(Color::Black)).count();
+        let total_queens = white_queens + black_queens;
+
+        let phase = if book || move_number <= 10 {
             "opening"
-        } else if i >= moves_sans.len().saturating_sub(10) && move_number > 15 || non_pawn_material <= 2200 {
+        } else if (total_queens == 0 && non_pawn_material <= 2600) || (total_queens > 0 && non_pawn_material <= 1600) {
             "endgame"
         } else {
             "middlegame"
@@ -462,11 +467,15 @@ fn format_time_spent(diff: f64) -> String {
 // HTTP Handlers
 // ---------------------------------------------------------------------------
 async fn health_handler(State(state): State<AppState>) -> impl IntoResponse {
-    let engine_ready = state.engine.ensure_ready().await.is_ok();
+    let (engine_ready, err_msg) = match state.engine.ensure_ready().await {
+        Ok(()) => (true, None),
+        Err(e) => (false, Some(e)),
+    };
     Json(serde_json::json!({
         "status": "ok",
         "engine": {
             "ready": engine_ready,
+            "error": err_msg,
             "threads": state.config.engine_threads,
             "hash": state.config.engine_hash_mb,
             "depth": state.config.analysis_depth
@@ -545,9 +554,9 @@ async fn classify_handler(Json(req): Json<ClassifyRequest>) -> impl IntoResponse
     };
 
     let is_engine_top_choice = req.best_move_uci.as_ref().map(|b| b == &req.move_uci).unwrap_or(false);
-    let p_best = crate::analysis::win_prob_from_values(req.wdl_best.as_ref(), req.cp_best);
-    let p_second_best = crate::analysis::win_prob_from_values(req.wdl_second.as_ref(), req.cp_second);
-    let p_played = crate::analysis::win_prob_from_values(req.wdl_played.as_ref(), req.cp_played);
+    let p_best = crate::analysis::win_prob(req.cp_best);
+    let p_second_best = crate::analysis::win_prob(req.cp_second);
+    let p_played = crate::analysis::win_prob(req.cp_played);
     let delta = (p_best - p_played).max(0.0);
 
     let classification = crate::analysis::classify_move(
@@ -1031,9 +1040,9 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
                     for (idx, info) in pv_list.iter().take(3).enumerate() {
                         // cp is relative to the side to move (as returned by Stockfish)
                         let cp_val = if let Some(m) = info.mate {
-                            if m > 0 { 10000 } else { -10000 }
+                            if m > 0 { 10000.0 - (m as f64) * 10.0 } else { -10000.0 - (m as f64) * 10.0 }
                         } else {
-                            info.cp
+                            info.cp as f64
                         };
 
                         let abs_mate = info.mate.map(|m| {
@@ -1116,19 +1125,16 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
             let cp_played = -cp_after_relative;
 
             // Helper to parse WDL from JSON
-            let parse_wdl = |v: &serde_json::Value| -> Option<crate::engine::WdlInfo> {
+            let _parse_wdl = |v: &serde_json::Value| -> Option<crate::engine::WdlInfo> {
                 serde_json::from_value(v.clone()).ok()
             };
 
-            let wdl_best = parse_wdl(&score_before["wdl1"]);
-            let wdl_second = parse_wdl(&score_before["wdl2"]);
-            let wdl_after = parse_wdl(&score_after["relative_wdl"]);
-            let wdl_played = wdl_after.as_ref().map(|w| w.flip());
+            let wdl_after = _parse_wdl(&score_after["relative_wdl"]);
 
             // Win probabilities from current player's perspective
-            let p_best = crate::analysis::win_prob_from_values(wdl_best.as_ref(), cp_best);
-            let p_played = crate::analysis::win_prob_from_values(wdl_played.as_ref(), cp_played);
-            let p_second_best = crate::analysis::win_prob_from_values(wdl_second.as_ref(), cp_second);
+            let p_best = crate::analysis::win_prob(cp_best);
+            let p_played = crate::analysis::win_prob(cp_played);
+            let p_second_best = crate::analysis::win_prob(cp_second);
             let delta = (p_best - p_played).max(0.0);
 
             // Check if the played move was the engine's top choice
@@ -1364,8 +1370,10 @@ async fn handle_ws_socket(socket: WebSocket, state: AppState) {
         if let Message::Text(text) = msg {
             if let Ok(val) = serde_json::from_str::<serde_json::Value>(&text) {
                 let msg_type = val["type"].as_str().unwrap_or("");
+                println!("[server ws] received type: {}", msg_type);
 
                 if msg_type == "set_fen" {
+                    println!("[server ws] set_fen: {}", text);
                     // Cancel any previous analysis
                     if let Some(cancel) = current_cancel.take() {
                         let _ = cancel.send(());

@@ -396,8 +396,9 @@ async function _checkHealth() {
     const banner = document.getElementById('engine-setup-banner');
     if (!data.engine?.ready) {
       if (banner) banner.classList.remove('hidden');
+      const errorMsg = data.engine?.error || `Stockfish not found — set "stockfish_path" in config.json`;
       showToast(
-        `Stockfish not found — set "stockfish_path" in config.json`,
+        errorMsg,
         'error',
         8000
       );
@@ -872,8 +873,8 @@ async function loadFen() {
         site: 'Local',
         date: new Date().toISOString().split('T')[0],
         round: '?',
-        white: 'Custom Position',
-        black: 'Custom Position',
+        white: 'White',
+        black: 'Black',
         result: '*',
         white_elo: '',
         black_elo: '',
@@ -890,6 +891,10 @@ async function loadFen() {
     };
     _loadGameAnalysis(data);
     showToast('FEN Position Loaded!', 'success');
+
+    if (state.liveEngineEnabled) {
+      _startWebSocketAnalysis(fen);
+    }
   } catch (e) {
     showToast(`Failed to load FEN: ${e.message}`, 'error');
     console.error(e);
@@ -2079,12 +2084,18 @@ function _startWebSocketAnalysis(fen) {
     return;
   }
 
+  if (state.analysis.ws && state.analysis.ws.readyState === WebSocket.CONNECTING) {
+    _teardownWebSocket();
+  }
+
   // Create a new WebSocket connection
   const ws = new WebSocket(WS_URL);
   state.analysis.ws = ws;
 
   ws.addEventListener('open', () => {
-    ws.send(JSON.stringify({ type: 'set_fen', fen, depth, timeout }));
+    if (state.analysis.ws === ws) {
+      ws.send(JSON.stringify({ type: 'set_fen', fen, depth, timeout }));
+    }
   });
 
   ws.addEventListener('message', e => {
@@ -2549,6 +2560,18 @@ function formatSanWithPieceIcon(san, isWhite) {
     const pieceId = `${colorCode}${pieceMap[pieceChar]}`;
     const rest = san.slice(1);
     return `<span style="display:inline-flex; align-items:center; vertical-align:middle;"><svg style="width:12px; height:12px; margin-right:1px;" viewBox="0 0 40 40"><use href="#${pieceId}"></use></svg>${rest}</span>`;
+  }
+  const promoIndex = san.indexOf('=');
+  if (promoIndex !== -1 && promoIndex < san.length - 1) {
+    const promoChar = san[promoIndex + 1];
+    if (['N', 'B', 'R', 'Q'].includes(promoChar)) {
+      const pieceMap = { 'N': 'n', 'B': 'b', 'R': 'r', 'Q': 'q' };
+      const colorCode = isWhite ? 'w' : 'b';
+      const pieceId = `${colorCode}${pieceMap[promoChar]}`;
+      const prefix = san.slice(0, promoIndex + 1);
+      const rest = san.slice(promoIndex + 2);
+      return `<span style="display:inline-flex; align-items:center; vertical-align:middle;">${prefix}<svg style="width:12px; height:12px; margin-left:1px; margin-right:1px;" viewBox="0 0 40 40"><use href="#${pieceId}"></use></svg>${rest}</span>`;
+    }
   }
   return san;
 }

@@ -1,8 +1,8 @@
 use shakmaty::{Chess, Move, Position, Role, Square};
 
 pub fn win_prob(cp: f64) -> f64 {
-    let clamped = cp.max(-3000.0).min(3000.0);
-    1.0 / (1.0 + (-0.004 * clamped).exp())
+    let clamped = cp.max(-10000.0).min(10000.0);
+    1.0 / (1.0 + (-0.00368208 * clamped).exp())
 }
 
 pub fn win_prob_from_wdl(wdl: &crate::engine::WdlInfo) -> f64 {
@@ -31,14 +31,22 @@ pub fn white_win_prob_from_values(wdl_after: Option<&crate::engine::WdlInfo>, wh
     }
 }
 
-pub fn game_accuracy(deltas: &[f64]) -> f64 {
-    if deltas.is_empty() {
+pub fn move_accuracy(delta: f64, is_theory: bool) -> f64 {
+    if is_theory {
+        100.0
+    } else {
+        let delta_pct = (delta * 100.0).max(0.0);
+        (100.0 * (-0.035 * delta_pct).exp()).max(0.0).min(100.0)
+    }
+}
+
+pub fn game_accuracy(accuracies: &[f64]) -> f64 {
+    if accuracies.is_empty() {
         return 100.0;
     }
-    let sum: f64 = deltas.iter().sum();
-    let avg = sum / deltas.len() as f64;
-    let raw_acc = 100.0 * (-11.3 * avg).exp();
-    raw_acc.max(0.0).min(100.0)
+    let sum: f64 = accuracies.iter().sum();
+    let avg = sum / accuracies.len() as f64;
+    avg.max(0.0).min(100.0)
 }
 
 pub fn role_value(role: Role) -> i32 {
@@ -305,18 +313,18 @@ pub fn classify_move(
 }
 
 pub fn accuracy_to_rating(accuracy: f64) -> i32 {
-    if accuracy <= 50.0 {
-        100
-    } else if accuracy <= 65.0 {
-        (100.0 + (accuracy - 50.0) * (500.0 / 15.0)) as i32
+    if accuracy <= 40.0 {
+        (100.0 + accuracy * 7.5) as i32
+    } else if accuracy <= 60.0 {
+        (400.0 + (accuracy - 40.0) * 20.0) as i32
     } else if accuracy <= 75.0 {
-        (600.0 + (accuracy - 65.0) * 60.0) as i32
+        (800.0 + (accuracy - 60.0) * 33.33) as i32
     } else if accuracy <= 85.0 {
-        (1200.0 + (accuracy - 75.0) * 60.0) as i32
+        (1300.0 + (accuracy - 75.0) * 50.0) as i32
     } else if accuracy <= 95.0 {
-        (1800.0 + (accuracy - 85.0) * 100.0) as i32
+        (1800.0 + (accuracy - 85.0) * 70.0) as i32
     } else {
-        (2800.0 + (accuracy - 95.0) * 240.0) as i32
+        (2500.0 + (accuracy - 95.0) * 100.0) as i32
     }
 }
 
@@ -327,7 +335,7 @@ pub fn accuracy_to_badge(accuracy: f64) -> &'static str {
         "excellent"
     } else if accuracy >= 50.0 {
         "good"
-    } else if accuracy >= 30.0 {
+    } else if accuracy >= 35.0 {
         "inaccuracy"
     } else if accuracy >= 20.0 {
         "mistake"
@@ -346,18 +354,17 @@ pub fn build_accuracy_report(moves: &[serde_json::Value]) -> serde_json::Value {
             .filter(|r| r["color"].as_str() == Some(color))
             .collect();
 
-        let deltas: Vec<f64> = records
+        let move_accuracies: Vec<f64> = records
             .iter()
-            .map(|r| {
-                if r["classification"].as_str() == Some("theory") {
-                    0.0
-                } else {
-                    r["delta"].as_f64().unwrap_or(0.0)
-                }
+            .filter_map(|r| {
+                let cls = r["classification"].as_str()?;
+                let is_theory = cls == "theory";
+                let delta = r["delta"].as_f64().unwrap_or(0.0);
+                Some(move_accuracy(delta, is_theory))
             })
             .collect();
 
-        let accuracy = game_accuracy(&deltas);
+        let accuracy = game_accuracy(&move_accuracies);
 
         let mut counts = std::collections::HashMap::new();
         for lbl in &labels {
@@ -396,22 +403,21 @@ pub fn build_accuracy_report(moves: &[serde_json::Value]) -> serde_json::Value {
                 .cloned()
                 .collect();
 
-            if phase_records.is_empty() {
-                continue;
-            }
-
-            let p_deltas: Vec<f64> = phase_records
+            let p_accuracies: Vec<f64> = phase_records
                 .iter()
-                .map(|r| {
-                    if r["classification"].as_str() == Some("theory") {
-                        0.0
-                    } else {
-                        r["delta"].as_f64().unwrap_or(0.0)
-                    }
+                .filter_map(|r| {
+                    let cls = r["classification"].as_str()?;
+                    let is_theory = cls == "theory";
+                    let delta = r["delta"].as_f64().unwrap_or(0.0);
+                    Some(move_accuracy(delta, is_theory))
                 })
                 .collect();
 
-            let p_accuracy = game_accuracy(&p_deltas);
+            if p_accuracies.is_empty() {
+                continue;
+            }
+
+            let p_accuracy = game_accuracy(&p_accuracies);
             let mut base_badge = accuracy_to_badge(p_accuracy).to_string();
 
             let p_classifications: Vec<&str> = phase_records
@@ -424,7 +430,7 @@ pub fn build_accuracy_report(moves: &[serde_json::Value]) -> serde_json::Value {
 
             if p_accuracy >= 95.0 && has_brilliant {
                 base_badge = "brilliant".to_string();
-            } else if p_accuracy >= 95.0 || (p_accuracy >= 90.0 && has_great) || (p_accuracy >= 85.0 && has_brilliant) {
+            } else if p_accuracy >= 95.0 && has_great {
                 base_badge = "great".to_string();
             }
 
@@ -437,13 +443,12 @@ pub fn build_accuracy_report(moves: &[serde_json::Value]) -> serde_json::Value {
         let great_bonus = 0;
         for b in phase_badges.values() {
             if b == "brilliant" {
-                brilliant_bonus += 500;
+                brilliant_bonus += 50;
             }
         }
 
-        let final_rating = (capped_rating + brilliant_bonus + great_bonus).min(4000);
-        // Round to nearest 100
-        let rounded_rating = ((final_rating as f64 / 100.0).round() * 100.0) as i32;
+        let final_rating = (capped_rating + brilliant_bonus + great_bonus).min(3200);
+        let rounded_rating = ((final_rating as f64 / 50.0).round() * 50.0) as i32;
 
         serde_json::json!({
             "accuracy": (accuracy * 10.0).round() / 10.0,
@@ -459,3 +464,4 @@ pub fn build_accuracy_report(moves: &[serde_json::Value]) -> serde_json::Value {
         "black": side_report("black")
     })
 }
+

@@ -41,7 +41,16 @@ pub struct StockfishProcess {
 
 impl StockfishProcess {
     pub async fn spawn(path: &str, threads: u32, hash: u32) -> Result<Self, String> {
-        let mut cmd = tokio::process::Command::new(path);
+        let trimmed_path = path.trim();
+        if trimmed_path.is_empty() {
+            return Err("stockfish_path is not set in config.json".to_string());
+        }
+        let p = std::path::Path::new(trimmed_path);
+        if !p.exists() {
+            return Err(format!("Stockfish executable not found at: {}", trimmed_path));
+        }
+
+        let mut cmd = tokio::process::Command::new(trimmed_path);
         #[cfg(windows)]
         {
             cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
@@ -51,7 +60,7 @@ impl StockfishProcess {
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
-            .map_err(|e| format!("Failed to spawn Stockfish process: {}", e))?;
+            .map_err(|e| format!("Failed to spawn Stockfish process ({}): {}", trimmed_path, e))?;
 
         let stdin = child.stdin.take().ok_or("Failed to get stdin")?;
         let stdout = BufReader::new(child.stdout.take().ok_or("Failed to get stdout")?);
@@ -229,10 +238,21 @@ impl StockfishProcess {
         mut cancel_rx: tokio::sync::oneshot::Receiver<()>,
         mut on_info: impl FnMut(serde_json::Value),
     ) -> Result<(), String> {
+        println!("[live engine] STARTING STREAM FOR: {}", fen);
+        
+        // 1. Stop any ongoing search and ensure Stockfish is ready
+        let _ = self.send_command("stop").await;
         self.send_command("isready").await?;
         self.read_until("readyok").await?;
+        println!("[live engine] READY 1");
 
-        // Check if already cancelled before starting the engine command
+        // 2. Ensure MultiPV is set to 3 for live streaming analysis
+        self.send_command("setoption name MultiPV value 3").await?;
+        self.send_command("isready").await?;
+        self.read_until("readyok").await?;
+        println!("[live engine] READY 2");
+
+        // 3. Check if already cancelled before starting the engine command
         match cancel_rx.try_recv() {
             Ok(_) | Err(tokio::sync::oneshot::error::TryRecvError::Closed) => {
                 return Ok(());
@@ -244,54 +264,78 @@ impl StockfishProcess {
         self.send_command(&format!("go depth {}", depth)).await?;
 
         let mut line = String::new();
+        let mut last_info: Option<serde_json::Value> = None;
 
         loop {
             line.clear();
             tokio::select! {
                 _cancel_res = &mut cancel_rx => {
-                    // Engine was cancelled (either got a value or channel was closed/dropped)
+                    // Engine was cancelled
                     let _ = self.send_command("stop").await;
-                    println!("[live engine] stop");
-                    // Drain until bestmove to leave engine in clean state
-                    loop {
-                        line.clear();
-                        let bytes = self.stdout.read_line(&mut line).await.unwrap_or(0);
-                        let trimmed = line.trim();
-                        if !trimmed.is_empty() {
-                            println!("[live engine] drain: {}", trimmed);
-                        }
-                        if bytes == 0 || trimmed.starts_with("bestmove") {
-                            break;
-                        }
-                    }
+                    let _ = self.send_command("isready").await;
+                    let _ = self.read_until("readyok").await;
+                    println!("[live engine] stopped & ready");
                     return Ok(());
                 }
                 read_res = self.stdout.read_line(&mut line) => {
-                    let bytes = read_res.map_err(|e| format!("Failed to read during streaming: {}", e))?;
+                    let bytes = read_res.map_err(|e| format!("Failed to read line during analysis stream: {}", e))?;
+                    // FIX 1: Catch silent EOF crashes!
                     if bytes == 0 {
+                        println!("[live engine] 🛑 ERROR: Stockfish process pipe closed unexpectedly (Crash/EOF).");
                         break;
                     }
+                    
                     let trimmed = line.trim();
 
-                    if trimmed.starts_with("info ") && trimmed.contains(" pv ") {
+                    // FIX 2: Print absolutely everything Stockfish says so we know it's alive
+                    println!("[live engine] RAW: {}", trimmed);
+
+                    if trimmed.starts_with("info ") && trimmed.contains(" score ") {
                         println!("[live engine] {}", trimmed);
                     }
 
                     if trimmed.starts_with("bestmove") {
                         println!("[live engine] {}", trimmed);
+                        let parts: Vec<&str> = trimmed.split_whitespace().collect();
+                        if parts.len() >= 2 && parts[1] != "(none)" {
+                            let bm = parts[1].to_string();
+                            let (from_sq, to_sq) = if bm.len() >= 4 {
+                                (bm[0..2].to_string(), bm[2..4].to_string())
+                            } else {
+                                (String::new(), String::new())
+                            };
+                            
+                            if let Some(mut info) = last_info.take() {
+                                if let Some(pv) = info.get_mut("pv").and_then(|v| v.as_array_mut()) {
+                                    if pv.is_empty() {
+                                        pv.push(serde_json::json!(bm));
+                                        info["from_sq"] = serde_json::json!(from_sq);
+                                        info["to_sq"] = serde_json::json!(to_sq);
+                                        on_info(info);
+                                    }
+                                }
+                            } else {
+                                // Never got any info, send fallback
+                                on_info(serde_json::json!({
+                                    "multipv": 1,
+                                    "depth": 0,
+                                    "score_cp": 0,
+                                    "score_mate": null,
+                                    "pv": [bm],
+                                    "from_sq": from_sq,
+                                    "to_sq": to_sq,
+                                    "wdl": null
+                                }));
+                            }
+                        }
                         break;
                     }
 
-                    if trimmed.starts_with("info ") && trimmed.contains(" pv ") {
+                    if trimmed.starts_with("info ") && trimmed.contains(" score ") {
                         if let Some((multipv, cp, mate, pv, wdl)) = parse_info_line(trimmed) {
-                            // Parse depth from info line
                             let depth_val = extract_token(trimmed, "depth")
                                 .and_then(|s| s.parse::<u32>().ok())
                                 .unwrap_or(0);
-
-                            if pv.is_empty() || depth_val < 1 {
-                                continue;
-                            }
 
                             // Compute from_sq / to_sq from first PV move
                             let (from_sq, to_sq) = if let Some(first) = pv.first() {
@@ -311,7 +355,7 @@ impl StockfishProcess {
                                 cp
                             };
 
-                            on_info(serde_json::json!({
+                            let info_json = serde_json::json!({
                                 "multipv": multipv,
                                 "depth": depth_val,
                                 "score_cp": score_cp,
@@ -319,8 +363,15 @@ impl StockfishProcess {
                                 "pv": pv,
                                 "from_sq": from_sq,
                                 "to_sq": to_sq,
-                                "wdl": wdl,
-                            }));
+                                "wdl": wdl
+                            });
+                            
+                            // Only update last_info for multipv 1
+                            if multipv == 1 {
+                                last_info = Some(info_json.clone());
+                            }
+                            
+                            on_info(info_json);
                         }
                     }
                 }
@@ -465,8 +516,8 @@ fn extract_token<'a>(line: &'a str, key: &str) -> Option<&'a str> {
 }
 
 pub fn parse_info_line(line: &str) -> Option<(usize, i32, Option<i32>, Vec<String>, Option<WdlInfo>)> {
-    // We only care about info lines containing both score and pv info
-    if !line.contains(" score ") || !line.contains(" pv ") {
+    // We only care about info lines containing score info
+    if !line.contains(" score ") {
         return None;
     }
 
@@ -558,7 +609,7 @@ impl EngineManager {
                 println!("[EngineManager] Sent to Stockfish: {}", cmd1);
                 process.send_command(&cmd1).await?;
 
-                let cmd2 = "setoption name SyzygyProbeDepth value 1".to_string();
+                let cmd2 = "setoption name SyzygyProbeDepth value 16".to_string();
                 println!("[EngineManager] Sent to Stockfish: {}", cmd2);
                 process.send_command(&cmd2).await?;
 
@@ -586,7 +637,7 @@ impl EngineManager {
                 println!("[EngineManager] Sent to Stockfish (dynamic): {}", cmd1);
                 let _ = process.send_command(&cmd1).await;
 
-                let cmd2 = "setoption name SyzygyProbeDepth value 1".to_string();
+                let cmd2 = "setoption name SyzygyProbeDepth value 16".to_string();
                 println!("[EngineManager] Sent to Stockfish (dynamic): {}", cmd2);
                 let _ = process.send_command(&cmd2).await;
 

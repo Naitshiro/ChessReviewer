@@ -699,7 +699,7 @@ function formatSanWithPieceIcon(san, isWhite) {
       const pieceId = `${colorCode}${pieceMap[promoChar]}`;
       const prefix = san.slice(0, promoIndex + 1);
       const rest = san.slice(promoIndex + 2);
-      return `<span style="display:inline-flex; align-items:center; vertical-align:middle;">${prefix}<svg style="width:16px; height:16px; margin-bottom: 2px;" viewBox="0 0 40 40"><use href="#${pieceId}"></use></svg>${rest}</span>`;
+      return `<span style="display:inline-flex; align-items:center; vertical-align:middle;">${prefix}<svg style="width:16px; height:16px; margin-bottom: 2px; margin-left: 1px; margin-right: 1px;" viewBox="0 0 40 40"><use href="#${pieceId}"></use></svg>${rest}</span>`;
     }
   }
   return san;
