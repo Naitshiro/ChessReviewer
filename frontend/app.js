@@ -270,15 +270,27 @@ async function init() {
 
   _switchTab('import');
 
+  // Expose player card update helpers and state to window scope
+  window.state = state;
+  window.TrainingModule = TrainingModule;
+  window._updatePlayerClocksAndCaptured = _updatePlayerClocksAndCaptured;
+  window._updatePlayerCards = _updatePlayerCards;
+
   // Initialize training module
-  TrainingModule.init(board, _setMode, _triggerEvalBarRender, (pgn) => {
-    if (el.pgnInput) {
-      el.pgnInput.value = pgn;
-    }
-    _switchTab('import');
-    _updateAnalyzeBtnState();
-    submitAnalysis();
-  });
+  TrainingModule.init(
+    board,
+    _setMode,
+    _triggerEvalBarRender,
+    (pgn) => {
+      if (el.pgnInput) {
+        el.pgnInput.value = pgn;
+      }
+      _switchTab('import');
+      _updateAnalyzeBtnState();
+      submitAnalysis();
+    },
+    (idx, fen) => _updatePlayerClocksAndCaptured(-1, fen)
+  );
 
   // Load and apply saved chessboard theme
   const savedTheme = localStorage.getItem('chess_theme') || 'green';
@@ -1400,18 +1412,28 @@ function formatClockString(str) {
   }
 }
 
-function _updatePlayerClocksAndCaptured(idx) {
-  let fen = state.game.initialFen;
-  if (state.mode === MODE.REVIEW) {
-    if (idx >= 0 && state.game.moves[idx]) {
-      fen = state.game.moves[idx].fen_after;
-    }
-  } else if (state.mode === MODE.ANALYSIS) {
-    const branchIdx = state.analysis.currentBranchIndex;
-    if (branchIdx >= 0 && state.analysis.branchMoves[branchIdx]) {
-      fen = state.analysis.branchMoves[branchIdx].fen_after;
-    } else {
-      fen = state.analysis.forkFen || state.game.initialFen;
+function _updatePlayerClocksAndCaptured(idx, customFen = null) {
+  let fen = customFen || state.game.initialFen;
+  if (!customFen) {
+    if (state.mode === MODE.REVIEW) {
+      if (idx >= 0 && state.game.moves[idx]) {
+        fen = state.game.moves[idx].fen_after;
+      }
+    } else if (state.mode === MODE.ANALYSIS) {
+      const branchIdx = state.analysis.currentBranchIndex;
+      if (branchIdx >= 0 && state.analysis.branchMoves[branchIdx]) {
+        fen = state.analysis.branchMoves[branchIdx].fen_after;
+      } else {
+        fen = state.analysis.forkFen || state.game.initialFen;
+      }
+    } else if (state.mode === MODE.TRAINING) {
+      if (window.TrainingModule?.engine?.chess) {
+        fen = window.TrainingModule.engine.chess.fen();
+      } else if (window.TrainingModule?.openings?.chess) {
+        fen = window.TrainingModule.openings.chess.fen();
+      } else if (window.TrainingModule?.puzzles?.chess) {
+        fen = window.TrainingModule.puzzles.chess.fen();
+      }
     }
   }
 
@@ -1571,7 +1593,7 @@ function _updatePlayerCards() {
       return;
     }
 
-    if (!rawUsername || rawUsername === 'White' || rawUsername === 'Black' || rawUsername === '?' || rawUsername.includes(' ')) {
+    if (!rawUsername || rawUsername === 'You' || rawUsername === 'White' || rawUsername === 'Black' || rawUsername === '?' || rawUsername.includes(' ')) {
       return;
     }
 

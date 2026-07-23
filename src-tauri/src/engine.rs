@@ -402,10 +402,10 @@ impl StockfishProcess {
 
     async fn analyze_with_elo_run(&mut self, fen: &str, elo: i32) -> Result<UciPvInfo, String> {
         // Clamp ELO to valid range
-        let elo = elo.max(800).min(3200);
+        let elo = elo.max(800).min(3800);
 
         // Configure ELO-limited strength
-        if elo >= 3200 {
+        if elo >= 3800 {
             self.send_command("setoption name UCI_LimitStrength value false").await?;
         } else {
             self.send_command("setoption name UCI_LimitStrength value true").await?;
@@ -424,7 +424,7 @@ impl StockfishProcess {
         self.send_command(&format!("position fen {}", fen)).await?;
 
         // Adjust time limit based on ELO gap below minimum (safer limits to prevent crashes)
-        let movetime = if elo >= 3200 {
+        let movetime = if elo >= 3800 {
             100
         } else if elo < 1320 {
             let diff = 1320 - elo;

@@ -274,7 +274,10 @@ export class BoardManager {
    * @param {Function} getValidMoves - (from) => string[]; returns array of valid target squares
    */
   enableInteraction(validateMove, getValidMoves) {
-    if (!this._board || this._interactive) return;
+    if (!this._board) return;
+    if (this._interactive) {
+      this._board.disableMoveInput();
+    }
     this._interactive = true;
 
     this._board.enableMoveInput((event) => {

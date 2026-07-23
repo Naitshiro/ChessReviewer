@@ -123,11 +123,12 @@ export const TrainingModule = {
     activeStatus: 'idle', // idle, playing, ended
   },
 
-  init(boardManager, setModeFn, triggerEvalBarRenderFn, onReviewGameFn) {
+  init(boardManager, setModeFn, triggerEvalBarRenderFn, onReviewGameFn, updateCapturedPiecesFn) {
     this.board = boardManager;
     this.setMode = setModeFn;
     this.triggerEvalBarRender = triggerEvalBarRenderFn;
     this.onReviewGame = onReviewGameFn;
+    this.updateCapturedPieces = updateCapturedPiecesFn;
 
     this._bindDOM();
     this._loadCuratedPuzzles();
@@ -167,7 +168,7 @@ export const TrainingModule = {
         backBtn.classList.remove('hidden');
         backBtn.textContent = '✕ Back';
       }
-      
+
       const titles = {
         puzzles: 'Tactics Trainer',
         openings: 'Opening Rehearsal',
@@ -175,7 +176,7 @@ export const TrainingModule = {
         coordinates: 'Coordinate Challenge'
       };
       if (headerTitle) headerTitle.textContent = titles[submode] || 'Training';
-      
+
       // Initialize submode board state
       this._initSubmodeBoard(submode);
     }
@@ -183,7 +184,7 @@ export const TrainingModule = {
 
   _initSubmodeBoard(submode) {
     this.board.clearMarrows();
-    
+
     if (submode === 'puzzles') {
       this._resetPuzzlesUI();
       // Load first curated puzzle in dropdown as default preview
@@ -220,7 +221,7 @@ export const TrainingModule = {
     }
     // Enable interaction correctly
     this.board.disableInteraction();
-    
+
     // Stop opening engine WS if active
     this._stopOpeningEngine();
   },
@@ -256,7 +257,7 @@ export const TrainingModule = {
     document.getElementById('menu-btn-openings')?.addEventListener('click', () => this.switchMode('openings'));
     document.getElementById('menu-btn-engine')?.addEventListener('click', () => this.switchMode('engine'));
     document.getElementById('menu-btn-coordinates')?.addEventListener('click', () => this.switchMode('coordinates'));
-    
+
     // Back Button
     document.getElementById('btn-training-back')?.addEventListener('click', () => {
       if (this.activeSubmode !== 'hub') {
@@ -268,7 +269,7 @@ export const TrainingModule = {
     document.getElementById('btn-puzzle-daily')?.addEventListener('click', () => this._fetchLichessDailyPuzzle());
     document.getElementById('btn-puzzle-curated')?.addEventListener('click', () => this._showCuratedPuzzlesList());
     document.getElementById('select-curated-puzzles')?.addEventListener('change', (e) => this._loadPuzzleById(e.target.value));
-    
+
     const puzzleActionBtn = document.getElementById('btn-puzzle-action');
     puzzleActionBtn?.addEventListener('click', () => {
       if (this.puzzles.activeStatus === 'idle') {
@@ -283,7 +284,7 @@ export const TrainingModule = {
 
     // Openings UI
     document.getElementById('select-opening')?.addEventListener('change', (e) => this._loadOpeningById(e.target.value));
-    
+
     const sideWhiteBtn = document.getElementById('btn-opening-side-white');
     const sideBlackBtn = document.getElementById('btn-opening-side-black');
     sideWhiteBtn?.addEventListener('click', () => {
@@ -320,21 +321,24 @@ export const TrainingModule = {
       const elo = parseInt(e.target.value, 10);
       this.engine.elo = elo;
       if (display) display.textContent = `${elo} ELO`;
-      
+
       const labels = {
         800: '800 - Beginner',
         1000: '1000 - Casual Player',
         1200: '1200 - Club Player',
         1400: '1400 - Intermediate',
         1600: '1600 - Advanced',
-        1800: '1800 - Strong Club Player',
-        2000: '2000 - Expert / Candidate Master',
+        1800: '1800 - Strong Player',
+        2000: '2000 - Expert',
         2200: '2200 - Master',
         2400: '2400 - International Master',
         2600: '2600 - Grandmaster',
         2800: '2800 - Super Grandmaster',
-        3000: '3000 - World Champion',
-        3200: '3200 - Stockfish Max Strength (No Limit)'
+        3000: '3000 - Weak Engine',
+        3200: '3200 - Weak-Mid Engine',
+        3400: '3400 - Mid Engine',
+        3600: '3600 - Mid-Strong Engine',
+        3800: '3800 - Strong Engine'
       };
       if (strengthLabel) strengthLabel.textContent = labels[elo] || `${elo} ELO`;
     });
@@ -342,7 +346,7 @@ export const TrainingModule = {
     const engineWhite = document.getElementById('btn-engine-side-white');
     const engineBlack = document.getElementById('btn-engine-side-black');
     const engineRandom = document.getElementById('btn-engine-side-random');
-    
+
     engineWhite?.addEventListener('click', () => {
       this.engine.playerColor = 'white';
       engineWhite.className = 'btn-primary flex-1 py-1.5 text-xs';
@@ -417,7 +421,7 @@ export const TrainingModule = {
     document.getElementById('btn-puzzle-curated').className = 'btn-primary flex-1 py-2 text-xs';
     document.getElementById('btn-puzzle-daily').className = 'btn-secondary flex-1 py-2 text-xs';
     document.getElementById('puzzle-select-container').classList.remove('hidden');
-    
+
     const select = document.getElementById('select-curated-puzzles');
     if (select && select.value) {
       this._loadPuzzleById(select.value);
@@ -440,7 +444,7 @@ export const TrainingModule = {
     document.getElementById('puzzle-theme').textContent = puzzle.theme || 'Tactics';
     document.getElementById('puzzle-rating').textContent = `${puzzle.rating} ELO`;
     document.getElementById('puzzle-desc').textContent = puzzle.description;
-    
+
     const feedback = document.getElementById('puzzle-feedback');
     feedback.textContent = `Play as ${puzzle.player_color.toUpperCase()}. Click Start to begin.`;
     feedback.className = 'text-center py-2 px-3 rounded text-xs font-semibold bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-secondary)]';
@@ -499,7 +503,7 @@ export const TrainingModule = {
       const blunder = puzzle.solution[0];
       const from = blunder.slice(0, 2);
       const to = blunder.slice(2, 4);
-      
+
       this.puzzles.chess.move({ from, to, promotion: 'q' });
       this.board.setPosition(this.puzzles.chess.fen(), true);
       this.board.addLastMoveMarkers(from, to, null, null, puzzle.player_color === 'white' ? 'black' : 'white');
@@ -536,7 +540,7 @@ export const TrainingModule = {
 
   _validatePuzzleDrag(from, to) {
     if (this.puzzles.activeStatus !== 'playing') return false;
-    
+
     // Check if legal move in chess.js first
     const clone = new Chess(this.puzzles.chess.fen());
     try {
@@ -597,7 +601,7 @@ export const TrainingModule = {
 
           feedback.textContent = 'Your Turn! Find the next move.';
           feedback.className = 'text-center py-2 px-3 rounded text-xs font-semibold bg-green-950/20 border border-green-500/30 text-green-400';
-          
+
           this.board.enableInteraction(
             (f, t) => this._validatePuzzleDrag(f, t),
             (sq) => this._getPuzzleLegalMoves(sq)
@@ -608,15 +612,15 @@ export const TrainingModule = {
       // Incorrect move - revert board position immediately
       feedback.textContent = '❌ Incorrect move! Reverting piece... Try again!';
       feedback.className = 'text-center py-2 px-3 rounded text-xs font-semibold bg-red-950/30 border border-red-500/40 text-red-400';
-      
+
       this.board.disableInteraction();
       setTimeout(() => {
         this.board.setPosition(this.puzzles.chess.fen(), false);
         this.board.clearMarrows();
-        
+
         feedback.textContent = 'Your Turn! Find the best response.';
         feedback.className = 'text-center py-2 px-3 rounded text-xs font-semibold bg-green-950/20 border border-green-500/30 text-green-400';
-        
+
         this.board.enableInteraction(
           (f, t) => this._validatePuzzleDrag(f, t),
           (sq) => this._getPuzzleLegalMoves(sq)
@@ -629,13 +633,13 @@ export const TrainingModule = {
     if (this.puzzles.activeStatus !== 'playing') return;
     const puzzle = this.puzzles.active;
     const expectedMove = puzzle.solution[this.puzzles.currentIndex];
-    
+
     // Draw hint arrow or highlight piece
     const from = expectedMove.slice(0, 2);
     const to = expectedMove.slice(2, 4);
 
     this.board.drawEngineArrows([{ from_sq: from, to_sq: to, multipv: 1 }]);
-    
+
     const feedback = document.getElementById('puzzle-feedback');
     feedback.textContent = `💡 Hint: Try moving the piece starting on ${from.toUpperCase()}!`;
     feedback.className = 'text-center py-2 px-3 rounded text-xs font-semibold bg-yellow-950/20 border border-yellow-500/30 text-yellow-400';
@@ -644,20 +648,20 @@ export const TrainingModule = {
   _revealPuzzleSolution() {
     if (this.puzzles.activeStatus !== 'playing') return;
     const puzzle = this.puzzles.active;
-    
+
     this.board.clearMarrows();
-    
+
     // Show correct next move
     const nextMove = puzzle.solution[this.puzzles.currentIndex];
     const from = nextMove.slice(0, 2);
     const to = nextMove.slice(2, 4);
-    
+
     this.board.drawEngineArrows([{ from_sq: from, to_sq: to, multipv: 1 }]);
-    
+
     const feedback = document.getElementById('puzzle-feedback');
     feedback.textContent = `💡 Solution move: ${from.toUpperCase()} to ${to.toUpperCase()}. Click Restart to try again.`;
     feedback.className = 'text-center py-2 px-3 rounded text-xs font-semibold bg-yellow-950/20 border border-yellow-500/30 text-yellow-400 font-bold';
-    
+
     this.board.disableInteraction();
     this.puzzles.activeStatus = 'failed';
   },
@@ -704,7 +708,7 @@ export const TrainingModule = {
 
       document.getElementById('opening-title').textContent = op.name;
       document.getElementById('opening-desc').textContent = op.desc;
-      
+
       const feedback = document.getElementById('opening-feedback');
       feedback.textContent = `Practice as ${this.openings.playerColor.toUpperCase()}. Click Start.`;
       feedback.className = 'text-center py-1.5 px-3 rounded text-xs font-semibold bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-secondary)]';
@@ -712,7 +716,7 @@ export const TrainingModule = {
       document.getElementById('opening-moves-container').classList.add('hidden');
       document.getElementById('opening-explorer-container').classList.add('hidden');
       document.getElementById('btn-opening-start').textContent = 'Start Training';
-      
+
       this.board.setPosition(op.startFen);
       this.board.setOrientation(this.openings.playerColor);
       this.board.clearMarrows();
@@ -748,27 +752,27 @@ export const TrainingModule = {
       // Opponent makes first move automatically
       feedback.textContent = 'Opponent is playing...';
       feedback.className = 'text-center py-1.5 px-3 rounded text-xs font-semibold bg-[var(--bg-primary)] border border-[var(--border)] text-yellow-500';
-      
+
       setTimeout(() => {
         const whiteMove = op.moves[0];
         const from = whiteMove.slice(0, 2);
         const to = whiteMove.slice(2, 4);
-        
+
         this.openings.chess.move({ from, to, promotion: 'q' });
         this.board.setPosition(this.openings.chess.fen(), true);
         this.board.addLastMoveMarkers(from, to, null, null, 'white');
-        
+
         this.openings.currentIndex = 1;
-        
+
         // Highlight move in list
         const mEl = document.getElementById('op-move-item-0');
         if (mEl) mEl.classList.remove('opacity-30');
 
         feedback.textContent = 'Your Turn! Play your opening move.';
         feedback.className = 'text-center py-1.5 px-3 rounded text-xs font-semibold bg-green-950/20 border border-green-500/30 text-green-400';
-        
+
         this._updateOpeningExplorer();
-        
+
         this.board.enableInteraction(
           (f, t) => this._validateOpeningDrag(f, t),
           (sq) => this._getOpeningLegalMoves(sq)
@@ -777,12 +781,12 @@ export const TrainingModule = {
     } else {
       feedback.textContent = 'Your Turn! Play the first move.';
       feedback.className = 'text-center py-1.5 px-3 rounded text-xs font-semibold bg-green-950/20 border border-green-500/30 text-green-400';
-      
+
       this._updateOpeningExplorer();
-      
+
       this.board.enableInteraction(
-          (f, t) => this._validateOpeningDrag(f, t),
-          (sq) => this._getOpeningLegalMoves(sq)
+        (f, t) => this._validateOpeningDrag(f, t),
+        (sq) => this._getOpeningLegalMoves(sq)
       );
     }
   },
@@ -1092,8 +1096,24 @@ export const TrainingModule = {
     document.getElementById('btn-engine-resign').classList.remove('hidden');
     document.getElementById('btn-engine-review')?.classList.add('hidden');
     document.getElementById('engine-moves-container').classList.remove('hidden');
-    
+
     this._renderEngineMoves();
+
+    // Setup player card metadata for Stockfish game
+    const userIsWhite = activeColor === 'white';
+    if (window.state) {
+      window.state.boardOrientation = activeColor;
+      window.state.game.metadata = {
+        white: userIsWhite ? 'You' : 'Stockfish',
+        black: userIsWhite ? 'Stockfish' : 'You',
+        white_elo: userIsWhite ? '' : `${this.engine.elo}`,
+        black_elo: userIsWhite ? `${this.engine.elo}` : '',
+        white_title: userIsWhite ? '' : 'ENGINE',
+        black_title: userIsWhite ? 'ENGINE' : '',
+      };
+    }
+    if (window._updatePlayerCards) window._updatePlayerCards();
+    if (this.updateCapturedPieces) this.updateCapturedPieces(-1, 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
 
     this.board.setPosition('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
     this.board.setOrientation(activeColor);
@@ -1140,9 +1160,10 @@ export const TrainingModule = {
 
     this._recordEngineMove(move.san);
     this._renderEngineMoves();
+    if (this.updateCapturedPieces) this.updateCapturedPieces(-1, this.engine.chess.fen());
 
     const status = document.getElementById('engine-game-status');
-    
+
     if (this.engine.chess.isGameOver()) {
       this._handleEngineGameOver();
     } else {
@@ -1168,17 +1189,18 @@ export const TrainingModule = {
       })
       .then(data => {
         if (this.engine.activeStatus !== 'playing') return; // Cancelled/resigned mid-thought
-        
+
         const best = data.best_move;
         const from = best.slice(0, 2);
         const to = best.slice(2, 4);
-        
+
         const move = this.engine.chess.move({ from, to, promotion: 'q' });
         this.board.setPosition(this.engine.chess.fen(), true);
         this.board.addLastMoveMarkers(from, to, null, null, this.engine.actualColor === 'white' ? 'black' : 'white');
 
         this._recordEngineMove(move.san);
         this._renderEngineMoves();
+        if (this.updateCapturedPieces) this.updateCapturedPieces(-1, this.engine.chess.fen());
 
         const status = document.getElementById('engine-game-status');
 
@@ -1204,7 +1226,7 @@ export const TrainingModule = {
   _recordEngineMove(san) {
     const history = this.engine.chess.history();
     const totalMoves = history.length;
-    
+
     if (totalMoves % 2 === 1) {
       // White move
       const moveNum = Math.ceil(totalMoves / 2);
@@ -1268,11 +1290,11 @@ export const TrainingModule = {
   _resignEngineGame() {
     if (this.engine.activeStatus !== 'playing') return;
     this.engine.activeStatus = 'over';
-    
+
     const status = document.getElementById('engine-game-status');
     status.textContent = '🏳️ Game Over. You resigned.';
     status.className = 'text-center py-2 px-3 rounded text-xs font-semibold bg-red-950/20 border border-red-500/30 text-red-400 font-bold';
-    
+
     this.board.disableInteraction();
     document.getElementById('btn-engine-resign').classList.add('hidden');
     document.getElementById('btn-engine-review')?.classList.remove('hidden');
@@ -1282,7 +1304,7 @@ export const TrainingModule = {
     this.engine.activeStatus = 'over';
     const chess = this.engine.chess;
     const status = document.getElementById('engine-game-status');
-    
+
     let text = 'Game Over. ';
     if (chess.isCheckmate()) {
       const winner = chess.turn() === 'w' ? 'Black (Stockfish)' : 'White (You)';
@@ -1290,10 +1312,10 @@ export const TrainingModule = {
     } else if (chess.isDraw()) {
       text += 'Draw!';
     }
-    
+
     status.textContent = text;
     status.className = 'text-center py-2 px-3 rounded text-xs font-semibold bg-emerald-900/20 border border-emerald-500/30 text-emerald-400 font-bold';
-    
+
     this.board.disableInteraction();
     document.getElementById('btn-engine-resign').classList.add('hidden');
     document.getElementById('btn-engine-review')?.classList.remove('hidden');
@@ -1349,7 +1371,7 @@ export const TrainingModule = {
     document.getElementById('coordinates-start-screen').classList.remove('hidden');
     document.getElementById('coordinates-active-screen').classList.add('hidden');
     document.getElementById('coordinates-results-screen').classList.add('hidden');
-    
+
     const personalBest = localStorage.getItem('coord_high_score') || 0;
     document.getElementById('coords-high-score').textContent = `Personal Best: ${personalBest} correct clicks`;
   },
@@ -1394,7 +1416,7 @@ export const TrainingModule = {
   _generateNextCoordinateTarget() {
     const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
     const ranks = ['1', '2', '3', '4', '5', '6', '7', '8'];
-    
+
     let nextTarget = '';
     do {
       const file = files[Math.floor(Math.random() * 8)];
@@ -1403,7 +1425,7 @@ export const TrainingModule = {
     } while (nextTarget === this.coordinates.target); // Ensure new target is different
 
     this.coordinates.target = nextTarget;
-    
+
     const targetEl = document.getElementById('coords-target');
     if (targetEl) {
       targetEl.textContent = nextTarget;
@@ -1417,10 +1439,10 @@ export const TrainingModule = {
   _setupCoordinateClickListener() {
     const boardEl = document.getElementById('board');
     if (!boardEl) return;
-    
+
     boardEl.addEventListener('mousedown', (e) => {
       if (this.activeSubmode !== 'coordinates' || this.coordinates.activeStatus !== 'playing') return;
-      
+
       const squareEl = e.target.closest('.square');
       if (squareEl) {
         const square = squareEl.dataset.square;
@@ -1434,7 +1456,7 @@ export const TrainingModule = {
 
     this.coordinates.attempts++;
     const isCorrect = (square === this.coordinates.target);
-    
+
     const boardEl = document.getElementById('board');
     const feedbackEl = document.getElementById('coords-active-feedback');
 
@@ -1470,7 +1492,7 @@ export const TrainingModule = {
     this.coordinates.activeStatus = 'ended';
 
     this.board.clearMarrows();
-    
+
     // Save High Score
     const currentHighScore = parseInt(localStorage.getItem('coord_high_score') || '0', 10);
     const score = this.coordinates.score;
@@ -1491,10 +1513,12 @@ export const TrainingModule = {
   }
 };
 
+window.TrainingModule = TrainingModule;
+
 // Add board coordinate marker support helper to BoardManager class dynamically
 import('./board.js').then(module => {
   if (module.BoardManager) {
-    module.BoardManager.prototype.addCoordTrainerMarker = function(square, isCorrect) {
+    module.BoardManager.prototype.addCoordTrainerMarker = function (square, isCorrect) {
       if (!this._board) return;
       const marker = isCorrect
         ? { class: 'marker-coord-correct', slice: 'markerSquare' }
