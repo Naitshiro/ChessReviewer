@@ -1,8 +1,15 @@
+[![Language: Rust](https://img.shields.io/badge/Language-Rust-orange?logo=rust)](https://www.rust-lang.org/)
+[![Platform: Cross-platform](https://img.shields.io/badge/Platform-Cross--Platform-0078D4)](https://tauri.app/)
+[![Architecture: Multi-Arch](https://img.shields.io/badge/Architecture-Multi--Arch-0078D4)](https://github.com/rust-lang/rust)
+[![Status: Active Development](https://img.shields.io/badge/Status-Active-brightgreen)](README.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+
+
 # ♟ ChessReviewer
 
 A free, local chess game review and real-time analysis tool. An open alternative to chess.com's premium review features, powered by Stockfish.
 
-This version is built entirely with **Rust + Tauri**, eliminating any Python dependencies.
+Built entirely with **Rust + Tauri** and **HTML5/JS**, eliminating Python dependencies for fast execution and a small memory footprint.
 
 ## Features
 
@@ -13,20 +20,22 @@ This version is built entirely with **Rust + Tauri**, eliminating any Python dep
 - **Evaluation Bar** — Visual win probability indicator
 - **Win Probability Chart** — Move-by-move graph of game trajectory
 
+---
+
 ## Requirements
 
 - **Node.js** (LTS version recommended)
 - **Rust and Cargo** (from [rustup.rs](https://rustup.rs/))
-- **Stockfish chess engine binary** (free download)
+- **Stockfish chess engine binary** (free download from [stockfishchess.org](https://stockfishchess.org/download/))
 
-## Setup
+---
+
+## Quick Setup
 
 ### 1. Download Stockfish
-
 Download from [stockfishchess.org/download](https://stockfishchess.org/download/) and extract the zip.
 
 ### 2. Configure Stockfish Path
-
 Edit `config.json` in the project root and set the path to your Stockfish executable (use double backslashes `\\` or forward slashes `/`):
 
 ```json
@@ -41,8 +50,7 @@ Edit `config.json` in the project root and set the path to your Stockfish execut
 ```
 
 ### 3. Start the Application
-
-Simply double-click **`start.bat`**.
+Simply double-click **`start_dev.bat`**.
 
 On first run, it will automatically:
 1. Detect Node.js and Rust environments
@@ -51,8 +59,9 @@ On first run, it will automatically:
 
 ---
 
-## Manual Start (without start.bat)
+## Manual Start & Building
 
+### Manual Development Launch
 ```bash
 # Install npm dependencies
 npm install
@@ -61,20 +70,19 @@ npm install
 npm run tauri dev
 ```
 
-## Compilation / Building (Standalone App)
-
+### Compilation / Building (Standalone App)
 Double-click **`build_portable.bat`** or run:
 
 ```bash
 npm run tauri build
 ```
 
-The resulting standalone executable will be located in:
-`src-tauri\target\release\ChessReviewer.exe`
+The resulting executable will be generated at:
+`src-tauri/target/release/ChessReviewer.exe`
 
 ---
 
-## Move Classification Formulas
+## Move Classification & Evaluation Math
 
 | Formula | Description |
 |---|---|
@@ -84,8 +92,8 @@ The resulting standalone executable will be located in:
 
 | Class | Delta Threshold |
 |---|---|
-| Brilliant (!!) | Delta < 0.02, only obvious best move, sacrifices material, remains winning |
-| Great (!) | Delta < 0.02, only obvious best move |
+| Brilliant | Delta < 0.02, only obvious best move, sacrifices material, remains winning |
+| Great | Delta < 0.02, only obvious best move |
 | Best | Delta = 0 |
 | Excellent | Delta < 0.02 |
 | Good | Delta < 0.05 |
@@ -97,6 +105,7 @@ The resulting standalone executable will be located in:
 
 ## Tech Stack
 
-- **Tauri Core**: Rust · Axum · tokio · shakmaty (chess logic)
-- **Engine**: Stockfish (local binary via UCI protocol over stdin/stdout)
-- **Frontend**: Vanilla HTML5/JS · cm-chessboard v8 · chess.js v1 · Chart.js v4
+- **Desktop Framework**: Tauri 1.6
+- **Backend / Core Logic**: Rust · Axum · Tokio · Shakmaty (chess engine/PGN handling)
+- **Engine Protocol**: Stockfish UCI over standard I/O
+- **Frontend**: Vanilla HTML5/JS · `cm-chessboard` v8 · `chess.js` v1 · `Chart.js` v4
