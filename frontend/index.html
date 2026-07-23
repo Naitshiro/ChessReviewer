@@ -5,6 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ChessReviewer — Free Chess Analysis</title>
+  <link rel="icon" type="image/png" href="../icon.png" />
   <meta name="description"
     content="Free local chess game review and real-time engine analysis. Alternative to premium chess.com review features." />
 
@@ -166,8 +167,7 @@
               </a>
               <span class="text-amber-200/50 text-xs">then set the path in</span>
               <code
-                class="text-xs bg-black/40 px-2 py-0.5 rounded text-amber-300/80 font-mono">config.json → "stockfish_path"</code>
-              <span class="text-amber-200/50 text-xs">and restart the server.</span>
+                class="text-xs bg-black/40 px-2 py-0.5 rounded text-amber-300/80 font-mono">Settings ⚙ → Stockfish Path</code>.
             </div>
           </div>
           <button onclick="document.getElementById('engine-setup-banner').classList.add('hidden')"
@@ -1375,8 +1375,25 @@
 
         <!-- Engine Settings Option -->
         <div class="flex flex-col gap-3 border-t border-[var(--border)] pt-4">
-          <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Live Engine
-            Configuration</label>
+          <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Live Engine Configuration</label>
+
+          <div class="flex flex-col gap-1">
+            <span class="text-sm text-[var(--text-secondary)]">Stockfish Executable Path</span>
+            <input id="settings-stockfish-path" type="text" placeholder="e.g. C:\stockfish\stockfish-windows-x86-64-avx2.exe"
+              class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2.5 py-1.5 text-[var(--text-primary)] outline-none text-xs font-mono focus:border-[var(--accent-green)]" />
+          </div>
+
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-sm text-[var(--text-secondary)]">CPU Threads</span>
+            <input id="settings-threads" type="number" min="1" max="128" value="4"
+              class="w-20 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] outline-none text-center text-sm focus:border-[var(--accent-green)]" />
+          </div>
+
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-sm text-[var(--text-secondary)]">Hash Table Size (MB)</span>
+            <input id="settings-hash" type="number" min="16" max="65536" step="16" value="2048"
+              class="w-24 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] outline-none text-center text-sm focus:border-[var(--accent-green)]" />
+          </div>
 
           <div class="flex items-center justify-between gap-4">
             <span class="text-sm text-[var(--text-secondary)]">Analysis Depth</span>
@@ -1401,15 +1418,6 @@
           <div id="syzygy-paths-container" class="flex flex-col gap-2">
             <!-- Dynamic path input rows will be injected here -->
           </div>
-        </div>
-
-
-
-        <!-- Note about config.json -->
-        <div
-          class="text-[10px] text-[var(--text-muted)] leading-relaxed bg-[var(--bg-primary)] p-2.5 rounded border border-[var(--border)]">
-          💡 CPU Threads and Hash table size configurations can be edited in <code
-            class="font-mono text-[var(--text-secondary)]">config.json</code> in the project root folder.
         </div>
       </div>
     </div>

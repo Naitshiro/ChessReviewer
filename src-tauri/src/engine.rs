@@ -43,7 +43,7 @@ impl StockfishProcess {
     pub async fn spawn(path: &str, threads: u32, hash: u32) -> Result<Self, String> {
         let trimmed_path = path.trim();
         if trimmed_path.is_empty() {
-            return Err("stockfish_path is not set in config.json".to_string());
+            return Err("Stockfish path is not configured. Please set the Stockfish path in Settings.".to_string());
         }
         let p = std::path::Path::new(trimmed_path);
         if !p.exists() {
@@ -126,7 +126,6 @@ impl StockfishProcess {
 
         let mut pv_map: std::collections::HashMap<usize, UciPvInfo> = std::collections::HashMap::new();
         let mut line = String::new();
-        let mut line_count = 0usize;
 
         loop {
             line.clear();
@@ -136,7 +135,6 @@ impl StockfishProcess {
                 return Err("Stockfish process exited during analysis".to_string());
             }
             let trimmed = line.trim();
-            line_count += 1;
 
             if trimmed.starts_with("bestmove") {
                 break;
@@ -171,7 +169,6 @@ impl StockfishProcess {
 
         let mut pv_map: std::collections::HashMap<usize, UciPvInfo> = std::collections::HashMap::new();
         let mut line = String::new();
-        let mut line_count = 0usize;
 
         loop {
             line.clear();
@@ -195,7 +192,6 @@ impl StockfishProcess {
                         return Err("Stockfish process exited during analysis".to_string());
                     }
                     let trimmed = line.trim();
-                    line_count += 1;
 
                     if trimmed.starts_with("bestmove") {
                         break;
@@ -541,7 +537,7 @@ pub fn parse_info_line(line: &str) -> Option<(usize, i32, Option<i32>, Vec<Strin
 #[derive(Clone)]
 pub struct EngineManager {
     inner: Arc<Mutex<Option<StockfishProcess>>>,
-    config: AppConfig,
+    config: Arc<Mutex<AppConfig>>,
     syzygy_path: Arc<Mutex<String>>,
 }
 
@@ -549,9 +545,32 @@ impl EngineManager {
     pub fn new(config: AppConfig) -> Self {
         Self {
             inner: Arc::new(Mutex::new(None)),
-            config,
+            config: Arc::new(Mutex::new(config)),
             syzygy_path: Arc::new(Mutex::new(String::new())),
         }
+    }
+
+    pub async fn update_engine_config(&self, stockfish_path: String, threads: u32, hash_mb: u32) {
+        let mut cfg = self.config.lock().await;
+        let path_changed = cfg.stockfish_path != stockfish_path;
+        let threads_changed = cfg.engine_threads != threads;
+        let hash_changed = cfg.engine_hash_mb != hash_mb;
+
+        cfg.stockfish_path = stockfish_path;
+        cfg.engine_threads = threads;
+        cfg.engine_hash_mb = hash_mb;
+
+        if path_changed || threads_changed || hash_changed {
+            let mut lock = self.inner.lock().await;
+            if let Some(mut process) = lock.take() {
+                let _ = process.send_command("quit").await;
+                let _ = process.child.kill().await;
+            }
+        }
+    }
+
+    pub async fn get_config(&self) -> AppConfig {
+        self.config.lock().await.clone()
     }
 
     pub async fn ensure_ready(&self) -> Result<(), String> {
@@ -568,10 +587,15 @@ impl EngineManager {
         };
 
         if needs_spawn {
+            let (path, threads, hash) = {
+                let cfg = self.config.lock().await;
+                (cfg.stockfish_path.clone(), cfg.engine_threads, cfg.engine_hash_mb)
+            };
+
             let mut process = StockfishProcess::spawn(
-                &self.config.stockfish_path,
-                self.config.engine_threads,
-                self.config.engine_hash_mb,
+                &path,
+                threads,
+                hash,
             ).await?;
 
             // Check syzygy paths and configure if filled

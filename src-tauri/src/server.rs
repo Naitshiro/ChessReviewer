@@ -30,6 +30,13 @@ pub struct SyzygySettingsRequest {
 }
 
 #[derive(Deserialize)]
+pub struct EngineSettingsRequest {
+    pub stockfish_path: Option<String>,
+    pub engine_threads: Option<u32>,
+    pub engine_hash_mb: Option<u32>,
+}
+
+#[derive(Deserialize)]
 pub struct TheoryRequest {
     pub sans: Vec<String>,
 }
@@ -46,6 +53,8 @@ pub struct ClassifyRequest {
     pub mate_second: Option<i32>,
     pub mate_played: Option<i32>,
     pub is_book: bool,
+    #[serde(default)]
+    pub is_recapture: bool,
     pub wdl_best: Option<crate::engine::WdlInfo>,
     pub wdl_second: Option<crate::engine::WdlInfo>,
     pub wdl_played: Option<crate::engine::WdlInfo>,
@@ -471,14 +480,16 @@ async fn health_handler(State(state): State<AppState>) -> impl IntoResponse {
         Ok(()) => (true, None),
         Err(e) => (false, Some(e)),
     };
+    let cfg = state.engine.get_config().await;
     Json(serde_json::json!({
         "status": "ok",
         "engine": {
             "ready": engine_ready,
             "error": err_msg,
-            "threads": state.config.engine_threads,
-            "hash": state.config.engine_hash_mb,
-            "depth": state.config.analysis_depth
+            "threads": cfg.engine_threads,
+            "hash": cfg.engine_hash_mb,
+            "depth": cfg.analysis_depth,
+            "path": cfg.stockfish_path
         }
     }))
 }
@@ -573,6 +584,7 @@ async fn classify_handler(Json(req): Json<ClassifyRequest>) -> impl IntoResponse
         req.mate_second,
         req.mate_played,
         is_engine_top_choice,
+        req.is_recapture,
     );
 
     Json(serde_json::json!({ "classification": classification }))
@@ -731,6 +743,19 @@ async fn update_syzygy_handler(
     Json(req): Json<SyzygySettingsRequest>,
 ) -> Response {
     state.engine.set_syzygy_path(req.syzygy_path).await;
+    Json(serde_json::json!({ "status": "ok" })).into_response()
+}
+
+async fn update_engine_handler(
+    State(state): State<AppState>,
+    Json(req): Json<EngineSettingsRequest>,
+) -> Response {
+    let current_cfg = state.engine.get_config().await;
+    let path = req.stockfish_path.unwrap_or(current_cfg.stockfish_path);
+    let threads = req.engine_threads.unwrap_or(current_cfg.engine_threads);
+    let hash_mb = req.engine_hash_mb.unwrap_or(current_cfg.engine_hash_mb);
+
+    state.engine.update_engine_config(path, threads, hash_mb).await;
     Json(serde_json::json!({ "status": "ok" })).into_response()
 }
 
@@ -1100,6 +1125,7 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
         let mut final_moves = Vec::new();
         let mut brilliant_theory_found = false;
         let mut last_opening = "".to_string();
+        let mut last_uci: Option<String> = None;
 
         for (i, mut m_val) in parsed.moves.into_iter().enumerate() {
             let fen_before = m_val["fen_before"].as_str().unwrap_or("").to_string();
@@ -1109,6 +1135,7 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
 
             if i + 1 >= engine_scores.len() {
                 final_moves.push(m_val);
+                last_uci = Some(uci);
                 continue;
             }
 
@@ -1196,6 +1223,17 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
                 m_val["is_book"].as_bool().unwrap_or(false)
             };
 
+            let is_recapture = if let Some(ref prev_uci) = last_uci {
+                if prev_uci.len() >= 4 && uci.len() >= 4 {
+                    prev_uci[2..4] == uci[2..4]
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+            last_uci = Some(uci.clone());
+
             let classification = crate::analysis::classify_move(
                 delta,
                 p_best,
@@ -1210,6 +1248,7 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
                 mate_second,
                 mate_played,
                 is_engine_top_choice,
+                is_recapture,
             );
 
             // Track brilliant theory
@@ -1564,6 +1603,7 @@ pub async fn start_axum_server(config: AppConfig) {
         .route("/api/import", post(import_handler))
         .route("/api/analyze", post(analyze_handler))
         .route("/api/settings/syzygy", post(update_syzygy_handler))
+        .route("/api/settings/engine", post(update_engine_handler))
         .route("/api/openings/list", get(openings_list_handler))
         .route("/api/openings/explorer", post(openings_explorer_handler))
         .route("/api/training/curated-puzzles", get(curated_puzzles_handler))

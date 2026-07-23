@@ -2,7 +2,7 @@ use shakmaty::{Chess, Move, Position, Role, Square};
 
 pub fn win_prob(cp: f64) -> f64 {
     let clamped = cp.max(-10000.0).min(10000.0);
-    1.0 / (1.0 + (-0.00368208 * clamped).exp())
+    1.0 / (1.0 + (-0.005756 * clamped).exp())
 }
 
 pub fn win_prob_from_wdl(wdl: &crate::engine::WdlInfo) -> f64 {
@@ -31,13 +31,25 @@ pub fn white_win_prob_from_values(wdl_after: Option<&crate::engine::WdlInfo>, wh
     }
 }
 
-pub fn move_accuracy(delta: f64, is_theory: bool) -> f64 {
-    if is_theory {
-        100.0
-    } else {
-        let delta_pct = (delta * 100.0).max(0.0);
-        (100.0 * (-0.035 * delta_pct).exp()).max(0.0).min(100.0)
+pub fn move_accuracy(delta: f64, classification: &str) -> f64 {
+    if classification == "theory" || classification == "best" || classification == "great" {
+        return 100.0;
     }
+
+    let delta_pct = (delta * 100.0).max(0.0);
+    let raw_acc = 103.1668 * (-0.04354 * delta_pct).exp() - 3.1669;
+    let clamped_acc = raw_acc.max(0.0).min(100.0);
+
+    let max_acc = match classification {
+        "excellent" => 92.0,
+        "good" => 82.0,
+        "inaccuracy" => 65.0,
+        "mistake" => 45.0,
+        "blunder" => 20.0,
+        _ => 100.0,
+    };
+
+    clamped_acc.min(max_acc)
 }
 
 pub fn game_accuracy(accuracies: &[f64]) -> f64 {
@@ -199,6 +211,7 @@ pub fn classify_move(
     mate_second: Option<i32>,
     mate_played: Option<i32>,
     is_engine_top_choice: bool,
+    is_recapture: bool,
 ) -> &'static str {
 
     // Brilliant checks (needs material sacrifice, high win probability, and within evaluation loss threshold)
@@ -210,7 +223,7 @@ pub fn classify_move(
         return "theory";
     }
 
-    if is_engine_top_choice && !sacrificed {
+    if is_engine_top_choice && !sacrificed && !is_recapture {
         let is_only_mating_move = if let Some(m_best) = mate_best {
             if m_best > 0 {
                 mate_second.is_none() || mate_second.unwrap() <= 0
@@ -221,7 +234,8 @@ pub fn classify_move(
             false
         };
 
-        let has_large_eval_delta = (cp_best - cp_second) >= 500.0;
+        let is_critical_position = cp_best.abs() <= 600.0;
+        let has_large_eval_delta = (cp_best - cp_second) >= 300.0 && is_critical_position;
 
         if is_only_mating_move || has_large_eval_delta {
             return "great";
@@ -289,13 +303,10 @@ pub fn classify_move(
     // 2. Non-mating values classification based on centipawn loss (cp_loss)
     let cp_loss = (cp_best - cp_played).max(0.0);
     
-    // Check if the evaluation of the position before the move is double digit (10 or more)
-    let multiplier = if cp_best.abs() >= 1000.0 { 5.0 } else { 1.0 };
-    
-    let excellent_threshold = 40.0 * multiplier;
-    let good_threshold = 90.0 * multiplier;
-    let inaccuracy_threshold = 160.0 * multiplier;
-    let mistake_threshold = 500.0 * multiplier;
+    let excellent_threshold = 35.0;
+    let good_threshold = 100.0;
+    let inaccuracy_threshold = 200.0;
+    let mistake_threshold = 600.0;
 
     if cp_loss < excellent_threshold {
         return "excellent";
@@ -328,6 +339,24 @@ pub fn accuracy_to_rating(accuracy: f64) -> i32 {
     }
 }
 
+pub fn calculate_game_rating(accuracy: f64, counts: &std::collections::HashMap<String, usize>) -> i32 {
+    let base_rating = accuracy_to_rating(accuracy) as f64;
+
+    let blunders = counts.get("blunder").cloned().unwrap_or(0) as f64;
+    let mistakes = counts.get("mistake").cloned().unwrap_or(0) as f64;
+    let inaccuracies = counts.get("inaccuracy").cloned().unwrap_or(0) as f64;
+
+    let blunder_penalty = blunders * 200.0;
+    let mistake_penalty = mistakes * 100.0;
+    let inaccuracy_penalty = inaccuracies * 25.0;
+
+    let total_penalty = blunder_penalty + mistake_penalty + inaccuracy_penalty;
+    let adjusted_rating = (base_rating - total_penalty).max(100.0);
+
+    let rounded = ((adjusted_rating / 50.0).round() * 50.0) as i32;
+    rounded.max(100)
+}
+
 pub fn accuracy_to_badge(accuracy: f64) -> &'static str {
     if accuracy >= 90.0 {
         "best"
@@ -357,10 +386,9 @@ pub fn build_accuracy_report(moves: &[serde_json::Value]) -> serde_json::Value {
         let move_accuracies: Vec<f64> = records
             .iter()
             .filter_map(|r| {
-                let cls = r["classification"].as_str()?;
-                let is_theory = cls == "theory";
+                let cls = r["classification"].as_str().unwrap_or("good");
                 let delta = r["delta"].as_f64().unwrap_or(0.0);
-                Some(move_accuracy(delta, is_theory))
+                Some(move_accuracy(delta, cls))
             })
             .collect();
 
@@ -379,7 +407,7 @@ pub fn build_accuracy_report(moves: &[serde_json::Value]) -> serde_json::Value {
             }
         }
 
-        let raw_rating = accuracy_to_rating(accuracy);
+        let raw_rating = calculate_game_rating(accuracy, &counts);
         let num_moves = records.len();
         let mut base_cap = 3200;
         if num_moves <= 10 {
@@ -406,10 +434,9 @@ pub fn build_accuracy_report(moves: &[serde_json::Value]) -> serde_json::Value {
             let p_accuracies: Vec<f64> = phase_records
                 .iter()
                 .filter_map(|r| {
-                    let cls = r["classification"].as_str()?;
-                    let is_theory = cls == "theory";
+                    let cls = r["classification"].as_str().unwrap_or("good");
                     let delta = r["delta"].as_f64().unwrap_or(0.0);
-                    Some(move_accuracy(delta, is_theory))
+                    Some(move_accuracy(delta, cls))
                 })
                 .collect();
 

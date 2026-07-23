@@ -8,13 +8,13 @@ mod server;
 
 #[tauri::command]
 fn get_server_port() -> u16 {
-    config::load_config().server_port
+    config::AppConfig::default().server_port
 }
 
 #[tokio::main]
 async fn main() {
-    // 1. Load config settings
-    let config = config::load_config();
+    // 1. Initialize default config settings
+    let config = config::AppConfig::default();
 
     // 2. Spawn the Axum server in the background
     let config_clone = config.clone();

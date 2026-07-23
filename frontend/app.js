@@ -166,6 +166,9 @@ const el = {
   closeAbout: document.getElementById('close-about'),
   settingsDepth: document.getElementById('settings-depth'),
   settingsTimeout: document.getElementById('settings-timeout'),
+  settingsStockfishPath: document.getElementById('settings-stockfish-path'),
+  settingsThreads: document.getElementById('settings-threads'),
+  settingsHash: document.getElementById('settings-hash'),
   settingsSyzygyContainer: document.getElementById('syzygy-paths-container'),
 
   // Player Cards
@@ -235,6 +238,7 @@ async function init() {
     navigateTo(index);
   });
   _updateSoundButtonUI();
+  _loadEngineSettings();
   await _checkHealth();
 
   // Keyboard navigation
@@ -387,6 +391,37 @@ async function _sendSyzygyPathsToBackend(combinedPath) {
   }
 }
 
+async function _sendEngineSettingsToBackend(payload) {
+  try {
+    const res = await fetch(`${API_BASE}/api/settings/engine`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      console.error('Failed to update engine settings on backend:', res.statusText);
+    }
+  } catch (err) {
+    console.error('Error sending engine settings:', err);
+  }
+}
+
+function _loadEngineSettings() {
+  const savedPath = localStorage.getItem('chess_stockfish_path') || '';
+  const savedThreads = localStorage.getItem('chess_engine_threads') || '4';
+  const savedHash = localStorage.getItem('chess_engine_hash') || '2048';
+
+  if (el.settingsStockfishPath) el.settingsStockfishPath.value = savedPath;
+  if (el.settingsThreads) el.settingsThreads.value = savedThreads;
+  if (el.settingsHash) el.settingsHash.value = savedHash;
+
+  _sendEngineSettingsToBackend({
+    stockfish_path: savedPath,
+    engine_threads: parseInt(savedThreads, 10) || 4,
+    engine_hash_mb: parseInt(savedHash, 10) || 2048
+  });
+}
+
 // ── Health Check ────────────────────────────────────────────────────────
 
 async function _checkHealth() {
@@ -396,7 +431,7 @@ async function _checkHealth() {
     const banner = document.getElementById('engine-setup-banner');
     if (!data.engine?.ready) {
       if (banner) banner.classList.remove('hidden');
-      const errorMsg = data.engine?.error || `Stockfish not found — set "stockfish_path" in config.json`;
+      const errorMsg = data.engine?.error || 'Stockfish path is not configured. Please set Stockfish Executable Path in Settings.';
       showToast(
         errorMsg,
         'error',
@@ -411,6 +446,11 @@ async function _checkHealth() {
           el.depthSlider.value = idx;
           if (el.depthValue) el.depthValue.textContent = DEPTH_VALUES[idx];
         }
+      }
+    }
+    if (data.engine?.path && !localStorage.getItem('chess_stockfish_path')) {
+      if (el.settingsStockfishPath && !el.settingsStockfishPath.value) {
+        el.settingsStockfishPath.value = data.engine.path;
       }
     }
   } catch (e) {
@@ -593,6 +633,27 @@ function _bindControls() {
       el.liveTimeoutInput.value = el.settingsTimeout.value;
       if (state.liveEngineEnabled || state.liveReviewEnabled) _restartCurrentAnalysis();
     }
+  });
+
+  el.settingsStockfishPath?.addEventListener('change', () => {
+    const val = el.settingsStockfishPath.value.trim();
+    localStorage.setItem('chess_stockfish_path', val);
+    _sendEngineSettingsToBackend({ stockfish_path: val });
+    if (state.liveEngineEnabled || state.liveReviewEnabled) _restartCurrentAnalysis();
+  });
+
+  el.settingsThreads?.addEventListener('change', () => {
+    const val = parseInt(el.settingsThreads.value, 10) || 4;
+    localStorage.setItem('chess_engine_threads', val.toString());
+    _sendEngineSettingsToBackend({ engine_threads: val });
+    if (state.liveEngineEnabled || state.liveReviewEnabled) _restartCurrentAnalysis();
+  });
+
+  el.settingsHash?.addEventListener('change', () => {
+    const val = parseInt(el.settingsHash.value, 10) || 2048;
+    localStorage.setItem('chess_engine_hash', val.toString());
+    _sendEngineSettingsToBackend({ engine_hash_mb: val });
+    if (state.liveEngineEnabled || state.liveReviewEnabled) _restartCurrentAnalysis();
   });
 
   // Dynamic Syzygy path inputs handle their own change listeners

@@ -35,19 +35,8 @@ Built entirely with **Rust + Tauri** and **HTML5/JS**, eliminating Python depend
 ### 1. Download Stockfish
 Download from [stockfishchess.org/download](https://stockfishchess.org/download/) and extract the zip.
 
-### 2. Configure Stockfish Path
-Edit `config.json` in the project root and set the path to your Stockfish executable (use double backslashes `\\` or forward slashes `/`):
-
-```json
-{
-  "stockfish_path": "C:\\ChessEngines\\stockfish\\stockfish-windows-x86-64-avxvnni.exe",
-  "engine_threads": 4,
-  "engine_hash_mb": 2048,
-  "analysis_depth": 12,
-  "server_host": "127.0.0.1",
-  "server_port": 8000
-}
-```
+### 2. Configure Stockfish & Engine Settings
+Open the application and click the **Settings (⚙)** button in the sidebar. Enter your Stockfish executable path (e.g. `C:\stockfish\stockfish.exe`), CPU Threads, and Hash Table Size. Settings are saved automatically!
 
 ### 3. Start the Application
 Simply double-click **`start_dev.bat`**.
