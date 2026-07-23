@@ -138,8 +138,6 @@ pub fn get_eco_db() -> &'static EcoDb {
             }
         }
 
-        println!("[DEBUG ECO DB] lookup entries: {}, prefix entries: {}", lookup.len(), prefixes.len());
-
         EcoDb { lookup, prefixes }
     })
 }

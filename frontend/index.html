@@ -5,9 +5,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ChessReviewer — Free Chess Analysis</title>
-  <link rel="icon" type="image/png" href="../icon.png" />
+  <link rel="icon" type="image/png" href="icon.png" />
   <meta name="description"
     content="Free local chess game review and real-time engine analysis. Alternative to premium chess.com review features." />
+  <meta name="author" content="Christian Leone" />
+  <meta name="copyright" content="Copyright © 2026 Christian Leone. All rights reserved." />
 
   <!-- Tailwind CSS v3 Play CDN -->
   <script>
@@ -34,8 +36,8 @@
               card: '#3c3a37',
               'card-hover': '#4a4845',
               sidebar: '#1a1917',
-              green: '#81b64c',
-              'green-hover': '#95c862',
+              green: '#9333ea',
+              'green-hover': '#a855f7',
               border: '#3c3a37',
               'border-light': '#4a4845',
               text: '#ffffff',
@@ -64,30 +66,30 @@
     <!-- ─── LEFT SIDEBAR ──────────────────────────────────────────── -->
     <nav class="app-sidebar">
       <!-- Logo -->
-      <div class="sidebar-logo" title="ChessReviewer">♟</div>
+      <img src="icon.png" id="sidebar-logo" class="sidebar-logo" title="ChessReviewer" alt="ChessReviewer" />
 
       <!-- Nav Items -->
-      <button id="sidebar-nav-analysis" class="sidebar-nav-item active" title="Analysis">
+      <button type="button" id="sidebar-nav-analysis" class="sidebar-nav-item active" title="Analysis">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="8" />
           <path d="m21 21-4.3-4.3" />
         </svg>
       </button>
-      <button id="sidebar-nav-import" class="sidebar-nav-item" title="Import">
+      <button type="button" id="sidebar-nav-import" class="sidebar-nav-item" title="Import">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
           <polyline points="17 8 12 3 7 8" />
           <line x1="12" y1="3" x2="12" y2="15" />
         </svg>
       </button>
-      <button id="sidebar-nav-settings" class="sidebar-nav-item" title="Settings">
+      <button type="button" id="sidebar-nav-settings" class="sidebar-nav-item" title="Settings">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="3" />
           <path
             d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
         </svg>
       </button>
-      <button id="sidebar-nav-training" class="sidebar-nav-item" title="Training">
+      <button type="button" id="sidebar-nav-training" class="sidebar-nav-item" title="Training">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
           <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5" />
@@ -97,7 +99,7 @@
       <div class="sidebar-spacer"></div>
 
       <!-- Bottom branding -->
-      <button id="sidebar-nav-about" class="sidebar-nav-item" title="About">
+      <button type="button" id="sidebar-nav-about" class="sidebar-nav-item" title="About">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10" />
           <path d="M12 16v-4" />
@@ -115,7 +117,7 @@
         <!-- Logo text (for header) -->
         <div class="flex items-center gap-2.5 flex-shrink-0">
           <span class="font-bold text-sm tracking-tight text-[var(--text-primary)]">
-            Chess<span style="color: #81b64c;">Reviewer</span>
+            Chess<span style="color: #a855f7;">Reviewer</span>
           </span>
         </div>
 
@@ -145,37 +147,7 @@
         </div>
       </header>
 
-      <!-- STOCKFISH SETUP BANNER -->
-      <div id="engine-setup-banner" class="hidden px-4 pt-3">
-        <div
-          class="max-w-5xl mx-auto rounded-lg border border-amber-500/30 bg-[var(--bg-card)] p-4 flex items-start gap-4">
-          <div class="text-2xl flex-shrink-0 mt-0.5">⚙️</div>
-          <div class="flex-1 min-w-0">
-            <div class="font-semibold text-amber-300 text-sm mb-1">Stockfish Engine Not Found</div>
-            <div class="text-xs text-amber-200/70 leading-5">
-              ChessReviewer needs the free <strong>Stockfish</strong> chess engine to analyze games.
-            </div>
-            <div class="mt-3 flex flex-wrap gap-2 items-center">
-              <a href="https://stockfishchess.org/download/" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
-                        bg-amber-500 hover:bg-amber-400 text-black transition-colors">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                Download Stockfish (free)
-              </a>
-              <span class="text-amber-200/50 text-xs">then set the path in</span>
-              <code
-                class="text-xs bg-black/40 px-2 py-0.5 rounded text-amber-300/80 font-mono">Settings ⚙ → Stockfish Path</code>.
-            </div>
-          </div>
-          <button onclick="document.getElementById('engine-setup-banner').classList.add('hidden')"
-            class="flex-shrink-0 text-amber-400/60 hover:text-amber-400 transition-colors text-lg leading-none mt-0.5">
-            ✕
-          </button>
-        </div>
-      </div>
+
 
       <!-- ═══════════════════════════════════════════════════════════════
            MAIN LAYOUT  (3 columns: eval-bar | board | dashboard)
@@ -195,7 +167,7 @@
               <!-- Top Player Card -->
               <div class="player-card top-player-card flex justify-between items-center w-full">
                 <div class="flex items-center gap-2 flex-1 min-w-0">
-                  <div id="top-player-avatar" class="player-avatar black-avatar font-bold">♚</div>
+                  <div id="top-player-avatar" class="player-avatar black-avatar font-bold">♟</div>
                   <div class="flex flex-col min-w-0">
                     <div class="flex items-center gap-1.5 text-sm min-w-0">
                       <span id="top-player-title"
@@ -231,7 +203,7 @@
               <!-- Bottom Player Card -->
               <div class="player-card bottom-player-card flex justify-between items-center w-full">
                 <div class="flex items-center gap-2 flex-1 min-w-0">
-                  <div id="bottom-player-avatar" class="player-avatar white-avatar font-bold">♚</div>
+                  <div id="bottom-player-avatar" class="player-avatar white-avatar font-bold">♟</div>
                   <div class="flex flex-col min-w-0">
                     <div class="flex items-center gap-1.5 text-sm min-w-0">
                       <span id="bottom-player-title"
@@ -253,8 +225,8 @@
 
 
 
-          <!-- Navigation Controls -->
-          <div class="flex items-center justify-center gap-1.5 mt-1">
+          <!-- Floating Navigation Controls Pill Bar -->
+          <div class="glass-control-pill flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full my-2">
             <button id="btn-first" class="nav-btn" title="First move (Home)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <path d="M11 19l-7-7 7-7M18 19l-7-7 7-7" />
@@ -270,11 +242,11 @@
                 <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" />
               </svg>
             </button>
-            <button id="btn-play" class="nav-btn" title="Autoplay (Space)">
-              <svg id="play-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <button id="btn-play" class="nav-btn nav-btn-play" title="Autoplay (Space)">
+              <svg id="play-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <polygon points="6 4 20 12 6 20 6 4" />
               </svg>
-              <svg id="pause-icon" class="hidden" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <svg id="pause-icon" class="hidden" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <rect x="5" y="4" width="4" height="16" rx="1" />
                 <rect x="15" y="4" width="4" height="16" rx="1" />
               </svg>
@@ -289,6 +261,7 @@
                 <path d="M13 5l7 7-7 7M6 5l7 7-7 7" />
               </svg>
             </button>
+            <div class="h-4 w-[1px] bg-[var(--border)] mx-1"></div>
             <button id="btn-sound" class="nav-btn" title="Toggle Sound">
               <svg id="sound-on-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="2.5">
@@ -300,7 +273,7 @@
               </svg>
             </button>
             <button id="btn-toggle-overlay"
-              class="nav-btn w-auto px-2 font-bold text-[10px] text-[var(--text-muted)] uppercase tracking-wider ml-1"
+              class="nav-btn w-auto px-2.5 font-bold text-[10px] text-[var(--text-secondary)] uppercase tracking-wider"
               title="Toggle Overlay Priority">
               Class
             </button>
@@ -600,29 +573,45 @@
 
                   <!-- Accuracy & Rating Layout -->
                   <div class="flex flex-col gap-3">
-                    <!-- Accuracy Row -->
-                    <div id="accuracy-row" class="flex justify-between items-center">
-                      <span class="text-sm font-semibold text-[var(--text-muted)]">Accuracy</span>
-                      <div class="flex gap-3 items-center">
-                        <div id="accuracy-white-box"
-                          class="w-[52px] h-6 flex items-center justify-center bg-[#f0f0f0] text-[#333] font-bold text-[13px] rounded shadow-sm">
-                          —</div>
+                    <!-- Modern Hero Accuracy Cards -->
+                    <div id="accuracy-row"
+                      class="grid grid-cols-2 gap-3 p-3 bg-slate-900/40 rounded-xl border border-white/5 shadow-inner">
+                      <!-- White Player Accuracy -->
+                      <div
+                        class="flex flex-col items-center p-2.5 rounded-lg bg-slate-800/40 border border-white/5 transition-all hover:border-white/10">
+                        <span
+                          class="text-[10px] uppercase font-bold tracking-widest text-[var(--text-muted)] mb-1">White
+                          Accuracy</span>
+                        <div id="accuracy-white-box" class="text-2xl font-black text-white font-mono tracking-tight">
+                          —
+                        </div>
+                      </div>
+                      <!-- Black Player Accuracy -->
+                      <div
+                        class="flex flex-col items-center p-2.5 rounded-lg bg-slate-800/40 border border-white/5 transition-all hover:border-white/10">
+                        <span
+                          class="text-[10px] uppercase font-bold tracking-widest text-[var(--text-muted)] mb-1">Black
+                          Accuracy</span>
                         <div id="accuracy-black-box"
-                          class="w-[52px] h-6 flex items-center justify-center bg-[#333] text-white font-bold text-[13px] rounded border border-[var(--border)] shadow-sm">
-                          —</div>
+                          class="text-2xl font-black text-slate-100 font-mono tracking-tight">
+                          —
+                        </div>
                       </div>
                     </div>
 
                     <!-- Game Rating Row -->
-                    <div id="rating-row" class="flex justify-between items-center hidden">
-                      <span class="text-sm font-semibold text-[var(--text-muted)]">Game Rating</span>
-                      <div class="flex gap-3 items-center">
-                        <div id="rating-white-box"
-                          class="w-[52px] h-6 flex items-center justify-center bg-[#f0f0f0] text-[#333] font-bold text-[13px] rounded shadow-sm">
-                          —</div>
-                        <div id="rating-black-box"
-                          class="w-[52px] h-6 flex items-center justify-center bg-[#333] text-white font-bold text-[13px] rounded border border-[var(--border)] shadow-sm">
-                          —</div>
+                    <div id="rating-row" class="grid grid-cols-2 gap-3 hidden">
+                      <div
+                        class="flex justify-between items-center px-3 py-2 bg-slate-800/30 rounded-lg border border-white/5">
+                        <span class="text-[11px] font-medium text-[var(--text-muted)]">White Performance</span>
+                        <div id="rating-white-box" class="font-mono font-bold text-xs text-[var(--accent-green)]">—
+                        </div>
+                      </div>
+                      <div
+                        class="flex justify-between items-center px-3 py-2 bg-slate-800/30 rounded-lg border border-white/5">
+                        <span class="text-[11px] font-medium text-[var(--text-muted)]">Black Performance</span>
+                        <div id="rating-black-box" class="font-mono font-bold text-xs text-[var(--accent-green)]">—
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1375,44 +1364,37 @@
 
         <!-- Engine Settings Option -->
         <div class="flex flex-col gap-3 border-t border-[var(--border)] pt-4">
-          <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Live Engine Configuration</label>
+          <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Live Engine
+            Configuration</label>
 
           <div class="flex flex-col gap-1">
             <span class="text-sm text-[var(--text-secondary)]">Stockfish Executable Path</span>
-            <input id="settings-stockfish-path" type="text" placeholder="e.g. C:\stockfish\stockfish-windows-x86-64-avx2.exe"
+            <input id="settings-stockfish-path" type="text"
+              placeholder="e.g. C:\stockfish\stockfish-windows-x86-64-avx2.exe"
               class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2.5 py-1.5 text-[var(--text-primary)] outline-none text-xs font-mono focus:border-[var(--accent-green)]" />
+            <div id="settings-engine-status" class="text-xs font-semibold flex items-center gap-1.5 mt-1"></div>
           </div>
 
           <div class="flex items-center justify-between gap-4">
             <span class="text-sm text-[var(--text-secondary)]">CPU Threads</span>
             <input id="settings-threads" type="number" min="1" max="128" value="4"
-              class="w-20 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] outline-none text-center text-sm focus:border-[var(--accent-green)]" />
+              class="w-28 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2.5 py-1.5 text-[var(--text-primary)] outline-none text-center text-xs font-mono focus:border-[var(--accent-green)]" />
           </div>
 
           <div class="flex items-center justify-between gap-4">
             <span class="text-sm text-[var(--text-secondary)]">Hash Table Size (MB)</span>
             <input id="settings-hash" type="number" min="16" max="65536" step="16" value="2048"
-              class="w-24 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] outline-none text-center text-sm focus:border-[var(--accent-green)]" />
-          </div>
-
-          <div class="flex items-center justify-between gap-4">
-            <span class="text-sm text-[var(--text-secondary)]">Analysis Depth</span>
-            <input id="settings-depth" type="number" min="8" max="30" value="18"
-              class="w-16 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] outline-none text-center text-sm focus:border-[var(--accent-green)]" />
-          </div>
-
-          <div class="flex items-center justify-between gap-4">
-            <span class="text-sm text-[var(--text-secondary)]">Search Timeout (seconds)</span>
-            <input id="settings-timeout" type="number" min="0" max="100" value="0"
-              class="w-16 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] outline-none text-center text-sm focus:border-[var(--accent-green)]" />
+              class="w-28 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2.5 py-1.5 text-[var(--text-primary)] outline-none text-center text-xs font-mono focus:border-[var(--accent-green)]" />
           </div>
         </div>
 
         <!-- Syzygy Configuration Option -->
         <div class="flex flex-col gap-3 border-t border-[var(--border)] pt-4">
-          <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Syzygy Endgame Tablebases</label>
+          <label class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Syzygy Endgame
+            Tablebases</label>
           <div class="text-[10px] text-[var(--text-muted)] leading-relaxed mb-1">
-            Specify the directories containing Syzygy WDL/DTZ files. Multiple paths can be configured. If any path is filled, Syzygy path configuration will be enabled for Stockfish.
+            Specify the directories containing Syzygy WDL/DTZ files. Multiple paths can be configured. If any path is
+            filled, Syzygy path configuration will be enabled for Stockfish.
           </div>
 
           <div id="syzygy-paths-container" class="flex flex-col gap-2">
@@ -1432,40 +1414,56 @@
       </div>
       <div class="modal-body flex flex-col gap-4 p-4 text-sm leading-relaxed text-[var(--text-secondary)]">
         <div class="flex items-center gap-3">
-          <div
-            class="w-12 h-12 rounded-lg bg-[var(--accent-green)] flex items-center justify-center text-3xl shadow-lg shadow-green-950/20">
-            ♟</div>
+          <img src="icon.png" class="w-12 h-12 rounded-lg object-contain shadow-lg border border-white/10"
+            alt="ChessReviewer Icon" />
           <div>
-            <h4 class="font-bold text-[var(--text-primary)] text-base">ChessReviewer <span
-                class="text-xs font-normal text-[var(--text-muted)]">v1.0.0</span></h4>
-            <p class="text-xs text-[var(--text-muted)]">Free Local Game Review & Analysis</p>
+            <h4 class="font-bold text-[var(--text-primary)] text-base">ChessReviewer <span id="app-version-badge"
+                class="text-xs font-normal text-[var(--text-muted)]"></span></h4>
+            <p class="text-xs text-[var(--text-muted)]">Local Game Review & Analysis Tool</p>
           </div>
         </div>
 
-        <p class="mt-2 text-xs">
-          ChessReviewer is a web application designed to bring advanced, commercial-grade chess game analysis directly
-          to your local computer for free.
-        </p>
-
-        <div
-          class="flex flex-col gap-1 bg-[var(--bg-primary)] p-3 rounded border border-[var(--border)] text-xs text-[var(--text-muted)] mt-1">
-          <div class="flex justify-between">
-            <span>Local Engine:</span>
-            <span class="font-mono text-[var(--text-secondary)]">Stockfish (UCI)</span>
-          </div>
-          <div class="flex justify-between">
-            <span>Accuracy Formula:</span>
-            <span class="font-mono text-[var(--text-secondary)]">CAPS2 win probability</span>
-          </div>
-          <div class="flex justify-between">
-            <span>Frontend:</span>
-            <span class="font-mono text-[var(--text-secondary)]">Vanilla HTML/JS + Tailwind</span>
+        <!-- Practical Shortcuts Guide -->
+        <div class="flex flex-col gap-2 bg-[var(--bg-primary)] p-3 rounded-lg border border-[var(--border)] text-xs">
+          <span class="font-bold text-[var(--text-primary)] uppercase tracking-wider text-[10px]">Keyboard Shortcuts &
+            Controls</span>
+          <div class="grid grid-cols-2 gap-y-1.5 gap-x-2 text-[var(--text-secondary)]">
+            <div><kbd class="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-[10px] text-white">←</kbd> / <kbd
+                class="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-[10px] text-white">→</kbd> Prev / Next Move
+            </div>
+            <div><kbd class="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-[10px] text-white">Home</kbd> / <kbd
+                class="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-[10px] text-white">End</kbd> Start / Final Move
+            </div>
+            <div><kbd class="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-[10px] text-white">Space</kbd> Toggle
+              Autoplay</div>
+            <div><kbd class="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-[10px] text-white">Right-Click</kbd> Draw
+              Board Arrow</div>
           </div>
         </div>
 
-        <p class="text-xs text-[var(--text-muted)] mt-2">
-          Developed as an open alternative to premium chess sites. Check the README for how to import/export PGNs.
-        </p>
+        <!-- Technical Capabilities -->
+        <div class="flex flex-col gap-1.5 bg-[var(--bg-primary)] p-3 rounded-lg border border-[var(--border)] text-xs">
+          <span class="font-bold text-[var(--text-primary)] uppercase tracking-wider text-[10px]">System Features</span>
+          <div class="flex justify-between">
+            <span class="text-[var(--text-muted)]">Accuracy Evaluation:</span>
+            <span class="font-mono text-[var(--text-secondary)]">Win Probability Curve (CAPS2)</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-[var(--text-muted)]">Supported Data:</span>
+            <span class="font-mono text-[var(--text-secondary)]">PGN Files, FEN, Chess.com</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-[var(--text-muted)]">Endgame Tables:</span>
+            <span class="font-mono text-[var(--text-secondary)]">Syzygy WDL & DTZ Support</span>
+          </div>
+        </div>
+
+        <!-- Copyright Notice -->
+        <div class="text-[11px] text-center text-[var(--text-muted)] border-t border-[var(--border)] pt-2.5 mt-0.5">
+          Copyright © 2026 <span
+            class="text-[11px] text-center text-[var(--text-muted)] border-t border-[var(--border)] pt-2.5 mt-0.5 shiny-author-name">Christian
+            Leone</span>. All rights reserved.
+        </div>
       </div>
     </div>
   </div>

@@ -2,7 +2,7 @@
 name = "chess-reviewer"
 version = "1.0.0"
 description = "Local Chess Reviewer"
-authors = ["ChessReviewer Dev"]
+authors = ["Christian Leone"]
 edition = "2021"
 rust-version = "1.70"
 

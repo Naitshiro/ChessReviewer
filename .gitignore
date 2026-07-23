@@ -33,7 +33,6 @@ env.bak/
 venv.bak/
 
 # Project specific
-config.json
 *.log
 scratch/
 node_modules/
@@ -51,4 +50,3 @@ Thumbs.db
 
 # Rust / Tauri build folders
 target/
-src-tauri/target/

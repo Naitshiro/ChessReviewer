@@ -5,10 +5,12 @@ pub fn win_prob(cp: f64) -> f64 {
     1.0 / (1.0 + (-0.005756 * clamped).exp())
 }
 
+#[allow(dead_code)]
 pub fn win_prob_from_wdl(wdl: &crate::engine::WdlInfo) -> f64 {
     (wdl.win as f64 + 0.5 * wdl.draw as f64) / 1000.0
 }
 
+#[allow(dead_code)]
 pub fn win_prob_from_values(wdl: Option<&crate::engine::WdlInfo>, cp: f64) -> f64 {
     match wdl {
         Some(w) => win_prob_from_wdl(w),

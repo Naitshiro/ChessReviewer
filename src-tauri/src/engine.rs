@@ -15,6 +15,7 @@ pub struct WdlInfo {
 }
 
 impl WdlInfo {
+    #[allow(dead_code)]
     pub fn flip(&self) -> Self {
         Self {
             win: self.loss,
@@ -115,6 +116,7 @@ impl StockfishProcess {
     }
 
     /// Analyze a position with MultiPV=3 and return one result per PV at the final depth.
+    #[allow(dead_code)]
     pub async fn analyze_position(&mut self, fen: &str, depth: u32) -> Result<Vec<UciPvInfo>, String> {
         self.send_command("isready").await?;
         self.read_until("readyok").await?;
@@ -258,7 +260,6 @@ impl StockfishProcess {
                 read_res = self.stdout.read_line(&mut line) => {
                     let bytes = read_res.map_err(|e| format!("Failed to read line during analysis stream: {}", e))?;
                     if bytes == 0 {
-                        eprintln!("[live engine] Stockfish process pipe closed unexpectedly.");
                         break;
                     }
                     
@@ -646,6 +647,7 @@ impl EngineManager {
 
 
 
+    #[allow(dead_code)]
     pub async fn analyze_position(&self, fen: &str, depth: u32) -> Result<Vec<UciPvInfo>, String> {
         self.ensure_ready().await?;
         let mut lock = self.inner.lock().await;

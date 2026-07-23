@@ -42,6 +42,7 @@ pub struct TheoryRequest {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct ClassifyRequest {
     pub fen_before: String,
     pub move_uci: String,
@@ -483,6 +484,8 @@ async fn health_handler(State(state): State<AppState>) -> impl IntoResponse {
     let cfg = state.engine.get_config().await;
     Json(serde_json::json!({
         "status": "ok",
+        "version": env!("CARGO_PKG_VERSION"),
+        "authors": env!("CARGO_PKG_AUTHORS"),
         "engine": {
             "ready": engine_ready,
             "error": err_msg,
@@ -593,8 +596,7 @@ async fn classify_handler(Json(req): Json<ClassifyRequest>) -> impl IntoResponse
 async fn threats_handler(State(state): State<AppState>, Json(req): Json<ThreatRequest>) -> impl IntoResponse {
     match state.engine.calculate_threats(&req.fen, req.current_eval_cp).await {
         Ok(threats) => Json(serde_json::json!({ "threats": threats })).into_response(),
-        Err(e) => {
-            eprintln!("[threats] Error: {}", e);
+        Err(_) => {
             Json(serde_json::json!({ "threats": [] })).into_response()
         }
     }
@@ -1050,7 +1052,6 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
 
             match state.engine.analyze_position_cancelable(fen_str, depth, cancel_rx).await {
                 Ok(pv_list) => {
-                    println!("[analyze] fen {}: got {} PV(s)", &fen_str[..fen_str.len().min(40)], pv_list.len());
                     let mut score_entry = serde_json::json!({
                         "fen": fen_str,
                         "relative_cp": 0,
@@ -1097,7 +1098,6 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
                     engine_scores.push(score_entry);
                 }
                 Err(e) => {
-                    println!("[analyze] Error for fen {}: {}", &fen_str[..fen_str.len().min(40)], e);
                     if e == "Cancelled" {
                         break;
                     }

@@ -55,6 +55,8 @@ function getClosestDepthIndex(val) {
 
 const state = {
   mode: MODE.IDLE,
+  stockfishReady: false,
+  stockfishError: null,
   liveEngineEnabled: false,
   liveReviewEnabled: false,
   bestMovesEnabled: false,
@@ -162,11 +164,15 @@ const el = {
   sidebarNavTraining: document.getElementById('sidebar-nav-training'),
   settingsModal: document.getElementById('settings-modal'),
   aboutModal: document.getElementById('about-modal'),
+  appVersionBadge: document.getElementById('app-version-badge'),
+  aboutModalVersionText: document.getElementById('about-modal-version-text'),
+  aboutModalAuthorText: document.getElementById('about-modal-author-text'),
   closeSettings: document.getElementById('close-settings'),
   closeAbout: document.getElementById('close-about'),
   settingsDepth: document.getElementById('settings-depth'),
   settingsTimeout: document.getElementById('settings-timeout'),
   settingsStockfishPath: document.getElementById('settings-stockfish-path'),
+  settingsEngineStatus: document.getElementById('settings-engine-status'),
   settingsThreads: document.getElementById('settings-threads'),
   settingsHash: document.getElementById('settings-hash'),
   settingsSyzygyContainer: document.getElementById('syzygy-paths-container'),
@@ -270,9 +276,7 @@ async function init() {
       el.pgnInput.value = pgn;
     }
     _switchTab('import');
-    if (el.analyzeBtn) {
-      el.analyzeBtn.disabled = false;
-    }
+    _updateAnalyzeBtnState();
     submitAnalysis();
   });
 
@@ -401,6 +405,7 @@ async function _sendEngineSettingsToBackend(payload) {
     if (!res.ok) {
       console.error('Failed to update engine settings on backend:', res.statusText);
     }
+    await _checkHealth();
   } catch (err) {
     console.error('Error sending engine settings:', err);
   }
@@ -415,11 +420,43 @@ function _loadEngineSettings() {
   if (el.settingsThreads) el.settingsThreads.value = savedThreads;
   if (el.settingsHash) el.settingsHash.value = savedHash;
 
-  _sendEngineSettingsToBackend({
-    stockfish_path: savedPath,
+  const payload = {
     engine_threads: parseInt(savedThreads, 10) || 4,
     engine_hash_mb: parseInt(savedHash, 10) || 2048
-  });
+  };
+  // Only send stockfish_path if it was explicitly configured in localStorage
+  if (savedPath) {
+    payload.stockfish_path = savedPath;
+  }
+
+  _sendEngineSettingsToBackend(payload);
+}
+
+// ── Analyze Button State Handler ────────────────────────────────────────
+
+function _updateAnalyzeBtnState() {
+  if (!el.analyzeBtn) return;
+
+  if (currentAnalysisController) {
+    el.analyzeBtn.disabled = false;
+    el.analyzeBtn.title = 'Stop running analysis';
+    return;
+  }
+
+  const val = el.pgnInput?.value?.trim() || '';
+  const hasValidContent = val.length > 0 && !isValidFen(val);
+
+  if (!state.stockfishReady) {
+    el.analyzeBtn.disabled = true;
+    const reason = state.stockfishError ? `: ${state.stockfishError}` : '';
+    el.analyzeBtn.title = `Stockfish engine is not detected or ready (UCI communication failed)${reason}. Please check Stockfish path in Settings ⚙`;
+  } else if (!hasValidContent) {
+    el.analyzeBtn.disabled = true;
+    el.analyzeBtn.title = 'Please paste a valid PGN or list of moves to analyze';
+  } else {
+    el.analyzeBtn.disabled = false;
+    el.analyzeBtn.title = 'Analyze PGN';
+  }
 }
 
 // ── Health Check ────────────────────────────────────────────────────────
@@ -428,33 +465,65 @@ async function _checkHealth() {
   try {
     const res = await fetch(`${API_BASE}/api/health`);
     const data = await res.json();
-    const banner = document.getElementById('engine-setup-banner');
-    if (!data.engine?.ready) {
-      if (banner) banner.classList.remove('hidden');
-      const errorMsg = data.engine?.error || 'Stockfish path is not configured. Please set Stockfish Executable Path in Settings.';
-      showToast(
-        errorMsg,
-        'error',
-        8000
-      );
-    } else {
-      if (banner) banner.classList.add('hidden');
-      // Initialize depth slider value from backend config
-      if (data.engine?.depth) {
-        if (el.depthSlider) {
-          const idx = getClosestDepthIndex(data.engine.depth);
-          el.depthSlider.value = idx;
-          if (el.depthValue) el.depthValue.textContent = DEPTH_VALUES[idx];
-        }
-      }
+
+    if (data.version) {
+      if (el.appVersionBadge) el.appVersionBadge.textContent = `v${data.version}`;
+      if (el.aboutModalVersionText) el.aboutModalVersionText.textContent = `v${data.version}`;
     }
-    if (data.engine?.path && !localStorage.getItem('chess_stockfish_path')) {
+    if (data.authors && el.aboutModalAuthorText) {
+      el.aboutModalAuthorText.textContent = data.authors;
+    }
+
+    if (data.engine?.path) {
+      if (!localStorage.getItem('chess_stockfish_path')) {
+        localStorage.setItem('chess_stockfish_path', data.engine.path);
+      }
       if (el.settingsStockfishPath && !el.settingsStockfishPath.value) {
         el.settingsStockfishPath.value = data.engine.path;
       }
     }
+
+    const isReady = data.engine?.ready === true;
+    state.stockfishReady = isReady;
+    state.stockfishError = data.engine?.error || null;
+
+    if (el.settingsEngineStatus) {
+      if (isReady) {
+        el.settingsEngineStatus.innerHTML = `
+          <span class="inline-block w-2 h-2 rounded-full bg-[var(--accent-green)]"></span>
+          <span class="text-[var(--accent-green)]">Stockfish detected & ready (UCI connected)</span>
+        `;
+      } else {
+        const errDetails = data.engine?.error ? `: ${data.engine.error}` : '';
+        el.settingsEngineStatus.innerHTML = `
+          <span class="inline-block w-2 h-2 rounded-full bg-red-500"></span>
+          <span class="text-red-400">Stockfish not detected / UCI error${errDetails}</span>
+        `;
+      }
+    }
+
+    if (isReady) {
+      if (data.engine?.depth && el.depthSlider) {
+        const idx = getClosestDepthIndex(data.engine.depth);
+        el.depthSlider.value = idx;
+        if (el.depthValue) el.depthValue.textContent = DEPTH_VALUES[idx];
+      }
+    } else {
+      const errMsg = data.engine?.error || 'Stockfish path is not configured or engine failed UCI initialization.';
+      showToast(`Stockfish Warning: ${errMsg}`, 'warning', 6000);
+    }
   } catch (e) {
-    showToast('Cannot reach backend server. Make sure start.bat is running.', 'error', 8000);
+    state.stockfishReady = false;
+    state.stockfishError = 'Cannot reach backend server';
+    if (el.settingsEngineStatus) {
+      el.settingsEngineStatus.innerHTML = `
+        <span class="inline-block w-2 h-2 rounded-full bg-red-500"></span>
+        <span class="text-red-400">Backend server unreachable</span>
+      `;
+    }
+    showToast('Cannot reach backend server. Make sure start.bat is running.', 'error', 6000);
+  } finally {
+    _updateAnalyzeBtnState();
   }
 }
 
@@ -470,10 +539,7 @@ function _bindControls() {
     if (e.ctrlKey && e.key === 'Enter') importPgn();
   });
   el.pgnInput?.addEventListener('input', () => {
-    const val = el.pgnInput.value.trim();
-    if (el.analyzeBtn) {
-      el.analyzeBtn.disabled = !val || isValidFen(val);
-    }
+    _updateAnalyzeBtnState();
   });
 
   // Navigation buttons
@@ -569,27 +635,33 @@ function _bindControls() {
   });
 
   // Sidebar navigation and Modals
-  el.sidebarNavAnalysis?.addEventListener('click', () => {
+  document.getElementById('sidebar-logo')?.addEventListener('click', (e) => {
+    e.preventDefault();
     _switchTab('moves');
   });
 
-  el.sidebarNavImport?.addEventListener('click', () => {
+  el.sidebarNavAnalysis?.addEventListener('click', (e) => {
+    e.preventDefault();
+    _switchTab('moves');
+  });
+
+  el.sidebarNavImport?.addEventListener('click', (e) => {
+    e.preventDefault();
     _switchTab('import');
   });
 
-  el.sidebarNavSettings?.addEventListener('click', () => {
-    // Sync depth and timeout from current live settings inputs
-    if (el.settingsDepth && el.liveDepthInput) el.settingsDepth.value = el.liveDepthInput.value;
-    if (el.settingsTimeout && el.liveTimeoutInput) el.settingsTimeout.value = el.liveTimeoutInput.value;
-
+  el.sidebarNavSettings?.addEventListener('click', (e) => {
+    e.preventDefault();
     el.settingsModal?.classList.remove('hidden');
   });
 
-  el.sidebarNavAbout?.addEventListener('click', () => {
+  el.sidebarNavAbout?.addEventListener('click', (e) => {
+    e.preventDefault();
     el.aboutModal?.classList.remove('hidden');
   });
 
-  el.sidebarNavTraining?.addEventListener('click', () => {
+  el.sidebarNavTraining?.addEventListener('click', (e) => {
+    e.preventDefault();
     _switchTab('training');
   });
 
@@ -1013,7 +1085,7 @@ async function importPgn() {
     showToast('PGN Imported!', 'success');
     _switchTab('moves');
 
-    if (el.analyzeBtn) el.analyzeBtn.disabled = false;
+    _updateAnalyzeBtnState();
   } catch (e) {
     showToast(`Import failed: ${e.message}`, 'error', 6000);
     console.error(e);
@@ -1028,6 +1100,12 @@ async function submitAnalysis() {
     // Stop Analysis clicked
     currentAnalysisController.abort();
     currentAnalysisController = null;
+    return;
+  }
+
+  if (!state.stockfishReady) {
+    showToast('Stockfish engine is not detected or ready (UCI communication failed). Please check Settings ⚙', 'error', 6000);
+    _updateAnalyzeBtnState();
     return;
   }
 
@@ -1141,6 +1219,7 @@ async function submitAnalysis() {
     if (el.analyzeBtnIcon) el.analyzeBtnIcon.classList.remove('hidden');
     if (el.loadingSpinner) el.loadingSpinner.classList.add('hidden');
     if (el.analysisProgressContainer) el.analysisProgressContainer.classList.add('hidden');
+    _updateAnalyzeBtnState();
   }
 }
 
@@ -1440,17 +1519,32 @@ function _updatePlayerClocksAndCaptured(idx) {
   }
 }
 
+function _isStockfishName(name) {
+  if (!name) return false;
+  const n = name.trim().toLowerCase();
+  return n === 'stockfish' || n.startsWith('stockfish') || n === 'engine' || n.startsWith('engine') || n === 'computer' || n === 'bot';
+}
+
 function _updatePlayerCards() {
   if (!state.game.metadata) return;
   const m = state.game.metadata;
 
-  // Create safe values
-  const whiteName = (m.white && m.white !== '?') ? m.white : 'White';
-  const blackName = (m.black && m.black !== '?') ? m.black : 'Black';
-  const whiteElo = m.white_elo ? `(${m.white_elo})` : '';
-  const blackElo = m.black_elo ? `(${m.black_elo})` : '';
-  const whiteTitle = m.white_title || '';
-  const blackTitle = m.black_title || '';
+  let whiteName = (m.white && m.white !== '?') ? m.white : 'White';
+  let blackName = (m.black && m.black !== '?') ? m.black : 'Black';
+  let whiteElo = m.white_elo ? `(${m.white_elo})` : '';
+  let blackElo = m.black_elo ? `(${m.black_elo})` : '';
+  let whiteTitle = m.white_title || '';
+  let blackTitle = m.black_title || '';
+
+  // Handle engine / stockfish player auto-detection
+  if (_isStockfishName(m.white)) {
+    whiteName = 'Stockfish';
+    whiteTitle = 'ENGINE';
+  }
+  if (_isStockfishName(m.black) || (!m.black || m.black === '?')) {
+    blackName = 'Stockfish';
+    blackTitle = 'ENGINE';
+  }
 
   let top, bottom;
   if (state.boardOrientation === 'white') {
@@ -1464,10 +1558,19 @@ function _updatePlayerCards() {
   const renderAvatar = (avatarEl, flagEl, playerUsername, color) => {
     if (!avatarEl) return;
     avatarEl.style.backgroundImage = 'none';
-    avatarEl.textContent = '♚';
+    avatarEl.textContent = '♟';
     if (flagEl) flagEl.textContent = '';
 
     const rawUsername = (playerUsername || '').trim();
+
+    if (_isStockfishName(rawUsername)) {
+      avatarEl.style.backgroundImage = `url(assets/stockfish-logo.webp), url(https://stockfishchess.org/images/logo/icon_512x512@2x.webp)`;
+      avatarEl.style.backgroundSize = 'cover';
+      avatarEl.style.backgroundPosition = 'center';
+      avatarEl.textContent = '';
+      return;
+    }
+
     if (!rawUsername || rawUsername === 'White' || rawUsername === 'Black' || rawUsername === '?' || rawUsername.includes(' ')) {
       return;
     }
@@ -1507,7 +1610,7 @@ function _updatePlayerCards() {
           avatar: data.avatar || null,
           flag: flag || null
         };
-        _updatePlayerCards(); // Refresh display
+        _updatePlayerCards();
       })
       .catch(err => {
         console.warn(`Failed to fetch Chess.com avatar for ${rawUsername}:`, err);
@@ -1521,14 +1624,32 @@ function _updatePlayerCards() {
   if (el.topPlayerElo) el.topPlayerElo.textContent = top.elo;
   if (el.topPlayerTitle) {
     el.topPlayerTitle.textContent = top.title;
-    top.title ? el.topPlayerTitle.classList.remove('hidden') : el.topPlayerTitle.classList.add('hidden');
+    if (top.title) {
+      el.topPlayerTitle.classList.remove('hidden');
+      if (top.title === 'ENGINE' || top.title === 'BOT') {
+        el.topPlayerTitle.className = 'text-[10px] bg-[#9333ea] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shadow-sm';
+      } else {
+        el.topPlayerTitle.className = 'text-[10px] bg-[#e53e3e] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider';
+      }
+    } else {
+      el.topPlayerTitle.classList.add('hidden');
+    }
   }
 
   if (el.bottomPlayerName) el.bottomPlayerName.textContent = bottom.name;
   if (el.bottomPlayerElo) el.bottomPlayerElo.textContent = bottom.elo;
   if (el.bottomPlayerTitle) {
     el.bottomPlayerTitle.textContent = bottom.title;
-    bottom.title ? el.bottomPlayerTitle.classList.remove('hidden') : el.bottomPlayerTitle.classList.add('hidden');
+    if (bottom.title) {
+      el.bottomPlayerTitle.classList.remove('hidden');
+      if (bottom.title === 'ENGINE' || bottom.title === 'BOT') {
+        el.bottomPlayerTitle.className = 'text-[10px] bg-[#9333ea] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shadow-sm';
+      } else {
+        el.bottomPlayerTitle.className = 'text-[10px] bg-[#e53e3e] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider';
+      }
+    } else {
+      el.bottomPlayerTitle.classList.add('hidden');
+    }
   }
 
   // Also trigger clocks and captured pieces rendering
@@ -2151,7 +2272,7 @@ function _scheduleEngineUiUpdate() {
 
 function _startWebSocketAnalysis(fen) {
   const needsAnalysis = state.liveEngineEnabled || (state.mode === MODE.ANALYSIS && state.liveReviewEnabled);
-  if (!needsAnalysis) return;
+  if (!needsAnalysis || !state.stockfishReady) return;
 
   if (wsAnalysisDebounceTimer) {
     clearTimeout(wsAnalysisDebounceTimer);
@@ -2584,9 +2705,7 @@ function _updatePgnInput() {
 
   const val = pgnStr.trim();
   el.pgnInput.value = val;
-  if (el.analyzeBtn) {
-    el.analyzeBtn.disabled = !val || isValidFen(val);
-  }
+  _updateAnalyzeBtnState();
 }
 function playEngineLineSequence(pvMoves, targetIndex) {
   const wasEngineEnabled = state.liveEngineEnabled;
@@ -3150,7 +3269,7 @@ function selectChesscomGame(index) {
   if (!game) return;
   if (el.pgnInput) {
     el.pgnInput.value = game.pgn;
-    if (el.analyzeBtn) el.analyzeBtn.disabled = false;
+    _updateAnalyzeBtnState();
     showToast('Chess.com game PGN loaded into input!', 'success');
   }
 }

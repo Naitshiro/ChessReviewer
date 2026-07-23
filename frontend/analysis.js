@@ -118,13 +118,13 @@ export function renderEvalBar(whiteCp, mateMoves = null, gameOver = false, winne
   if (gameOver || mateMoves === 0) {
     if (isWhiteWinner === true) {
       heightPct = 100;
-      labelText = '1 - 0';
+      labelText = '1-0';
     } else if (isWhiteWinner === false) {
       heightPct = 0;
-      labelText = '0 - 1';
+      labelText = '0-1';
     } else {
       heightPct = 50;
-      labelText = '½ - ½';
+      labelText = '½-½';
     }
   } else if (mateMoves !== null) {
     heightPct = mateMoves > 0 ? 100 : 0;
@@ -1021,10 +1021,20 @@ const toastContainer = document.getElementById('toast-container');
  */
 export function showToast(message, type = 'info', duration = 4000) {
   if (!toastContainer) return;
+
+  // Prevent duplicate popups if an identical toast message is currently visible
+  const existingToasts = toastContainer.querySelectorAll('.toast');
+  for (const existing of existingToasts) {
+    if (existing.dataset.message === message) {
+      return;
+    }
+  }
+
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
+  toast.dataset.message = message;
   toast.innerHTML = `
-    <span>${type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ'}</span>
+    <span>${type === 'success' ? '✓' : type === 'error' ? '✕' : type === 'warning' ? '⚠️' : 'ℹ'}</span>
     <span>${message}</span>
   `;
   toastContainer.appendChild(toast);

@@ -1301,6 +1301,38 @@ export const TrainingModule = {
 
   _reviewEngineGame() {
     if (!this.engine.chess) return;
+
+    const isPlayerWhite = (this.engine.actualColor || 'white') === 'white';
+    const engineElo = this.engine.elo || 1500;
+    const now = new Date().toISOString().split('T')[0].replace(/-/g, '.');
+
+    this.engine.chess.header('Event', 'Play vs Stockfish Engine');
+    this.engine.chess.header('Site', 'ChessReviewer');
+    this.engine.chess.header('Date', now);
+
+    if (isPlayerWhite) {
+      this.engine.chess.header('Black', 'Stockfish');
+      this.engine.chess.header('BlackTitle', 'ENGINE');
+      this.engine.chess.header('BlackElo', String(engineElo));
+    } else {
+      this.engine.chess.header('White', 'Stockfish');
+      this.engine.chess.header('WhiteTitle', 'ENGINE');
+      this.engine.chess.header('WhiteElo', String(engineElo));
+    }
+
+    // Determine result
+    let result = '*';
+    if (this.engine.chess.isCheckmate()) {
+      // The side whose turn it is has been checkmated
+      result = this.engine.chess.turn() === 'w' ? '0-1' : '1-0';
+    } else if (this.engine.chess.isDraw()) {
+      result = '1/2-1/2';
+    } else if (this.engine.activeStatus === 'over') {
+      // Player resigned
+      result = isPlayerWhite ? '0-1' : '1-0';
+    }
+    this.engine.chess.header('Result', result);
+
     const pgn = this.engine.chess.pgn();
     if (this.onReviewGame) {
       this.onReviewGame(pgn);

@@ -1,6 +1,6 @@
 {
   "name": "chess-reviewer",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Local Chess Reviewer and Analysis Tool",
   "scripts": {
     "tauri": "tauri"
