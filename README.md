@@ -14,7 +14,7 @@ Built entirely with **Rust + Tauri** and **HTML5/JS**, eliminating Python depend
 ## Features
 
 - **Game Review** — Paste any PGN and get full move-by-move Stockfish analysis
-- **Move Classification** — Brilliant (!!) · Great (!) · Best · Excellent · Good · Inaccuracy · Mistake · Blunder · Book
+- **Move Classification** — Brilliant · Great · Best · Excellent · Good · Inaccuracy · Mistake · Blunder · Book
 - **Accuracy Score** — CAPS2-style accuracy percentage for White and Black
 - **Live Analysis** — Drag a piece to deviate from the game and get real-time 3-line engine analysis (MultiPV)
 - **Evaluation Bar** — Visual win probability indicator
