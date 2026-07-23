@@ -7,94 +7,65 @@
 
 # ♟ ChessReviewer
 
-A free, local chess game review and real-time analysis tool. An open alternative to chess.com's premium review features, powered by Stockfish.
-
-Built entirely with **Rust + Tauri** and **HTML5/JS**, eliminating Python dependencies for fast execution and a small memory footprint.
+A free, local chess game review and real-time analysis desktop application powered by Stockfish. Built with Rust, Tauri, and HTML/JS.
 
 ## Features
 
-- **Game Review** — Paste any PGN and get full move-by-move Stockfish analysis
-- **Move Classification** — Brilliant · Great · Best · Excellent · Good · Inaccuracy · Mistake · Blunder · Book
-- **Accuracy Score** — CAPS2-style accuracy percentage for White and Black
-- **Live Analysis** — Drag a piece to deviate from the game and get real-time 3-line engine analysis (MultiPV)
-- **Evaluation Bar** — Visual win probability indicator
-- **Win Probability Chart** — Move-by-move graph of game trajectory
-
----
+- **Game Review** — Move-by-move Stockfish analysis for PGN files.
+- **Move Classification** — Brilliant, Great, Best, Excellent, Good, Inaccuracy, Mistake, Blunder, Book.
+- **Accuracy Score** — CAPS2-style move accuracy calculation.
+- **Live Analysis** — Interactive board for exploring variations with real-time multi-PV engine output.
+- **Evaluation Bar & Chart** — Visual win probability bar and move-by-move evaluation graph.
+- **Training Mode** — Play vs Stockfish (customizable ELO), tactics puzzles, and opening rehearsal.
 
 ## Requirements
 
-- **Node.js** (LTS version recommended)
-- **Rust and Cargo** (from [rustup.rs](https://rustup.rs/))
-- **Stockfish chess engine binary** (free download from [stockfishchess.org](https://stockfishchess.org/download/))
+- **Node.js** (LTS)
+- **Rust and Cargo** ([rustup.rs](https://rustup.rs/))
+- **Stockfish engine binary** ([stockfishchess.org](https://stockfishchess.org/download/))
 
----
+## Setup
 
-## Quick Setup
+1. Download and extract Stockfish from [stockfishchess.org](https://stockfishchess.org/download/).
+2. Run the application (`npm run tauri dev`).
+3. Open **Settings (⚙)** in the sidebar and set your Stockfish executable path, CPU thread count, and RAM hash size.
 
-### 1. Download Stockfish
-Download from [stockfishchess.org/download](https://stockfishchess.org/download/) and extract the zip.
+## Development & Building
 
-### 2. Configure Stockfish & Engine Settings
-Open the application and click the **Settings (⚙)** button in the sidebar. Enter your Stockfish executable path (e.g. `C:\stockfish\stockfish.exe`), CPU Threads, and Hash Table Size. Settings are saved automatically!
-
-### 3. Start the Application
-Simply double-click **`start_dev.bat`**.
-
-On first run, it will automatically:
-1. Detect Node.js and Rust environments
-2. Install npm dependencies
-3. Launch the application in Tauri Developer Mode
-
----
-
-## Manual Start & Building
-
-### Manual Development Launch
+### Run in Dev Mode
 ```bash
-# Install npm dependencies
 npm install
-
-# Run the Tauri application in developer mode
 npm run tauri dev
 ```
 
-### Compilation / Building (Standalone App)
-Double-click **`build_portable.bat`** or run:
-
+### Build Executable
 ```bash
 npm run tauri build
 ```
+Built binaries are output to `src-tauri/target/release/`.
 
-The resulting executable will be generated at:
-`src-tauri/target/release/ChessReviewer.exe`
+## Move Classification Math
 
----
-
-## Move Classification & Evaluation Math
-
-| Formula | Description |
+| Metric | Formula |
 |---|---|
-| `P = 1 / (1 + exp(-0.004 * cp))` | Win probability from centipawns |
-| `Delta = P_best - P_played` | Probability loss for the move |
-| `Accuracy = 100 × (1 - tanh(2.5 × avg(Delta)))` | CAPS2 game accuracy |
+| Win Probability | `P = 1 / (1 + exp(-0.004 * cp))` |
+| Win Probability Loss | `Delta = P_best - P_played` |
+| Accuracy | `Accuracy = 100 × (1 - tanh(2.5 × avg(Delta)))` |
 
-| Class | Delta Threshold |
+| Classification | Condition |
 |---|---|
-| Brilliant | Delta < 0.02, only obvious best move, sacrifices material, remains winning |
-| Great | Delta < 0.02, only obvious best move |
-| Best | Delta = 0 |
-| Excellent | Delta < 0.02 |
-| Good | Delta < 0.05 |
-| Inaccuracy | Delta < 0.10 |
-| Mistake | Delta < 0.20 |
-| Blunder | Delta ≥ 0.20 |
-
----
+| Brilliant | `Delta < 0.02`, material sacrifice, remains winning |
+| Great | `Delta < 0.02`, single winning move |
+| Best | `Delta = 0` |
+| Excellent | `Delta < 0.02` |
+| Good | `Delta < 0.05` |
+| Inaccuracy | `Delta < 0.10` |
+| Mistake | `Delta < 0.20` |
+| Blunder | `Delta ≥ 0.20` |
 
 ## Tech Stack
 
-- **Desktop Framework**: Tauri 1.6
-- **Backend / Core Logic**: Rust · Axum · Tokio · Shakmaty (chess engine/PGN handling)
-- **Engine Protocol**: Stockfish UCI over standard I/O
-- **Frontend**: Vanilla HTML5/JS · `cm-chessboard` v8 · `chess.js` v1 · `Chart.js` v4
+- **Desktop Framework**: Tauri
+- **Backend**: Rust (Axum, Tokio, Shakmaty)
+- **Engine Protocol**: Stockfish UCI
+- **Frontend**: HTML5/JS, `cm-chessboard`, `chess.js`, `Chart.js`
