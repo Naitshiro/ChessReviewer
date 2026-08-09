@@ -134,10 +134,33 @@ pub fn is_sacrifice(pos: &Chess, mv: &Move, mate_played: Option<i32>) -> bool {
         return false;
     }
 
-    let actual_max_loss = get_max_loss_for_move(pos, mv);
-    if actual_max_loss >= 200 {
-        if mate_played.is_some() && mate_played.unwrap() > 0 {
-            return true;
+    let mut actual_max_loss = get_max_loss_for_move(pos, mv);
+    
+    // In a forcing mate sequence, ignore recapture value since material doesn't matter
+    if let Some(m) = mate_played {
+        if m > 0 {
+            let material_won = get_move_captured_value(mv);
+            if let Ok(after_pos) = pos.clone().play(mv) {
+                let mut naive_loss = 0;
+                for op_move in after_pos.legal_moves().into_iter().filter(|m| m.is_capture()) {
+                    let target_value = get_move_captured_value(&op_move);
+                    let loss = target_value - material_won;
+                    if loss > naive_loss {
+                        naive_loss = loss;
+                    }
+                }
+                if naive_loss > actual_max_loss {
+                    actual_max_loss = naive_loss;
+                }
+            }
+        }
+    }
+
+    if actual_max_loss >= 150 {
+        if let Some(m) = mate_played {
+            if m > 0 {
+                return true;
+            }
         }
 
         // Check if mover piece was already threatened before the move
@@ -189,8 +212,8 @@ pub fn is_sacrifice(pos: &Chess, mv: &Move, mate_played: Option<i32>) -> bool {
                 continue;
             }
             let alt_loss = get_max_loss_for_move(pos, &alt_move);
-            if alt_loss < 50 {
-                return true; // we found a safe alternative
+            if alt_loss < actual_max_loss - 50 {
+                return true; // we found a safer alternative
             }
         }
     }
@@ -200,7 +223,7 @@ pub fn is_sacrifice(pos: &Chess, mv: &Move, mate_played: Option<i32>) -> bool {
 }
 
 pub fn classify_move(
-    _delta: f64,
+    delta: f64,
     _p_best: f64,
     _p_second_best: f64,
     p_played: f64,
@@ -216,8 +239,10 @@ pub fn classify_move(
     is_recapture: bool,
 ) -> &'static str {
 
-    // Brilliant checks (needs material sacrifice, high win probability, and within evaluation loss threshold)
-    if sacrificed && p_played >= 0.45 && (cp_best - cp_played) <= 50.0 {
+    let is_in_mating_sequence = mate_best.map(|m| m > 0).unwrap_or(false) || mate_played.map(|m| m > 0).unwrap_or(false);
+
+    // Brilliant checks (needs material sacrifice, not a recapture, and either forces/maintains a mating sequence or maintains high win probability)
+    if sacrificed && !is_recapture && (is_in_mating_sequence || (p_played >= 0.45 && (delta <= 0.03 || (cp_best - cp_played) <= 50.0))) {
         return "brilliant";
     }
 

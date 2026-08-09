@@ -37,6 +37,7 @@ venv.bak/
 scratch/
 node_modules/
 .agent/
+AGENTS.md
 
 # IDEs and Editors
 .vscode/

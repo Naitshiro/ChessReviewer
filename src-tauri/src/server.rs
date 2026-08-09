@@ -526,42 +526,48 @@ async fn check_theory_handler(Json(req): Json<TheoryRequest>) -> impl IntoRespon
 }
 
 async fn classify_handler(Json(req): Json<ClassifyRequest>) -> impl IntoResponse {
+    let mut player_white = true;
+    let mut pos = Chess::default();
+    let mut is_valid_pos = false;
+
+    if let Ok(fen) = req.fen_before.parse::<shakmaty::fen::Fen>() {
+        if let Ok(p) = fen.into_position::<Chess>(shakmaty::CastlingMode::Standard) {
+            player_white = p.turn().is_white();
+            pos = p;
+            is_valid_pos = true;
+        }
+    }
+
+    let mate_best = req.mate_best.map(|m| if player_white { m } else { -m });
+    let mate_second = req.mate_second.map(|m| if player_white { m } else { -m });
+    let mate_played = req.mate_played.map(|m| if player_white { m } else { -m });
+
     // Parse the move as UCI (from/to squares), not SAN
-    let sacrificed = if req.move_uci.len() >= 4 {
-        match req.fen_before.parse::<shakmaty::fen::Fen>() {
-            Ok(fen) => {
-                match fen.into_position::<Chess>(shakmaty::CastlingMode::Standard) {
-                    Ok(pos) => {
-                        let from_sq = Square::from_ascii(req.move_uci[0..2].as_bytes()).ok();
-                        let to_sq = Square::from_ascii(req.move_uci[2..4].as_bytes()).ok();
-                        let promo = if req.move_uci.len() == 5 {
-                            match req.move_uci.chars().nth(4) {
-                                Some('q') => Some(Role::Queen),
-                                Some('r') => Some(Role::Rook),
-                                Some('b') => Some(Role::Bishop),
-                                Some('n') => Some(Role::Knight),
-                                _ => None,
-                            }
-                        } else {
-                            None
-                        };
-                        if let (Some(from), Some(to)) = (from_sq, to_sq) {
-                            // Find the matching legal move
-                            let resolved = pos.legal_moves().into_iter()
-                                .find(|m| m.from() == Some(from) && m.to() == to && m.promotion() == promo);
-                            if let Some(m) = resolved {
-                                crate::analysis::is_sacrifice(&pos, &m, req.mate_played)
-                            } else {
-                                false
-                            }
-                        } else {
-                            false
-                        }
-                    }
-                    _ => false,
-                }
+    let sacrificed = if is_valid_pos && req.move_uci.len() >= 4 {
+        let from_sq = Square::from_ascii(req.move_uci[0..2].as_bytes()).ok();
+        let to_sq = Square::from_ascii(req.move_uci[2..4].as_bytes()).ok();
+        let promo = if req.move_uci.len() == 5 {
+            match req.move_uci.chars().nth(4) {
+                Some('q') => Some(Role::Queen),
+                Some('r') => Some(Role::Rook),
+                Some('b') => Some(Role::Bishop),
+                Some('n') => Some(Role::Knight),
+                _ => None,
             }
-            _ => false,
+        } else {
+            None
+        };
+        if let (Some(from), Some(to)) = (from_sq, to_sq) {
+            // Find the matching legal move
+            let resolved = pos.legal_moves().into_iter()
+                .find(|m| m.from() == Some(from) && m.to() == to && m.promotion() == promo);
+            if let Some(m) = resolved {
+                crate::analysis::is_sacrifice(&pos, &m, mate_played)
+            } else {
+                false
+            }
+        } else {
+            false
         }
     } else {
         false
@@ -583,9 +589,9 @@ async fn classify_handler(Json(req): Json<ClassifyRequest>) -> impl IntoResponse
         req.cp_best,
         req.cp_second,
         req.cp_played,
-        req.mate_best,
-        req.mate_second,
-        req.mate_played,
+        mate_best,
+        mate_second,
+        mate_played,
         is_engine_top_choice,
         req.is_recapture,
     );
@@ -1125,6 +1131,7 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
         let mut final_moves = Vec::new();
         let mut brilliant_theory_found = false;
         let mut last_opening = "".to_string();
+        let mut last_was_capture = false;
         let mut last_uci: Option<String> = None;
 
         for (i, mut m_val) in parsed.moves.into_iter().enumerate() {
@@ -1223,9 +1230,11 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
                 m_val["is_book"].as_bool().unwrap_or(false)
             };
 
+            let is_capture = resolved_move.as_ref().map(|m| m.is_capture()).unwrap_or(false);
+
             let is_recapture = if let Some(ref prev_uci) = last_uci {
                 if prev_uci.len() >= 4 && uci.len() >= 4 {
-                    prev_uci[2..4] == uci[2..4]
+                    prev_uci[2..4] == uci[2..4] && last_was_capture && is_capture
                 } else {
                     false
                 }
@@ -1233,6 +1242,7 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
                 false
             };
             last_uci = Some(uci.clone());
+            last_was_capture = is_capture;
 
             let classification = crate::analysis::classify_move(
                 delta,
