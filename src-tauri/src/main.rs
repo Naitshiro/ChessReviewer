@@ -24,6 +24,16 @@ async fn main() {
 
     // 3. Launch Tauri application window
     tauri::Builder::default()
+        .setup(|app| {
+            #[cfg(any(windows, target_os = "macos"))]
+            {
+                use tauri::Manager;
+                use window_shadows::set_shadow;
+                let window = app.get_window("main").unwrap();
+                set_shadow(&window, true).expect("Unsupported platform!");
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![get_server_port])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

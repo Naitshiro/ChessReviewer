@@ -38,6 +38,8 @@ scratch/
 node_modules/
 .agent/
 AGENTS.md
+GEMINI.md
+tools/
 
 # IDEs and Editors
 .vscode/

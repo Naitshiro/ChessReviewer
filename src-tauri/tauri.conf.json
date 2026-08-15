@@ -16,6 +16,14 @@
       "shell": {
         "all": false,
         "open": true
+      },
+      "window": {
+        "all": false,
+        "close": true,
+        "minimize": true,
+        "maximize": true,
+        "unmaximize": true,
+        "startDragging": true
       }
     },
     "bundle": {
@@ -41,8 +49,11 @@
         "title": "ChessReviewer",
         "width": 1200,
         "height": 800,
-        "resizable": false,
-        "fullscreen": false
+        "resizable": true,
+        "maximizable": false,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true
       }
     ]
   }

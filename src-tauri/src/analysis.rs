@@ -109,7 +109,7 @@ pub fn get_max_loss_for_move(pos: &Chess, mv: &Move) -> i32 {
 
         let mut max_recapture_value = 0;
         for my_cap in recapture_pos.legal_moves() {
-            if my_cap.is_capture() {
+            if my_cap.is_capture() && my_cap.to() == op_move.to() {
                 let cap_val = get_move_captured_value(&my_cap);
                 if cap_val > max_recapture_value {
                     max_recapture_value = cap_val;
@@ -119,7 +119,14 @@ pub fn get_max_loss_for_move(pos: &Chess, mv: &Move) -> i32 {
 
         let net_loss = target_value - max_recapture_value;
         let net_loss_clamped = net_loss.max(0);
-        let loss = net_loss_clamped - material_won;
+        let mut loss = net_loss_clamped - material_won;
+        
+        // If we lose a real piece (not just a pawn) and still have a net material loss >= 50,
+        // treat it as a full sacrifice to pass the 150 threshold.
+        if loss >= 50 && target_value > 100 {
+            loss = loss.max(150);
+        }
+
         if loss > max_loss {
             max_loss = loss;
         }
@@ -277,25 +284,17 @@ pub fn classify_move(
     if mate_best.is_some() || mate_played.is_some() {
         if let (Some(m_best), Some(m_played)) = (mate_best, mate_played) {
             if m_best > 0 && m_played > 0 {
-                let optimal_mate = m_best - 1;
-                let diff = m_played - optimal_mate;
-                if diff <= 0 {
-                    return "best";
-                } else if diff <= 7 {
-                    return "excellent";
-                } else {
-                    return "good";
+                let is_only_mate = mate_second.is_none() || mate_second.unwrap() <= 0;
+                if is_only_mate {
+                    return "great";
                 }
+                return "best";
             } else if m_best < 0 && m_played < 0 {
-                let optimal_defense = m_best + 1;
-                let diff = m_played - optimal_defense;
-                if diff <= 0 {
-                    return "best";
-                } else if diff <= 7 {
-                    return "excellent";
-                } else {
-                    return "good";
+                let is_only_mate = mate_second.is_none() || mate_second.unwrap() >= 0;
+                if is_only_mate {
+                    return "great";
                 }
+                return "best";
             } else if m_best > 0 && m_played < 0 {
                 return "blunder";
             } else if m_best < 0 && m_played > 0 {
@@ -335,19 +334,31 @@ pub fn classify_move(
     let inaccuracy_threshold = 200.0;
     let mistake_threshold = 600.0;
 
-    if cp_loss < excellent_threshold {
-        return "excellent";
+    let mut classification = if cp_loss < excellent_threshold {
+        "excellent"
+    } else if cp_loss < good_threshold {
+        "good"
+    } else if cp_loss < inaccuracy_threshold {
+        "inaccuracy"
+    } else if cp_loss < mistake_threshold {
+        "mistake"
+    } else {
+        "blunder"
+    };
+
+    if classification == "blunder" {
+        if cp_best < -1000.0 {
+            classification = "inaccuracy";
+        } else if cp_best < -500.0 {
+            classification = "mistake";
+        }
+    } else if classification == "mistake" {
+        if cp_best < -1000.0 {
+            classification = "inaccuracy";
+        }
     }
-    if cp_loss < good_threshold {
-        return "good";
-    }
-    if cp_loss < inaccuracy_threshold {
-        return "inaccuracy";
-    }
-    if cp_loss < mistake_threshold {
-        return "mistake";
-    }
-    "blunder"
+
+    classification
 }
 
 pub fn accuracy_to_rating(accuracy: f64) -> i32 {

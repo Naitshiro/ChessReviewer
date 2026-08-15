@@ -160,7 +160,7 @@ const el = {
   sidebarNavAnalysis: document.getElementById('sidebar-nav-analysis'),
   sidebarNavImport: document.getElementById('sidebar-nav-import'),
   sidebarNavSettings: document.getElementById('sidebar-nav-settings'),
-  sidebarNavAbout: document.getElementById('sidebar-nav-about'),
+
   sidebarNavTraining: document.getElementById('sidebar-nav-training'),
   settingsModal: document.getElementById('settings-modal'),
   aboutModal: document.getElementById('about-modal'),
@@ -210,6 +210,16 @@ const el = {
 
 // ── Board ───────────────────────────────────────────────────────────────
 
+// Load and apply saved chessboard theme immediately before board initialization
+const savedTheme = localStorage.getItem('chess_theme') || 'green';
+const boardEl = document.getElementById('board');
+if (boardEl) {
+  boardEl.className = 'theme-' + savedTheme;
+}
+document.querySelectorAll('.theme-select-btn').forEach(btn => {
+  btn.classList.toggle('active', btn.dataset.theme === savedTheme);
+});
+
 const board = new BoardManager('board');
 
 board.init((from, to, promotion) => {
@@ -244,7 +254,7 @@ async function init() {
     navigateTo(index);
   });
   _updateSoundButtonUI();
-  _loadEngineSettings();
+  await _loadEngineSettings();
   await _checkHealth();
 
   // Keyboard navigation
@@ -291,16 +301,6 @@ async function init() {
     },
     (idx, fen) => _updatePlayerClocksAndCaptured(-1, fen)
   );
-
-  // Load and apply saved chessboard theme
-  const savedTheme = localStorage.getItem('chess_theme') || 'green';
-  const boardEl = document.getElementById('board');
-  if (boardEl) {
-    boardEl.className = 'theme-' + savedTheme;
-  }
-  document.querySelectorAll('.theme-select-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.theme === savedTheme);
-  });
 
   // Load saved Syzygy paths
   _renderSyzygyPaths();
@@ -423,7 +423,7 @@ async function _sendEngineSettingsToBackend(payload) {
   }
 }
 
-function _loadEngineSettings() {
+async function _loadEngineSettings() {
   const savedPath = localStorage.getItem('chess_stockfish_path') || '';
   const savedThreads = localStorage.getItem('chess_engine_threads') || '4';
   const savedHash = localStorage.getItem('chess_engine_hash') || '2048';
@@ -441,7 +441,7 @@ function _loadEngineSettings() {
     payload.stockfish_path = savedPath;
   }
 
-  _sendEngineSettingsToBackend(payload);
+  await _sendEngineSettingsToBackend(payload);
 }
 
 // ── Analyze Button State Handler ────────────────────────────────────────
@@ -515,11 +515,7 @@ async function _checkHealth() {
     }
 
     if (isReady) {
-      if (data.engine?.depth && el.depthSlider) {
-        const idx = getClosestDepthIndex(data.engine.depth);
-        el.depthSlider.value = idx;
-        if (el.depthValue) el.depthValue.textContent = DEPTH_VALUES[idx];
-      }
+      // Depth is managed by frontend localStorage and passed to analysis APIs, no need to override it here
     } else {
       const errMsg = data.engine?.error || 'Stockfish path is not configured or engine failed UCI initialization.';
       showToast(`Stockfish Warning: ${errMsg}`, 'warning', 6000);
@@ -649,7 +645,7 @@ function _bindControls() {
   // Sidebar navigation and Modals
   document.getElementById('sidebar-logo')?.addEventListener('click', (e) => {
     e.preventDefault();
-    _switchTab('moves');
+    el.aboutModal?.classList.remove('hidden');
   });
 
   el.sidebarNavAnalysis?.addEventListener('click', (e) => {
@@ -667,10 +663,7 @@ function _bindControls() {
     el.settingsModal?.classList.remove('hidden');
   });
 
-  el.sidebarNavAbout?.addEventListener('click', (e) => {
-    e.preventDefault();
-    el.aboutModal?.classList.remove('hidden');
-  });
+
 
   el.sidebarNavTraining?.addEventListener('click', (e) => {
     e.preventDefault();
@@ -2613,7 +2606,7 @@ function _switchTab(tab) {
     el.sidebarNavAnalysis?.classList.remove('active');
     el.sidebarNavImport?.classList.remove('active');
     el.sidebarNavSettings?.classList.remove('active');
-    el.sidebarNavAbout?.classList.remove('active');
+
     return;
   }
 
@@ -2649,7 +2642,7 @@ function _switchTab(tab) {
     }
     el.sidebarNavTraining?.classList.remove('active');
     el.sidebarNavSettings?.classList.remove('active');
-    el.sidebarNavAbout?.classList.remove('active');
+
   }
 }
 

@@ -852,47 +852,39 @@ export function setActiveMoveInList(type, moveIndex) {
  * @param {object} accuracy - { white: { accuracy, counts }, black: { accuracy, counts } }
  */
 export function renderScorecard(accuracy, depthUsed = null) {
-  const accuracyRow = document.getElementById('accuracy-row');
-  const ratingRow = document.getElementById('rating-row');
-  const phasesContainer = document.getElementById('game-phases-container');
+  const mergedEl = document.getElementById('scorecard-merged');
 
   if (depthUsed === 0) {
-    if (accuracyRow) accuracyRow.classList.add('hidden');
-    if (ratingRow) ratingRow.classList.add('hidden');
-    if (phasesContainer) phasesContainer.classList.add('hidden');
-
-    const mergedEl = document.getElementById('scorecard-merged');
     if (mergedEl) {
-      mergedEl.innerHTML = '<div class="text-[var(--text-muted)] text-xs italic text-center py-2">Analyze a game to see results.</div>';
+      mergedEl.innerHTML = '<div class="text-[var(--text-muted)] text-xs italic text-center py-4">Analyze a game to see move quality.</div>';
     }
     return;
   }
 
-  if (accuracyRow) accuracyRow.classList.remove('hidden');
-
   _renderSideAccuracy('white', accuracy.white);
   _renderSideAccuracy('black', accuracy.black);
 
-  // Render merged scorecard
-  const mergedEl = document.getElementById('scorecard-merged');
+  // Render merged move quality scorecard
   if (mergedEl) {
-    mergedEl.innerHTML = SCORE_ORDER.map(cls => {
+    const rows = SCORE_ORDER.map(cls => {
       const wCount = accuracy.white.counts[cls] || 0;
       const bCount = accuracy.black.counts[cls] || 0;
       const meta = CLASS_META[cls];
+      const color = _classColor(cls);
       return `
-        <div class="flex justify-between items-center">
-          <span class="flex items-center gap-2">
-            <img class="move-badge" src="assets/markers/${meta.svg}" title="${meta.label}" alt="${meta.symbol}" />
-            ${meta.label}
+        <div class="flex justify-between items-center py-2 border-b border-[var(--border)] border-opacity-30">
+          <span class="flex items-center gap-2.5">
+            <img class="w-5 h-5 flex-shrink-0" src="assets/markers/${meta.svg}" title="${meta.label}" alt="${meta.symbol}" />
+            <span class="text-sm text-[var(--text-secondary)]">${meta.label}</span>
           </span>
-          <div class="flex justify-between items-center w-[56px] mr-1 text-[13px] font-bold">
-            <span class="w-5 text-center" style="color: ${wCount > 0 ? _classColor(cls) : 'var(--text-muted)'}">${wCount}</span>
-            <span class="w-5 text-center" style="color: ${bCount > 0 ? _classColor(cls) : 'var(--text-muted)'}">${bCount}</span>
+          <div class="flex gap-4 font-mono text-sm font-bold mr-1">
+            <span class="w-6 text-center" style="color: ${wCount > 0 ? color : 'var(--text-muted)'}">${wCount > 0 ? wCount : '—'}</span>
+            <span class="w-6 text-center" style="color: ${bCount > 0 ? color : 'var(--text-muted)'}">${bCount > 0 ? bCount : '—'}</span>
           </div>
         </div>
       `;
     }).join('');
+    mergedEl.innerHTML = rows;
   }
 }
 
@@ -959,10 +951,10 @@ function _renderSideAccuracy(side, data) {
 
   // Update Estimated Rating Box
   const ratingBox = document.getElementById(`rating-${side}-box`);
-  const ratingRow = document.getElementById('rating-row');
+  const ratingRowEl = document.getElementById(`rating-row-${side}`);
   if (ratingBox && data.estimated_rating !== undefined) {
     ratingBox.textContent = data.estimated_rating;
-    if (ratingRow) ratingRow.classList.remove('hidden');
+    if (ratingRowEl) ratingRowEl.classList.remove('hidden');
   }
 
   // Game Phases

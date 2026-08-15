@@ -20,6 +20,7 @@
       alert("Unhandled Promise Rejection: " + e.reason);
     });
   </script>
+  <link rel="preload" href="assets/pieces/neo.svg" as="fetch" crossorigin="anonymous">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -53,101 +54,95 @@
   <!-- Chart.js (global, not ES module) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
-  <link rel="stylesheet" href="styles.css?v=8" />
+  <link rel="stylesheet" href="styles.css?v=16" />
 </head>
 
 <body class="min-h-screen flex flex-col">
 
   <!-- ═══════════════════════════════════════════════════════════════════
-       APP SHELL (sidebar + main content)
+       APP TITLEBAR (Custom Frameless Window)
   ══════════════════════════════════════════════════════════════════════ -->
+  <div class="app-titlebar" data-tauri-drag-region>
+    <!-- Drag region covers everything except interactive elements -->
+    <div class="titlebar-drag-region" data-tauri-drag-region></div>
+
+    <!-- Left: Logo + Nav items -->
+    <div class="titlebar-left">
+      <img src="icon.png" id="sidebar-logo" class="titlebar-logo" title="About ChessReviewer" alt="ChessReviewer" />
+
+      <div class="titlebar-nav">
+        <button type="button" id="sidebar-nav-analysis" class="sidebar-nav-item active" title="Analysis">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+        </button>
+        <button type="button" id="sidebar-nav-import" class="sidebar-nav-item" title="Import">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+        </button>
+        <button type="button" id="sidebar-nav-settings" class="sidebar-nav-item" title="Settings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+          </svg>
+        </button>
+        <button type="button" id="sidebar-nav-training" class="sidebar-nav-item" title="Training">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+            <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Center: Metadata -->
+    <div class="titlebar-center">
+      <div id="game-metadata" class="text-[11px] text-[var(--text-muted)] font-mono truncate hidden md:block text-center w-full"></div>
+    </div>
+
+    <!-- Right: Status + Window Controls -->
+    <div class="titlebar-right flex items-center gap-2">
+      <!-- Mode badge + engine depth -->
+      <div class="flex items-center gap-3 pr-2">
+        <span id="engine-depth-badge" class="hidden text-xs font-mono px-2 py-1 rounded bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border)]">
+          depth —
+        </span>
+        <button id="back-to-review-btn" class="hidden btn-exit-analysis flex items-center gap-1.5" title="Exit Live Analysis">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
+          Exit Analysis
+        </button>
+        <div id="mode-badge" class="mode-badge idle">
+          <span id="badge-dot" class="badge-dot"></span>
+          <span id="badge-text">Idle</span>
+          <span id="engine-spinner" class="spinner w-3 h-3 ml-1 hidden border-[var(--text-muted)] border-t-[var(--text-primary)]"></span>
+        </div>
+      </div>
+
+      <div class="titlebar-window-controls">
+        <button id="wc-minimize" class="wc-btn" title="Minimize">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.2">
+            <line x1="0" y1="5" x2="10" y2="5" />
+          </svg>
+        </button>
+        <button id="wc-close" class="wc-btn wc-close" title="Close">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.2">
+            <line x1="0" y1="0" x2="10" y2="10" />
+            <line x1="0" y1="10" x2="10" y2="0" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── MAIN CONTENT AREA ─────────────────────────────────────── -->
   <div class="app-shell">
-
-    <!-- ─── LEFT SIDEBAR ──────────────────────────────────────────── -->
-    <nav class="app-sidebar">
-      <!-- Logo -->
-      <img src="icon.png" id="sidebar-logo" class="sidebar-logo" title="ChessReviewer" alt="ChessReviewer" />
-
-      <!-- Nav Items -->
-      <button type="button" id="sidebar-nav-analysis" class="sidebar-nav-item active" title="Analysis">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8" />
-          <path d="m21 21-4.3-4.3" />
-        </svg>
-      </button>
-      <button type="button" id="sidebar-nav-import" class="sidebar-nav-item" title="Import">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="17 8 12 3 7 8" />
-          <line x1="12" y1="3" x2="12" y2="15" />
-        </svg>
-      </button>
-      <button type="button" id="sidebar-nav-settings" class="sidebar-nav-item" title="Settings">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="3" />
-          <path
-            d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-        </svg>
-      </button>
-      <button type="button" id="sidebar-nav-training" class="sidebar-nav-item" title="Training">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-          <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5" />
-        </svg>
-      </button>
-
-      <div class="sidebar-spacer"></div>
-
-      <!-- Bottom branding -->
-      <button type="button" id="sidebar-nav-about" class="sidebar-nav-item" title="About">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 16v-4" />
-          <path d="M12 8h.01" />
-        </svg>
-      </button>
-    </nav>
-
-    <!-- ─── MAIN CONTENT AREA ─────────────────────────────────────── -->
     <div class="flex flex-col flex-1 min-w-0">
-
-      <!-- HEADER -->
-      <header
-        class="border-b border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-2.5 flex items-center justify-between gap-4 sticky top-0 z-50">
-        <!-- Logo text (for header) -->
-        <div class="flex items-center gap-2.5 flex-shrink-0">
-          <span class="font-bold text-sm tracking-tight text-[var(--text-primary)]">
-            Chess<span style="color: #a855f7;">Reviewer</span>
-          </span>
-        </div>
-
-        <!-- Game metadata -->
-        <div id="game-metadata"
-          class="text-xs text-[var(--text-muted)] font-mono truncate hidden md:block flex-1 text-center"></div>
-
-        <!-- Mode badge + engine depth -->
-        <div class="flex items-center gap-3 flex-shrink-0">
-          <span id="engine-depth-badge"
-            class="hidden text-xs font-mono px-2 py-1 rounded bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border)]">
-            depth —
-          </span>
-          <button id="back-to-review-btn" class="hidden btn-exit-analysis flex items-center gap-1.5"
-            title="Exit Live Analysis">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M19 12H5M12 19l-7-7 7-7" />
-            </svg>
-            Exit Analysis
-          </button>
-          <div id="mode-badge" class="mode-badge idle">
-            <span id="badge-dot" class="badge-dot"></span>
-            <span id="badge-text">Idle</span>
-            <span id="engine-spinner"
-              class="spinner w-3 h-3 ml-1 hidden border-[var(--text-muted)] border-t-[var(--text-primary)]"></span>
-          </div>
-        </div>
-      </header>
-
-
 
       <!-- ═══════════════════════════════════════════════════════════════
            MAIN LAYOUT  (3 columns: eval-bar | board | dashboard)
@@ -568,404 +563,54 @@
 
                 </div>
 
-                <!-- ── Summary Panel ─────────────────────────────────── -->
-                <div id="panel-summary" class="hidden p-3 flex flex-col gap-4">
+                <div id="panel-summary" class="hidden flex-col gap-5 p-4 overflow-y-auto">
 
-                  <!-- Accuracy & Rating Layout -->
+                  <!-- Top level stat: Accuracy — chess.com style cards -->
                   <div class="flex flex-col gap-3">
-                    <!-- Modern Hero Accuracy Cards -->
-                    <div id="accuracy-row"
-                      class="grid grid-cols-2 gap-3 p-3 bg-slate-900/40 rounded-xl border border-white/5 shadow-inner">
-                      <!-- White Player Accuracy -->
-                      <div
-                        class="flex flex-col items-center p-2.5 rounded-lg bg-slate-800/40 border border-white/5 transition-all hover:border-white/10">
-                        <span
-                          class="text-[10px] uppercase font-bold tracking-widest text-[var(--text-muted)] mb-1">White
-                          Accuracy</span>
-                        <div id="accuracy-white-box" class="text-2xl font-black text-white font-mono tracking-tight">
-                          —
-                        </div>
-                      </div>
-                      <!-- Black Player Accuracy -->
-                      <div
-                        class="flex flex-col items-center p-2.5 rounded-lg bg-slate-800/40 border border-white/5 transition-all hover:border-white/10">
-                        <span
-                          class="text-[10px] uppercase font-bold tracking-widest text-[var(--text-muted)] mb-1">Black
-                          Accuracy</span>
-                        <div id="accuracy-black-box"
-                          class="text-2xl font-black text-slate-100 font-mono tracking-tight">
-                          —
-                        </div>
-                      </div>
-                    </div>
+                    <h3 class="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] border-b border-[var(--border)] pb-2">Game Accuracy</h3>
+                    <div class="grid grid-cols-2 gap-3">
 
-                    <!-- Game Rating Row -->
-                    <div id="rating-row" class="grid grid-cols-2 gap-3 hidden">
-                      <div
-                        class="flex justify-between items-center px-3 py-2 bg-slate-800/30 rounded-lg border border-white/5">
-                        <span class="text-[11px] font-medium text-[var(--text-muted)]">White Performance</span>
-                        <div id="rating-white-box" class="font-mono font-bold text-xs text-[var(--accent-green)]">—
+                      <!-- White card -->
+                      <div class="relative rounded-xl overflow-hidden flex flex-col items-center justify-center py-2.5 px-3 gap-0.5"
+                           style="background: linear-gradient(135deg, #e8e5df 0%, #ccc9c1 100%);">
+                        <span class="text-[9px] font-bold uppercase tracking-widest text-[#5a5a5a]">White</span>
+                        <div id="accuracy-white-box" class="text-2xl font-bold text-[#1a1a1a] font-mono tracking-tight leading-none">—</div>
+                        <span class="text-[9px] text-[#5a5a5a]">accuracy</span>
+                        <div id="rating-row-white" class="flex flex-col items-center gap-0 mt-0.5 hidden">
+                          <span class="text-[8px] font-bold uppercase tracking-widest text-[#5a5a5a]">Est. Rating</span>
+                          <div id="rating-white-box" class="text-xs font-bold text-[#2563eb] font-mono">—</div>
                         </div>
                       </div>
-                      <div
-                        class="flex justify-between items-center px-3 py-2 bg-slate-800/30 rounded-lg border border-white/5">
-                        <span class="text-[11px] font-medium text-[var(--text-muted)]">Black Performance</span>
-                        <div id="rating-black-box" class="font-mono font-bold text-xs text-[var(--accent-green)]">—
+
+                      <!-- Black card -->
+                      <div class="relative rounded-xl overflow-hidden flex flex-col items-center justify-center py-2.5 px-3 gap-0.5"
+                           style="background: linear-gradient(135deg, #2a2d35 0%, #1a1d24 100%);">
+                        <span class="text-[9px] font-bold uppercase tracking-widest text-[#9a9a9a]">Black</span>
+                        <div id="accuracy-black-box" class="text-2xl font-bold text-[#f0f0f0] font-mono tracking-tight leading-none">—</div>
+                        <span class="text-[9px] text-[#9a9a9a]">accuracy</span>
+                        <div id="rating-row-black" class="flex flex-col items-center gap-0 mt-0.5 hidden">
+                          <span class="text-[8px] font-bold uppercase tracking-widest text-[#9a9a9a]">Est. Rating</span>
+                          <div id="rating-black-box" class="text-xs font-bold text-[#60a5fa] font-mono">—</div>
                         </div>
                       </div>
+
                     </div>
                   </div>
 
-                  <!-- Game Phases -->
-                  <div id="game-phases-container" class="border-t border-[var(--border)] pt-3 hidden">
-                    <div
-                      class="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2 flex justify-between items-center">
-                      <span>Game Phases</span>
-                      <div class="flex justify-between items-center w-[56px] mr-1">
-                        <div
-                          class="w-6 h-5 flex justify-center items-center bg-[#f0f0f0] text-[#333] font-bold text-[10px] rounded">
-                          W</div>
-                        <div
-                          class="w-6 h-5 flex justify-center items-center bg-[#333] text-white font-bold text-[10px] rounded border border-[var(--border)]">
-                          B</div>
+                  <!-- rating-row kept as hidden anchor for JS compat -->
+                  <div id="rating-row" class="hidden"></div>
+
+                  <!-- Move Classification Summary -->
+                  <div class="flex flex-col gap-1 mt-1">
+                    <div class="flex items-center justify-between mb-1 border-b border-[var(--border)] pb-2">
+                      <h3 class="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">Move Quality</h3>
+                      <div class="flex gap-4 text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] mr-1">
+                        <span class="w-6 text-center">W</span>
+                        <span class="w-6 text-center">B</span>
                       </div>
                     </div>
-                    <div class="flex flex-col gap-2 text-sm text-[var(--text-secondary)]">
-                      <div class="flex justify-between items-center" id="phase-row-opening">
-                        <span>Opening</span>
-                        <div class="flex justify-between items-center w-[56px] mr-1">
-                          <div id="phase-badge-white-opening"
-                            class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">
-                            —</div>
-                          <div id="phase-badge-black-opening"
-                            class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">
-                            —</div>
-                        </div>
-                      </div>
-                      <div class="flex justify-between items-center" id="phase-row-middlegame">
-                        <span>Middlegame</span>
-                        <div class="flex justify-between items-center w-[56px] mr-1">
-                          <div id="phase-badge-white-middlegame"
-                            class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">
-                            —</div>
-                          <div id="phase-badge-black-middlegame"
-                            class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">
-                            —</div>
-                        </div>
-                      </div>
-                      <div class="flex justify-between items-center" id="phase-row-endgame">
-                        <span>Endgame</span>
-                        <div class="flex justify-between items-center w-[56px] mr-1">
-                          <div id="phase-badge-white-endgame"
-                            class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">
-                            —</div>
-                          <div id="phase-badge-black-endgame"
-                            class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">
-                            —</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Classification scorecards -->
-                  <div class="border-t border-[var(--border)] pt-3">
-                    <div
-                      class="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2 flex justify-between items-center">
-                      <span>Classifications</span>
-                      <div class="flex justify-between items-center w-[56px] mr-1">
-                        <div
-                          class="w-6 h-5 flex justify-center items-center bg-[#f0f0f0] text-[#333] font-bold text-[10px] rounded">
-                          W</div>
-                        <div
-                          class="w-6 h-5 flex justify-center items-center bg-[#333] text-white font-bold text-[10px] rounded border border-[var(--border)]">
-                          B</div>
-                      </div>
-                    </div>
-                    <div id="scorecard-merged" class="flex flex-col gap-2 text-sm text-[var(--text-secondary)]">
-                      <div class="text-[var(--text-muted)] text-xs italic text-center py-2">Analyze a game to see
-                        results.</div>
-                    </div>
-                  </div>
-
-                  <!-- Annotations scorecards -->
-                  <div class="border-t border-[var(--border)] pt-3" id="annotations-container" style="display: none;">
-                    <div
-                      class="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2 flex justify-between items-center">
-                      <span>Annotations</span>
-                      <div class="flex justify-between items-center w-[56px] mr-1">
-                        <div
-                          class="w-6 h-5 flex justify-center items-center bg-[#f0f0f0] text-[#333] font-bold text-[10px] rounded">
-                          W</div>
-                        <div
-                          class="w-6 h-5 flex justify-center items-center bg-[#333] text-white font-bold text-[10px] rounded border border-[var(--border)]">
-                          B</div>
-                      </div>
-                    </div>
-                    <div id="annotations-list" class="flex flex-col gap-2 text-sm text-[var(--text-secondary)]">
-                    </div>
-                  </div>
-
-                  <!-- Legend Section inside summary panel -->
-                  <div class="border-t border-[var(--border)] pt-4 mt-2">
-                    <div class="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Move
-                      Legends</div>
-                    <div class="flex flex-col gap-1.5">
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/brilliant.svg" alt="!!"> Brilliant
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A difficult to find
-                          sacrifice or game-changing move.</div>
-                      </div>
-
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/great.svg" alt="!"> Great Move
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">The only good move
-                          in a critical position.</div>
-                      </div>
-
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/best.svg" alt="★"> Best
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">The optimal move
-                          according to the engine.</div>
-                      </div>
-
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/excellent.svg" alt="✦"> Excellent
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A very strong move
-                          that maintains your advantage.</div>
-                      </div>
-
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/good.svg" alt="✓"> Good
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A solid move, though
-                          somewhat less optimal.</div>
-                      </div>
-
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/theory.svg" alt="⌕"> Theory
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">An established
-                          opening theory move.</div>
-                      </div>
-
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/inaccuracy.svg" alt="?!"> Inaccuracy
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A suboptimal move
-                          that slightly worsens your position.</div>
-                      </div>
-
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/mistake.svg" alt="?"> Mistake
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A weak move that
-                          loses a significant advantage.</div>
-                      </div>
-
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/blunder.svg" alt="??"> Blunder
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A terrible move that
-                          drastically worsens your position.</div>
-                      </div>
-                    </div>
-
-                    <div class="mt-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">
-                      Annotation Legends</div>
-                    <div class="flex flex-col gap-1.5">
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_brilliant.svg" alt="!!"> Brilliant Move
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">An excellent and
-                          hard to find move.</div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_good.svg" alt="!"> Good Move
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A good, strong move.
-                        </div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_interesting.svg" alt="!?"> Speculative
-                          / Interesting
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">An interesting but
-                          perhaps not fully sound move.</div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_dubious.svg" alt="?!"> Dubious Move
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A move that is
-                          questionable or slightly bad.</div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_mistake.svg" alt="?"> Poor Move /
-                          Mistake
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A poor move that
-                          should be avoided.</div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_blunder.svg" alt="??"> Blunder
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A terrible move that
-                          likely loses the game.</div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_forced.svg" alt="□"> Forced
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">The only legal or
-                          reasonable move.</div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_balanced.svg" alt="="> Balanced
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Even or quiet
-                          position with equal chances.</div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_unclear.svg" alt="∞"> Unclear
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">The position is
-                          complex and unclear.</div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_white_slight_advantage.svg" alt="⩲">
-                          White Slight Advantage
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">White has a slight
-                          advantage.</div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_black_slight_advantage.svg" alt="⩱">
-                          Black Slight Advantage
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Black has a slight
-                          advantage.</div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_white_moderate_advantage.svg" alt="±">
-                          White Moderate Advantage
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">White has a moderate
-                          advantage.</div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_black_moderate_advantage.svg" alt="∓">
-                          Black Moderate Advantage
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Black has a moderate
-                          advantage.</div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_white_decisive_advantage.svg" alt="+-">
-                          White Decisive Advantage
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">White has a winning
-                          or crushing advantage.</div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_black_decisive_advantage.svg" alt="-+">
-                          Black Decisive Advantage
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Black has a winning
-                          or crushing advantage.</div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_zugzwang.svg" alt="⨀"> Zugzwang
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player is forced to
-                          make a move that worsens their position.</div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_space.svg" alt="○"> Space
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has a
-                          moderate space advantage.</div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_development.svg" alt="⟳"> Development
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has a
-                          development advantage.</div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_initiative.svg" alt="↑"> Initiative
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has the
-                          initiative.</div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_attack.svg" alt="→"> Attack
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has a strong
-                          attack.</div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_compensation.svg" alt="⯹"> Compensation
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has
-                          sufficient compensation for a disadvantage.</div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_counterplay.svg" alt="⇆"> Counterplay
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player has active
-                          counterplay.</div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_time_trouble.svg" alt="⨁"> Time Trouble
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">Player is in severe
-                          time trouble.</div>
-                      </div>
-                      <div class="flex flex-col mb-1.5">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                          <img class="move-badge" src="assets/markers/annotation_novelty.svg" alt="N"> Novelty
-                        </div>
-                        <div class="text-[10px] text-[var(--text-muted)] ml-7 leading-tight mt-0.5">A new move that
-                          deviates from known theory.</div>
-                      </div>
-                    </div>
-                    <div
-                      class="mt-2 pt-2 border-t border-[var(--border)] text-[10px] text-[var(--text-muted)] leading-4">
-                      Drag a piece to a <em>different</em> square than the game move to enter live analysis mode.
+                    <div id="scorecard-merged" class="flex flex-col">
+                      <div class="text-[var(--text-muted)] text-xs italic text-center py-4">Analyze a game to see move quality.</div>
                     </div>
                   </div>
                 </div>
@@ -1460,9 +1105,7 @@
 
         <!-- Copyright Notice -->
         <div class="text-[11px] text-center text-[var(--text-muted)] border-t border-[var(--border)] pt-2.5 mt-0.5">
-          Copyright © 2026 <span
-            class="text-[11px] text-center text-[var(--text-muted)] border-t border-[var(--border)] pt-2.5 mt-0.5 shiny-author-name">Christian
-            Leone</span>. All rights reserved.
+          Copyright © 2026 <span class="shiny-author-name font-semibold text-[var(--text-secondary)]">Christian Leone</span>. All rights reserved.
         </div>
       </div>
     </div>
@@ -1473,11 +1116,66 @@
   ══════════════════════════════════════════════════════════════════════ -->
   <div id="toast-container"></div>
 
+  <!-- Synchronously apply saved settings to prevent UI flashing before app.js loads -->
+  <script>
+    (function() {
+      try {
+        // Theme
+        const theme = localStorage.getItem('chess_theme') || 'green';
+        const board = document.getElementById('board');
+        if (board) board.className = 'theme-' + theme;
+
+        // Depth Slider
+        const DEPTH_VALUES = [8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 40, 50, 60, 70, 80, 90, 100];
+        const savedDepth = localStorage.getItem('chess_analysis_depth') || '16';
+        const depthIdx = DEPTH_VALUES.indexOf(parseInt(savedDepth)) !== -1 ? DEPTH_VALUES.indexOf(parseInt(savedDepth)) : 4;
+        
+        const slider = document.getElementById('depth-slider');
+        const depthVal = document.getElementById('depth-value');
+        if (slider && depthVal) {
+          slider.value = depthIdx;
+          depthVal.textContent = savedDepth;
+          const val = (slider.value - slider.min) / (slider.max - slider.min) * 100;
+          slider.style.background = `linear-gradient(to right, var(--accent) ${val}%, var(--bg-hover) ${val}%)`;
+        }
+      } catch (e) { console.error(e); }
+    })();
+  </script>
+
   <!-- ═══════════════════════════════════════════════════════════════════
        MAIN APP (ES Module)
   ══════════════════════════════════════════════════════════════════════ -->
-  <script type="module" src="app.js?v=10"></script>
+  <script type="module" src="app.js?v=13"></script>
 
+  <!-- Window controls (Tauri v1 API) -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const isTauri = typeof window.__TAURI__ !== 'undefined';
+
+      const wcMinimize = document.getElementById('wc-minimize');
+      const wcMaximize = document.getElementById('wc-maximize');
+      const wcClose    = document.getElementById('wc-close');
+
+      if (isTauri) {
+        const { appWindow } = window.__TAURI__.window;
+
+        wcMinimize && wcMinimize.addEventListener('click', () => appWindow.minimize());
+        wcClose    && wcClose.addEventListener('click',    () => appWindow.close());
+        wcMaximize && wcMaximize.addEventListener('click', async () => {
+          const maximized = await appWindow.isMaximized();
+          if (maximized) {
+            appWindow.unmaximize();
+          } else {
+            appWindow.maximize();
+          }
+        });
+      } else {
+        // Browser preview: hide window controls gracefully
+        const wc = document.querySelector('.titlebar-window-controls');
+        if (wc) wc.style.display = 'none';
+      }
+    });
+  </script>
 </body>
 
 </html>
