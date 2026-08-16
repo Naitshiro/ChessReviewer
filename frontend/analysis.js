@@ -32,42 +32,45 @@ const SCORE_ORDER = [
 ];
 
 export const COMPREHENSIVE_NAG_MAP = {
-  1: { symbol: "!", label: "Good Move", classKey: "good", svg: "annotation_good.svg" },
-  2: { symbol: "?", label: "Mistake", classKey: "mistake", svg: "annotation_mistake.svg" },
-  3: { symbol: "!!", label: "Brilliant Move", classKey: "brilliant", svg: "annotation_brilliant.svg" },
-  4: { symbol: "??", label: "Blunder", classKey: "blunder", svg: "annotation_blunder.svg" },
-  5: { symbol: "!?", label: "Interesting", classKey: "excellent", svg: "annotation_interesting.svg" },
-  6: { symbol: "?!", label: "Dubious Move", classKey: "inaccuracy", svg: "annotation_dubious.svg" },
-  7: { symbol: "□", label: "Forced", classKey: "best", svg: "annotation_forced.svg" },
-  10: { symbol: "=", label: "Balanced", classKey: "theory", svg: "annotation_balanced.svg" },
-  11: { symbol: "=", label: "Balanced", classKey: "theory", svg: "annotation_balanced.svg" },
-  12: { symbol: "=", label: "Balanced", classKey: "theory", svg: "annotation_balanced.svg" },
-  13: { symbol: "∞", label: "Unclear", classKey: "theory", svg: "annotation_unclear.svg" },
-  14: { symbol: "⩲", label: "Slight advantage", classKey: "theory", svg: "annotation_white_slight_advantage.svg" },
-  15: { symbol: "⩱", label: "Slight advantage", classKey: "theory", svg: "annotation_black_slight_advantage.svg" },
-  16: { symbol: "±", label: "Moderate advantage", classKey: "theory", svg: "annotation_white_moderate_advantage.svg" },
-  17: { symbol: "∓", label: "Moderate advantage", classKey: "theory", svg: "annotation_black_moderate_advantage.svg" },
-  18: { symbol: "+-", label: "Decisive advantage", classKey: "theory", svg: "annotation_white_decisive_advantage.svg" },
-  20: { symbol: "+-", label: "Decisive advantage", classKey: "theory", svg: "annotation_white_decisive_advantage.svg" },
-  19: { symbol: "-+", label: "Decisive advantage", classKey: "theory", svg: "annotation_black_decisive_advantage.svg" },
-  21: { symbol: "-+", label: "Decisive advantage", classKey: "theory", svg: "annotation_black_decisive_advantage.svg" },
-  22: { symbol: "⨀", label: "Zugzwang", classKey: "theory", svg: "annotation_zugzwang.svg" },
-  23: { symbol: "⨀", label: "Zugzwang", classKey: "theory", svg: "annotation_zugzwang.svg" },
-  26: { symbol: "○", label: "Space", classKey: "theory", svg: "annotation_space.svg" },
-  27: { symbol: "○", label: "Space", classKey: "theory", svg: "annotation_space.svg" },
-  32: { symbol: "⟳", label: "Development", classKey: "theory", svg: "annotation_development.svg" },
-  33: { symbol: "⟳", label: "Development", classKey: "theory", svg: "annotation_development.svg" },
-  36: { symbol: "↑", label: "Initiative", svg: "annotation_initiative.svg" },
-  37: { symbol: "↑", label: "Initiative", svg: "annotation_initiative.svg" },
-  40: { symbol: "→", label: "Attack", svg: "annotation_attack.svg" },
-  41: { symbol: "→", label: "Attack", svg: "annotation_attack.svg" },
-  44: { symbol: "⯹", label: "Compensation", svg: "annotation_compensation.svg" },
-  45: { symbol: "⯹", label: "Compensation", svg: "annotation_compensation.svg" },
-  130: { symbol: "⇆", label: "Counterplay", svg: "annotation_counterplay.svg" },
-  131: { symbol: "⇆", label: "Counterplay", svg: "annotation_counterplay.svg" },
-  136: { symbol: "⨁", label: "Time trouble", svg: "annotation_time_trouble.svg" },
-  137: { symbol: "⨁", label: "Time trouble", svg: "annotation_time_trouble.svg" },
-  146: { symbol: "N", label: "Novelty", svg: "annotation_novelty.svg" }
+  // Group A: Move Quality (rendered as SVG badge)
+  1: { symbol: "!", label: "Good Move", classKey: "good", svg: "great.svg", type: "quality" },
+  2: { symbol: "?", label: "Mistake", classKey: "mistake", svg: "mistake.svg", type: "quality" },
+  3: { symbol: "!!", label: "Brilliant Move", classKey: "brilliant", svg: "brilliant.svg", type: "quality" },
+  4: { symbol: "??", label: "Blunder", classKey: "blunder", svg: "blunder.svg", type: "quality" },
+  5: { symbol: "!?", label: "Interesting", classKey: "interesting", svg: "interesting.svg", type: "quality" },
+  6: { symbol: "?!", label: "Dubious Move", classKey: "inaccuracy", svg: "inaccuracy.svg", type: "quality" },
+
+  // Group B: Positional / Structural (rendered as bold inline unicode text)
+  7: { symbol: "□", label: "Forced", type: "positional" },
+  10: { symbol: "=", label: "Balanced", type: "positional" },
+  11: { symbol: "=", label: "Balanced", type: "positional" },
+  12: { symbol: "=", label: "Balanced", type: "positional" },
+  13: { symbol: "∞", label: "Unclear", type: "positional" },
+  14: { symbol: "⩲", label: "Slight advantage", type: "positional" },
+  15: { symbol: "⩱", label: "Slight advantage", type: "positional" },
+  16: { symbol: "±", label: "Moderate advantage", type: "positional" },
+  17: { symbol: "∓", label: "Moderate advantage", type: "positional" },
+  18: { symbol: "+-", label: "Decisive advantage", type: "positional" },
+  19: { symbol: "-+", label: "Decisive advantage", type: "positional" },
+  20: { symbol: "+-", label: "Decisive advantage", type: "positional" },
+  21: { symbol: "-+", label: "Decisive advantage", type: "positional" },
+  22: { symbol: "⨀", label: "Zugzwang", type: "positional" },
+  23: { symbol: "⨀", label: "Zugzwang", type: "positional" },
+  26: { symbol: "○", label: "Space", type: "positional" },
+  27: { symbol: "○", label: "Space", type: "positional" },
+  32: { symbol: "⟳", label: "Development", type: "positional" },
+  33: { symbol: "⟳", label: "Development", type: "positional" },
+  36: { symbol: "↑", label: "Initiative", type: "positional" },
+  37: { symbol: "↑", label: "Initiative", type: "positional" },
+  40: { symbol: "→", label: "Attack", type: "positional" },
+  41: { symbol: "→", label: "Attack", type: "positional" },
+  44: { symbol: "⯹", label: "Compensation", type: "positional" },
+  45: { symbol: "⯹", label: "Compensation", type: "positional" },
+  130: { symbol: "⇆", label: "Counterplay", type: "positional" },
+  131: { symbol: "⇆", label: "Counterplay", type: "positional" },
+  136: { symbol: "⨁", label: "Time trouble", type: "positional" },
+  137: { symbol: "⨁", label: "Time trouble", type: "positional" },
+  146: { symbol: "N", label: "Novelty", type: "positional" }
 };
 
 export function getMateMoves(scoreMate, color) {
@@ -666,14 +669,21 @@ export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex =
   // 3. Render game result at the bottom
   if (result && result !== '*') {
     const resultRow = document.createElement('div');
-    resultRow.className = 'move-list-result-row';
+    resultRow.className = 'move-list-result-row flex items-center justify-between w-full px-2 py-1';
     resultRow.innerHTML = `
-      <span class="result-text">${result}</span>
-      <span class="result-info-icon" title="Game Over">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
-        </svg>
-      </span>
+      <div class="flex items-center gap-2">
+        <span class="result-text font-bold text-[var(--text-primary)]">${result}</span>
+        <span class="result-info-icon text-[var(--text-muted)]" title="Game Over">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+          </svg>
+        </span>
+      </div>
+      <button id="btn-toggle-overlay-inline"
+        class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors ${overlayPriority === 'annotation' ? 'border-[var(--accent)] text-[var(--accent)]' : ''}"
+        title="Toggle annotation overlay">
+        Annotations
+      </button>
     `;
     container.appendChild(resultRow);
   }
@@ -718,6 +728,8 @@ function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setR
 
   let badgeToRender = null;
   let annotationObj = null;
+  let inlineNagSymbol = null;
+
   if (m.nags && m.nags.length > 0) {
     for (const code of m.nags) {
       if (COMPREHENSIVE_NAG_MAP[code]) {
@@ -731,31 +743,21 @@ function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setR
 
   if (overlayPriority === 'annotation') {
     if (annotationObj) {
-      badgeToRender = {
-        symbol: annotationObj.symbol,
-        svg: annotationObj.svg,
-        label: annotationObj.label
-      };
+      if (annotationObj.type === 'quality') {
+        badgeToRender = { symbol: annotationObj.symbol, svg: annotationObj.svg, label: annotationObj.label };
+      } else {
+        // positional type: inline symbol, no badge. Show classification badge if it exists.
+        inlineNagSymbol = annotationObj.symbol;
+        if (meta) badgeToRender = { symbol: meta.symbol, svg: meta.svg, label: meta.label };
+      }
     } else if (meta) {
-      badgeToRender = {
-        symbol: meta.symbol,
-        svg: meta.svg,
-        label: meta.label
-      };
+      badgeToRender = { symbol: meta.symbol, svg: meta.svg, label: meta.label };
     }
   } else { // 'classification'
     if (meta) {
-      badgeToRender = {
-        symbol: meta.symbol,
-        svg: meta.svg,
-        label: meta.label
-      };
-    } else if (annotationObj) {
-      badgeToRender = {
-        symbol: annotationObj.symbol,
-        svg: annotationObj.svg,
-        label: annotationObj.label
-      };
+      badgeToRender = { symbol: meta.symbol, svg: meta.svg, label: meta.label };
+    } else if (annotationObj && annotationObj.type === 'quality') {
+       badgeToRender = { symbol: annotationObj.symbol, svg: annotationObj.svg, label: annotationObj.label };
     }
   }
 
@@ -771,9 +773,6 @@ function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setR
     badge.src = `assets/markers/${badgeToRender.svg}`;
     badge.title = badgeToRender.label;
     badge.alt = badgeToRender.symbol;
-    if (badgeToRender.svg && badgeToRender.svg.startsWith('annotation_') && m.color === 'white') {
-      badge.style.filter = 'invert(1)';
-    }
     cell.appendChild(badge);
   } else if (liveReviewEnabled && (m.classification === null || m.classification === undefined)) {
     // Unclassified yet (waiting for engine)
@@ -785,6 +784,13 @@ function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setR
   const text = document.createElement('span');
   text.innerHTML = formatSanWithPieceIcon(m.san, m.color === 'white');
   cell.appendChild(text);
+
+  if (inlineNagSymbol) {
+    const sym = document.createElement('span');
+    sym.className = 'nag-symbol';
+    sym.textContent = inlineNagSymbol;
+    cell.appendChild(sym);
+  }
   cell.addEventListener('click', () => onClick(type, index));
 
   const cellId = type === 'main'

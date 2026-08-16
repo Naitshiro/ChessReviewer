@@ -159,6 +159,7 @@ impl StockfishProcess {
         &mut self,
         fen: &str,
         depth: u32,
+        movetime_ms: u32,
         mut cancel_rx: tokio::sync::oneshot::Receiver<()>,
     ) -> Result<Vec<UciPvInfo>, String> {
         self.send_command("isready").await?;
@@ -167,7 +168,7 @@ impl StockfishProcess {
         // Always ensure MultiPV=3 before batch analysis
         self.send_command("setoption name MultiPV value 3").await?;
         self.send_command(&format!("position fen {}", fen)).await?;
-        self.send_command(&format!("go depth {}", depth)).await?;
+        self.send_command(&go_command(depth, movetime_ms)).await?;
 
         let mut pv_map: std::collections::HashMap<usize, UciPvInfo> = std::collections::HashMap::new();
         let mut line = String::new();
@@ -219,6 +220,7 @@ impl StockfishProcess {
         &mut self,
         fen: &str,
         depth: u32,
+        movetime_ms: u32,
         mut cancel_rx: tokio::sync::oneshot::Receiver<()>,
         mut on_info: impl FnMut(serde_json::Value),
     ) -> Result<(), String> {
@@ -242,7 +244,7 @@ impl StockfishProcess {
         }
 
         self.send_command(&format!("position fen {}", fen)).await?;
-        self.send_command(&format!("go depth {}", depth)).await?;
+        self.send_command(&go_command(depth, movetime_ms)).await?;
 
         let mut line = String::new();
         let mut last_info: Option<serde_json::Value> = None;
@@ -251,8 +253,16 @@ impl StockfishProcess {
             line.clear();
             tokio::select! {
                 _cancel_res = &mut cancel_rx => {
-                    // Engine was cancelled
+                    // Engine was cancelled: stop and drain until bestmove so the
+                    // stray line doesn't get misread as the start of the next command's output.
                     let _ = self.send_command("stop").await;
+                    loop {
+                        line.clear();
+                        let bytes = self.stdout.read_line(&mut line).await.unwrap_or(0);
+                        if bytes == 0 || line.trim().starts_with("bestmove") {
+                            break;
+                        }
+                    }
                     let _ = self.send_command("isready").await;
                     let _ = self.read_until("readyok").await;
                     return Ok(());
@@ -478,6 +488,16 @@ impl Drop for StockfishProcess {
     }
 }
 
+/// Build a `go` command with a depth target and, if `movetime_ms > 0`, a wall-clock
+/// cap so forcing-line search extensions can't stall a review indefinitely.
+fn go_command(depth: u32, movetime_ms: u32) -> String {
+    if movetime_ms > 0 {
+        format!("go depth {} movetime {}", depth, movetime_ms)
+    } else {
+        format!("go depth {}", depth)
+    }
+}
+
 fn extract_token<'a>(line: &'a str, key: &str) -> Option<&'a str> {
     let search = format!("{} ", key);
     let idx = line.find(&search)?;
@@ -575,6 +595,15 @@ impl EngineManager {
     }
 
     pub async fn ensure_ready(&self) -> Result<(), String> {
+        // Lock order is config -> syzygy_path -> inner everywhere in this module
+        // (matches update_engine_config and set_syzygy_path) to avoid the AB-BA
+        // deadlock that existed here when `inner` was locked before `config`.
+        let (path, threads, hash) = {
+            let cfg = self.config.lock().await;
+            (cfg.stockfish_path.clone(), cfg.engine_threads, cfg.engine_hash_mb)
+        };
+        let syzygy = self.syzygy_path.lock().await.clone();
+
         let mut lock = self.inner.lock().await;
         let needs_spawn = match lock.as_mut() {
             None => true,
@@ -588,11 +617,6 @@ impl EngineManager {
         };
 
         if needs_spawn {
-            let (path, threads, hash) = {
-                let cfg = self.config.lock().await;
-                (cfg.stockfish_path.clone(), cfg.engine_threads, cfg.engine_hash_mb)
-            };
-
             let mut process = StockfishProcess::spawn(
                 &path,
                 threads,
@@ -600,8 +624,7 @@ impl EngineManager {
             ).await?;
 
             // Check syzygy paths and configure if filled
-            let path = self.syzygy_path.lock().await.clone();
-            let path_trimmed = path.trim();
+            let path_trimmed = syzygy.trim();
             if !path_trimmed.is_empty() {
                 let cmd1 = format!("setoption name SyzygyPath value {}", path_trimmed);
                 process.send_command(&cmd1).await?;
@@ -662,12 +685,13 @@ impl EngineManager {
         &self,
         fen: &str,
         depth: u32,
+        movetime_ms: u32,
         cancel_rx: tokio::sync::oneshot::Receiver<()>,
     ) -> Result<Vec<UciPvInfo>, String> {
         self.ensure_ready().await?;
         let mut lock = self.inner.lock().await;
         if let Some(process) = lock.as_mut() {
-            process.analyze_position_cancelable(fen, depth, cancel_rx).await
+            process.analyze_position_cancelable(fen, depth, movetime_ms, cancel_rx).await
         } else {
             Err("Engine not initialized".to_string())
         }
@@ -744,13 +768,14 @@ impl EngineManager {
         &self,
         fen: &str,
         depth: u32,
+        movetime_ms: u32,
         cancel_rx: tokio::sync::oneshot::Receiver<()>,
         on_info: impl FnMut(serde_json::Value),
     ) -> Result<(), String> {
         self.ensure_ready().await?;
         let mut lock = self.inner.lock().await;
         if let Some(process) = lock.as_mut() {
-            process.analyze_position_streaming(fen, depth, cancel_rx, on_info).await
+            process.analyze_position_streaming(fen, depth, movetime_ms, cancel_rx, on_info).await
         } else {
             Err("Engine not initialized".to_string())
         }

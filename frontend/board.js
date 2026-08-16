@@ -53,6 +53,7 @@ const CLASSIFICATION_MARKERS = {
   inaccuracy: { class: 'marker-inaccuracy', slice: 'markerSquare' },
   mistake: { class: 'marker-mistake', slice: 'markerSquare' },
   blunder: { class: 'marker-blunder', slice: 'markerSquare' },
+  interesting: { class: 'marker-interesting', slice: 'markerSquare' },
   theory: { class: 'marker-theory', slice: 'markerSquare' },
   winner: { class: 'marker-winner', slice: 'markerSquare' },
   loser: { class: 'marker-loser', slice: 'markerSquare' },
@@ -485,9 +486,6 @@ export class BoardManager {
       } else {
         badge.src = `assets/markers/${text.svg}`;
         badge.alt = text.label || text;
-        if (color === 'white') {
-          badge.style.filter = 'invert(1)';
-        }
       }
 
       console.log(`[Badges] Rendered badge "${text}" on square ${square} (col:${col}, row:${row}) at position left:${x}px, top:${y}px with size ${badgeSize}px.`);

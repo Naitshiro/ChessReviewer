@@ -267,11 +267,7 @@
                 <path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6" />
               </svg>
             </button>
-            <button id="btn-toggle-overlay"
-              class="nav-btn w-auto px-2.5 font-bold text-[10px] text-[var(--text-secondary)] uppercase tracking-wider"
-              title="Toggle Overlay Priority">
-              Class
-            </button>
+
           </div>
 
           <!-- Live Engine & Threat Toggles -->
@@ -480,6 +476,14 @@
                           </div>
                         </div>
                       </div>
+                    </div>
+
+                    <div class="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] select-none"
+                      title="Per-move time cap, in addition to Depth. Guards against slow-to-search positions stalling the review. 0 = no cap.">
+                      <span>Move time cap</span>
+                      <input id="analyze-timeout" type="number" min="0" max="120" value="15"
+                        class="w-11 bg-[var(--bg-card)] border border-[var(--border)] rounded px-1 text-[var(--text-primary)] outline-none text-center text-xs" />
+                      <span>sec</span>
                     </div>
 
                     <div class="flex gap-2 mt-1">
@@ -1014,9 +1018,19 @@
 
           <div class="flex flex-col gap-1">
             <span class="text-sm text-[var(--text-secondary)]">Stockfish Executable Path</span>
-            <input id="settings-stockfish-path" type="text"
-              placeholder="e.g. C:\stockfish\stockfish-windows-x86-64-avx2.exe"
-              class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2.5 py-1.5 text-[var(--text-primary)] outline-none text-xs font-mono focus:border-[var(--accent-green)]" />
+            <div class="flex items-center gap-1.5">
+              <input id="settings-stockfish-path" type="text"
+                placeholder="e.g. C:\stockfish\stockfish-windows-x86-64-avx2.exe"
+                class="flex-1 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2.5 py-1.5 text-[var(--text-primary)] outline-none text-xs font-mono focus:border-[var(--accent-green)] placeholder-[var(--text-muted)] transition-all" />
+              <button id="browse-stockfish-btn" type="button"
+                class="px-2.5 py-1.5 bg-[var(--bg-card-hover)] hover:bg-[var(--accent-green)] hover:text-white border border-[var(--border)] rounded text-xs font-medium text-[var(--text-primary)] transition-all flex items-center gap-1 shrink-0"
+                title="Browse Stockfish executable">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+                Browse
+              </button>
+            </div>
             <div id="settings-engine-status" class="text-xs font-semibold flex items-center gap-1.5 mt-1"></div>
           </div>
 
@@ -1138,6 +1152,11 @@
           const val = (slider.value - slider.min) / (slider.max - slider.min) * 100;
           slider.style.background = `linear-gradient(to right, var(--accent) ${val}%, var(--bg-hover) ${val}%)`;
         }
+
+        // Move time cap
+        const savedTimeout = localStorage.getItem('chess_analyze_timeout_sec');
+        const timeoutInput = document.getElementById('analyze-timeout');
+        if (timeoutInput && savedTimeout !== null) timeoutInput.value = savedTimeout;
       } catch (e) { console.error(e); }
     })();
   </script>

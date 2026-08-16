@@ -71,6 +71,8 @@ pub struct ThreatRequest {
 pub struct AnalyzeRequest {
     pub pgn: String,
     pub depth: Option<u32>,
+    /// Per-position wall-clock cap in ms; 0 disables it. Falls back to config default.
+    pub movetime_ms: Option<u32>,
 }
 
 #[derive(Deserialize)]
@@ -145,6 +147,18 @@ fn find_legal_move_permissive(pos: &shakmaty::Chess, raw_san: &str) -> Option<sh
 // ---------------------------------------------------------------------------
 // PGN Parsing Utility
 // ---------------------------------------------------------------------------
+fn str_to_nag(s: &str) -> Option<i32> {
+    match s {
+        "!" => Some(1),
+        "?" => Some(2),
+        "!!" => Some(3),
+        "??" => Some(4),
+        "!?" => Some(5),
+        "?!" => Some(6),
+        _ => None,
+    }
+}
+
 pub fn parse_pgn(pgn: &str) -> Result<ParsedGame, String> {
     let mut raw_fen_line = None;
     for line in pgn.lines() {
@@ -163,7 +177,7 @@ pub fn parse_pgn(pgn: &str) -> Result<ParsedGame, String> {
     let mut clks_per_move: Vec<Option<String>> = Vec::new();
 
     let mut in_curly = false;
-    let mut in_paren = 0i32;
+    let mut in_paren = 0;
     let mut cur_comment = String::new();
 
     for line in pgn.lines() {
@@ -223,8 +237,32 @@ pub fn parse_pgn(pgn: &str) -> Result<ParsedGame, String> {
                     }
                     continue;
                 }
-                moves_sans.push(token.to_string());
-                nags_per_move.push(Vec::new());
+                
+                // Standalone textual annotations
+                if let Some(nag) = str_to_nag(token) {
+                    if let Some(last) = nags_per_move.last_mut() {
+                        last.push(nag);
+                    }
+                    continue;
+                }
+                
+                // Check if token has an attached textual annotation (e.g. "Kd1!!")
+                let mut clean_token = token;
+                let mut attached_nag = None;
+                for suffix in &["!!", "??", "!?", "?!", "!", "?"] {
+                    if token.ends_with(suffix) {
+                        clean_token = &token[..token.len() - suffix.len()];
+                        attached_nag = str_to_nag(suffix);
+                        break;
+                    }
+                }
+                
+                moves_sans.push(clean_token.to_string());
+                let mut new_nags = Vec::new();
+                if let Some(nag) = attached_nag {
+                    new_nags.push(nag);
+                }
+                nags_per_move.push(new_nags);
             }
         }
     }
@@ -1002,6 +1040,7 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
     };
 
     let depth = req.depth.unwrap_or(state.config.analysis_depth);
+    let movetime_ms = req.movetime_ms.unwrap_or(state.config.movetime_ms);
     let (tx, rx) = mpsc::channel::<Result<bytes::Bytes, std::io::Error>>(100);
 
     tokio::spawn(async move {
@@ -1056,7 +1095,7 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
                 let _ = cancel_tx.send(());
             });
 
-            match state.engine.analyze_position_cancelable(fen_str, depth, cancel_rx).await {
+            match state.engine.analyze_position_cancelable(fen_str, depth, movetime_ms, cancel_rx).await {
                 Ok(pv_list) => {
                     let mut score_entry = serde_json::json!({
                         "fen": fen_str,
@@ -1428,6 +1467,8 @@ async fn handle_ws_socket(socket: WebSocket, state: AppState) {
 
                     let fen = val["fen"].as_str().unwrap_or("").to_string();
                     let depth = val["depth"].as_u64().unwrap_or(18) as u32;
+                    // Frontend sends `timeout` in whole seconds; 0 = no cap.
+                    let movetime_ms = val["timeout"].as_u64().unwrap_or(0).saturating_mul(1000) as u32;
 
                     if fen.is_empty() {
                         let mut write_lock = sender.lock().await;
@@ -1518,6 +1559,7 @@ async fn handle_ws_socket(socket: WebSocket, state: AppState) {
                         let result = engine.analyze_position_streaming(
                             &fen_for_analysis,
                             depth,
+                            movetime_ms,
                             rx_cancel,
                             move |mut info| {
                                 // Enrich info with white_cp, absolute score_mate, and game_over

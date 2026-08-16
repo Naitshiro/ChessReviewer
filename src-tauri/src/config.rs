@@ -6,6 +6,10 @@ pub struct AppConfig {
     pub engine_threads: u32,
     pub engine_hash_mb: u32,
     pub analysis_depth: u32,
+    /// Wall-clock cap (ms) per position, in addition to `analysis_depth`, so a
+    /// position that triggers pathological search extensions can't hang the
+    /// review indefinitely. 0 = no cap (depth-only, old behavior).
+    pub movetime_ms: u32,
     pub server_host: String,
     pub server_port: u16,
 }
@@ -17,6 +21,7 @@ impl Default for AppConfig {
             engine_threads: 4,
             engine_hash_mb: 2048,
             analysis_depth: 12,
+            movetime_ms: 15000,
             server_host: "127.0.0.1".to_string(),
             server_port: 8000,
         }

@@ -119,6 +119,7 @@ const el = {
   analysisProgressFill: document.getElementById('analysis-progress-fill'),
   depthSlider: document.getElementById('depth-slider'),
   depthValue: document.getElementById('depth-value'),
+  analyzeTimeout: document.getElementById('analyze-timeout'),
   btnFirst: document.getElementById('btn-first'),
   btnPrev: document.getElementById('btn-prev'),
   btnPlay: document.getElementById('btn-play'),
@@ -172,6 +173,7 @@ const el = {
   settingsDepth: document.getElementById('settings-depth'),
   settingsTimeout: document.getElementById('settings-timeout'),
   settingsStockfishPath: document.getElementById('settings-stockfish-path'),
+  browseStockfishBtn: document.getElementById('browse-stockfish-btn'),
   settingsEngineStatus: document.getElementById('settings-engine-status'),
   settingsThreads: document.getElementById('settings-threads'),
   settingsHash: document.getElementById('settings-hash'),
@@ -278,6 +280,11 @@ async function init() {
     _triggerEvalBarRender();
   }, 50);
 
+  // Restore saved chess.com username
+  if (el.chesscomUsername && !el.chesscomUsername.value) {
+    el.chesscomUsername.value = localStorage.getItem('chess_chesscom_username') || '';
+  }
+
   _switchTab('import');
 
   // Expose player card update helpers and state to window scope
@@ -335,6 +342,11 @@ function _renderSyzygyPaths() {
     row.innerHTML = `
       <input type="text" value="${path.replace(/"/g, '&quot;')}" placeholder="e.g. C:\\chess\\syzygy"
         class="flex-1 bg-[var(--bg-primary)] border border-[var(--border)] rounded px-2.5 py-1.5 text-[var(--text-primary)] outline-none text-xs focus:border-[var(--accent-green)] placeholder-[var(--text-muted)] transition-all" />
+      <button class="browse-syzygy-btn p-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] rounded transition-colors" title="Browse tablebase folder">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+        </svg>
+      </button>
       <button class="add-path-btn p-1.5 text-[var(--accent-green)] hover:bg-[var(--accent-green)]/10 rounded transition-colors text-sm font-bold" title="Add path">
         +
       </button>
@@ -344,11 +356,34 @@ function _renderSyzygyPaths() {
     `;
 
     const input = row.querySelector('input');
+    const browseBtn = row.querySelector('.browse-syzygy-btn');
     const addBtn = row.querySelector('.add-path-btn');
     const removeBtn = row.querySelector('.remove-path-btn');
 
     input.addEventListener('change', () => {
       _saveAndSyncSyzygyPaths();
+    });
+
+    browseBtn.addEventListener('click', async () => {
+      if (window.__TAURI__?.dialog?.open) {
+        try {
+          const selected = await window.__TAURI__.dialog.open({
+            title: 'Select Syzygy Tablebase Directory',
+            directory: true,
+            multiple: false,
+            defaultPath: input.value.trim() || undefined
+          });
+          if (selected && typeof selected === 'string') {
+            input.value = selected;
+            _saveAndSyncSyzygyPaths();
+          }
+        } catch (err) {
+          console.error('Failed to open folder dialog:', err);
+          showToast('Could not open folder picker', 'error');
+        }
+      } else {
+        showToast('Folder picker is only available in the desktop app', 'info');
+      }
     });
 
     addBtn.addEventListener('click', () => {
@@ -576,16 +611,34 @@ function _bindControls() {
     if (el.depthValue) el.depthValue.textContent = depthVal;
   });
 
+  // Move time cap (batch review safety net against slow-to-search positions)
+  if (el.analyzeTimeout) {
+    const savedTimeout = localStorage.getItem('chess_analyze_timeout_sec');
+    if (savedTimeout !== null) el.analyzeTimeout.value = savedTimeout;
+    el.analyzeTimeout.addEventListener('change', () => {
+      localStorage.setItem('chess_analyze_timeout_sec', el.analyzeTimeout.value);
+    });
+  }
+
   // Overlay Toggle
-  el.btnToggleOverlay?.addEventListener('click', () => {
-    state.overlayPriority = state.overlayPriority === 'classification' ? 'annotation' : 'classification';
-    el.btnToggleOverlay.textContent = state.overlayPriority === 'classification' ? 'Class' : 'Annot';
-    _redrawCurrentMoveOverlay();
-    _triggerMoveListRender();
-    if (state.mode === MODE.ANALYSIS) {
-      setActiveMoveInList('branch', state.analysis.currentBranchIndex);
-    } else {
-      setActiveMoveInList('main', state.review.currentIndex);
+  // Bind dynamically to the inline toggle inside the move list
+  const moveListContainer = document.getElementById('move-list');
+  moveListContainer?.addEventListener('click', (e) => {
+    const toggleBtn = e.target.closest('#btn-toggle-overlay-inline');
+    if (toggleBtn) {
+      state.overlayPriority = state.overlayPriority === 'classification' ? 'annotation' : 'classification';
+      _redrawCurrentMoveOverlay();
+      _triggerMoveListRender();
+      
+      if (state.mode === MODE.REVIEW && state.review.currentIndex >= 0) {
+        setActiveMoveInList('main', state.review.currentIndex);
+      } else if (state.mode === MODE.ANALYSIS) {
+        if (state.analysis.currentBranchIndex === -1 && state.analysis.forkIndex !== null) {
+          setActiveMoveInList('main', state.analysis.forkIndex);
+        } else if (state.analysis.currentBranchIndex !== -1) {
+          setActiveMoveInList('branch', state.analysis.currentBranchIndex);
+        }
+      }
     }
   });
 
@@ -717,6 +770,34 @@ function _bindControls() {
     localStorage.setItem('chess_stockfish_path', val);
     _sendEngineSettingsToBackend({ stockfish_path: val });
     if (state.liveEngineEnabled || state.liveReviewEnabled) _restartCurrentAnalysis();
+  });
+
+  el.browseStockfishBtn?.addEventListener('click', async () => {
+    if (window.__TAURI__?.dialog?.open) {
+      try {
+        const selected = await window.__TAURI__.dialog.open({
+          title: 'Select Stockfish Executable',
+          multiple: false,
+          directory: false,
+          filters: [
+            { name: 'Executables (*.exe; *)', extensions: ['exe', '*'] },
+            { name: 'All Files (*.*)', extensions: ['*'] }
+          ],
+          defaultPath: el.settingsStockfishPath?.value.trim() || undefined
+        });
+        if (selected && typeof selected === 'string') {
+          if (el.settingsStockfishPath) {
+            el.settingsStockfishPath.value = selected;
+            el.settingsStockfishPath.dispatchEvent(new Event('change'));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to open file dialog:', err);
+        showToast('Could not open file picker', 'error');
+      }
+    } else {
+      showToast('File picker is only available in the desktop app', 'info');
+    }
   });
 
   el.settingsThreads?.addEventListener('change', () => {
@@ -929,9 +1010,22 @@ function _drawMarkersForMove(from, to, m) {
   let annotationObj = _getAnnotationSymbol(m);
 
   if (state.overlayPriority === 'annotation' && annotationObj) {
-    classification = null; // Suppress classification
+    if (annotationObj.type === 'quality') {
+      // quality annotation: map to classification SVG for board marker, if classKey exists.
+      // If it doesn't exist (like interesting.svg), we leave annotationObj so it uses its own SVG.
+      if (annotationObj.classKey) {
+        classification = annotationObj.classKey;
+        annotationObj = null;
+      } else {
+        classification = null;
+      }
+    } else {
+      // positional: suppress both, show neutral marker
+      classification = null;
+      annotationObj = null;
+    }
   } else if (state.overlayPriority === 'classification' && classification) {
-    annotationObj = null; // Suppress annotation
+    annotationObj = null;
   }
 
   board.addLastMoveMarkers(from, to, classification, annotationObj, m.color);
@@ -1133,6 +1227,8 @@ async function submitAnalysis() {
 
   const sliderIdx = parseInt(el.depthSlider?.value || '4', 10);
   const depth = DEPTH_VALUES[sliderIdx] || 16;
+  const timeoutSec = parseInt(el.analyzeTimeout?.value || '15', 10);
+  const movetimeMs = (Number.isFinite(timeoutSec) && timeoutSec > 0) ? timeoutSec * 1000 : 0;
 
   // Setup abort controller
   currentAnalysisController = new AbortController();
@@ -1159,7 +1255,7 @@ async function submitAnalysis() {
     const res = await fetch(`${API_BASE}/api/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pgn, depth }),
+      body: JSON.stringify({ pgn, depth, movetime_ms: movetimeMs }),
       signal: currentAnalysisController.signal,
     });
 
@@ -1261,9 +1357,19 @@ function _loadGameAnalysis(data) {
     metaEl.classList.remove('hidden');
   }
 
-  // Populate player cards
-  state.boardOrientation = 'white'; // Board defaults to white orientation on new game
-  board.setOrientation('white');
+  // Populate player cards and auto-detect board orientation
+  const savedUser = (el.chesscomUsername?.value?.trim() || localStorage.getItem('chess_chesscom_username') || '').toLowerCase();
+  const whiteUser = (data.metadata?.white || '').trim().toLowerCase();
+  const blackUser = (data.metadata?.black || '').trim().toLowerCase();
+
+  let targetOrientation = 'white';
+  if (savedUser && blackUser === savedUser && whiteUser !== savedUser) {
+    targetOrientation = 'black';
+  } else {
+    targetOrientation = 'white';
+  }
+  state.boardOrientation = targetOrientation;
+  board.setOrientation(targetOrientation);
   _updatePlayerCards();
 
   // Switch to review mode at initial position
@@ -1537,7 +1643,7 @@ function _updatePlayerClocksAndCaptured(idx, customFen = null) {
 function _isStockfishName(name) {
   if (!name) return false;
   const n = name.trim().toLowerCase();
-  return n === 'stockfish' || n.startsWith('stockfish') || n === 'engine' || n.startsWith('engine') || n === 'computer' || n === 'bot';
+  return n === 'stockfish' || /^stockfish[\s\-_0-9v.]*$/i.test(n) || n === 'engine' || n === 'computer' || n === 'chess engine' || n === 'ai';
 }
 
 function _updatePlayerCards() {
@@ -1556,7 +1662,7 @@ function _updatePlayerCards() {
     whiteName = 'Stockfish';
     whiteTitle = 'ENGINE';
   }
-  if (_isStockfishName(m.black) || (!m.black || m.black === '?')) {
+  if (_isStockfishName(m.black)) {
     blackName = 'Stockfish';
     blackTitle = 'ENGINE';
   }
@@ -1572,39 +1678,37 @@ function _updatePlayerCards() {
 
   const renderAvatar = (avatarEl, flagEl, playerUsername, color) => {
     if (!avatarEl) return;
-    avatarEl.style.backgroundImage = 'none';
-    avatarEl.textContent = '♟';
+    avatarEl.className = `player-avatar ${color}-avatar font-bold overflow-hidden`;
     if (flagEl) flagEl.textContent = '';
 
     const rawUsername = (playerUsername || '').trim();
 
     if (_isStockfishName(rawUsername)) {
-      avatarEl.style.backgroundImage = `url(assets/stockfish-logo.webp), url(https://stockfishchess.org/images/logo/icon_512x512@2x.webp)`;
-      avatarEl.style.backgroundSize = 'cover';
-      avatarEl.style.backgroundPosition = 'center';
-      avatarEl.textContent = '';
+      avatarEl.innerHTML = `<img src="assets/stockfish-logo.webp" onerror="this.src='https://stockfishchess.org/images/logo/icon_512x512@2x.webp'" class="w-full h-full object-cover" alt="Stockfish" />`;
       return;
     }
 
     if (!rawUsername || rawUsername === 'You' || rawUsername === 'White' || rawUsername === 'Black' || rawUsername === '?' || rawUsername.includes(' ')) {
+      avatarEl.textContent = '♟';
       return;
     }
 
     const cacheKey = rawUsername.toLowerCase();
     if (state.avatarCache[cacheKey] !== undefined) {
       const cached = state.avatarCache[cacheKey];
-      if (cached) {
-        if (cached.avatar) {
-          avatarEl.style.backgroundImage = `url(${cached.avatar})`;
-          avatarEl.textContent = '';
-        }
-        if (flagEl && cached.flag) {
-          flagEl.innerHTML = `<img src="https://flagcdn.com/16x12/${cached.flag}.png" width="16" height="12" style="border-radius:2px; display:inline-block; vertical-align:middle;" alt="${cached.flag}">`;
-        }
+      if (cached && cached.avatar) {
+        avatarEl.innerHTML = `<img src="${cached.avatar}" onerror="this.parentElement.textContent='♟'" class="w-full h-full object-cover" alt="${rawUsername}" />`;
+      } else {
+        avatarEl.textContent = '♟';
+      }
+      if (flagEl && cached && cached.flag) {
+        flagEl.innerHTML = `<img src="https://flagcdn.com/16x12/${cached.flag}.png" width="16" height="12" style="border-radius:2px; display:inline-block; vertical-align:middle;" alt="${cached.flag}">`;
       }
       return;
     }
 
+    // Default fallback while fetching
+    avatarEl.textContent = '♟';
     state.avatarCache[cacheKey] = null; // Mark as pending
 
     fetch(`https://api.chess.com/pub/player/${encodeURIComponent(rawUsername)}`)
@@ -1629,6 +1733,7 @@ function _updatePlayerCards() {
       })
       .catch(err => {
         console.warn(`Failed to fetch Chess.com avatar for ${rawUsername}:`, err);
+        state.avatarCache[cacheKey] = { avatar: null, flag: null };
       });
   };
 
@@ -3156,6 +3261,7 @@ async function fetchChesscomGames(archiveUrl = null) {
     showToast('Please enter a Chess.com username.', 'error');
     return;
   }
+  localStorage.setItem('chess_chesscom_username', username);
 
   // Show spinner, disable buttons
   if (el.chesscomFetchBtn) el.chesscomFetchBtn.disabled = true;
