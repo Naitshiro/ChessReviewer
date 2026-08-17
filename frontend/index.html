@@ -37,8 +37,8 @@
               card: '#3c3a37',
               'card-hover': '#4a4845',
               sidebar: '#1a1917',
-              green: '#9333ea',
-              'green-hover': '#a855f7',
+              green: '#8a5cf6',
+              'green-hover': '#a279ff',
               border: '#3c3a37',
               'border-light': '#4a4845',
               text: '#ffffff',
@@ -69,6 +69,7 @@
     <!-- Left: Logo + Nav items -->
     <div class="titlebar-left">
       <img src="icon.png" id="sidebar-logo" class="titlebar-logo" title="About ChessReviewer" alt="ChessReviewer" />
+      <span class="titlebar-wordmark">Chess Reviewer</span>
 
       <div class="titlebar-nav">
         <button type="button" id="sidebar-nav-analysis" class="sidebar-nav-item active" title="Analysis">
@@ -408,7 +409,7 @@
                       class="min-h-[100px] resize-none"></textarea>
 
                     <div class="flex items-center gap-3 mt-1.5 text-xs text-[var(--text-muted)] select-none w-full">
-                      <span class="shrink-0 w-[72px] flex items-baseline gap-1.5">
+                      <span class="shrink-0 w-[64px] flex items-baseline gap-1.5">
                         <span>Depth</span>
                         <span id="depth-value" class="font-mono font-bold text-[var(--text-primary)] text-xs">16</span>
                       </span>
@@ -425,7 +426,7 @@
                             style="left: 0%;"
                             onclick="const s = document.getElementById('depth-slider'); s.value = 0; s.dispatchEvent(new Event('input'));">
                             <div
-                              class="w-[2px] h-2 bg-[var(--accent-green)] group-hover:bg-[#95d05a] transition-colors rounded-t shadow-sm">
+                              class="w-[2px] h-2 bg-[var(--accent-green)] group-hover:bg-[#a279ff] transition-colors rounded-t shadow-sm">
                             </div>
                             <div
                               class="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-[10px] bg-slate-800 text-white rounded shadow-md whitespace-nowrap z-50">
@@ -439,7 +440,7 @@
                             style="left: 22.22%;"
                             onclick="const s = document.getElementById('depth-slider'); s.value = 4; s.dispatchEvent(new Event('input'));">
                             <div
-                              class="w-[2px] h-2 bg-[var(--accent-green)] group-hover:bg-[#95d05a] transition-colors rounded-t shadow-sm">
+                              class="w-[2px] h-2 bg-[var(--accent-green)] group-hover:bg-[#a279ff] transition-colors rounded-t shadow-sm">
                             </div>
                             <div
                               class="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-[10px] bg-slate-800 text-white rounded shadow-md whitespace-nowrap z-50">
@@ -453,7 +454,7 @@
                             style="left: 38.89%;"
                             onclick="const s = document.getElementById('depth-slider'); s.value = 7; s.dispatchEvent(new Event('input'));">
                             <div
-                              class="w-[2px] h-2 bg-[var(--accent-green)] group-hover:bg-[#95d05a] transition-colors rounded-t shadow-sm">
+                              class="w-[2px] h-2 bg-[var(--accent-green)] group-hover:bg-[#a279ff] transition-colors rounded-t shadow-sm">
                             </div>
                             <div
                               class="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-[10px] bg-slate-800 text-white rounded shadow-md whitespace-nowrap z-50">
@@ -467,7 +468,7 @@
                             style="left: 55.56%;"
                             onclick="const s = document.getElementById('depth-slider'); s.value = 10; s.dispatchEvent(new Event('input'));">
                             <div
-                              class="w-[2px] h-2 bg-[var(--accent-green)] group-hover:bg-[#95d05a] transition-colors rounded-t shadow-sm">
+                              class="w-[2px] h-2 bg-[var(--accent-green)] group-hover:bg-[#a279ff] transition-colors rounded-t shadow-sm">
                             </div>
                             <div
                               class="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-[10px] bg-slate-800 text-white rounded shadow-md whitespace-nowrap z-50">
@@ -476,14 +477,12 @@
                           </div>
                         </div>
                       </div>
-                    </div>
-
-                    <div class="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] select-none"
-                      title="Per-move time cap, in addition to Depth. Guards against slow-to-search positions stalling the review. 0 = no cap.">
-                      <span>Move time cap</span>
-                      <input id="analyze-timeout" type="number" min="0" max="120" value="15"
-                        class="w-11 bg-[var(--bg-card)] border border-[var(--border)] rounded px-1 text-[var(--text-primary)] outline-none text-center text-xs" />
-                      <span>sec</span>
+                      <span class="shrink-0 flex items-center gap-1"
+                        title="Per-move time cap, in addition to Depth. Guards against slow-to-search positions stalling the review. 0 = no cap.">
+                        <input id="analyze-timeout" type="number" min="0" max="120" value="15"
+                          class="w-9 bg-[var(--bg-card)] border border-[var(--border)] rounded px-1 text-[var(--text-primary)] outline-none text-center text-xs" />
+                        <span>sec cap</span>
+                      </span>
                     </div>
 
                     <div class="flex gap-2 mt-1">
@@ -576,25 +575,25 @@
 
                       <!-- White card -->
                       <div class="relative rounded-xl overflow-hidden flex flex-col items-center justify-center py-2.5 px-3 gap-0.5"
-                           style="background: linear-gradient(135deg, #e8e5df 0%, #ccc9c1 100%);">
-                        <span class="text-[9px] font-bold uppercase tracking-widest text-[#5a5a5a]">White</span>
-                        <div id="accuracy-white-box" class="text-2xl font-bold text-[#1a1a1a] font-mono tracking-tight leading-none">—</div>
-                        <span class="text-[9px] text-[#5a5a5a]">accuracy</span>
+                           style="background: linear-gradient(135deg, #e8e3d4 0%, #c9c2ac 100%);">
+                        <span class="text-[9px] font-bold uppercase tracking-widest text-[#5a5648]">White</span>
+                        <div id="accuracy-white-box" class="text-2xl italic text-[#1a1712] tracking-tight leading-none" style="font-family: var(--font-display); font-weight: 600;">—</div>
+                        <span class="text-[9px] text-[#5a5648]">accuracy</span>
                         <div id="rating-row-white" class="flex flex-col items-center gap-0 mt-0.5 hidden">
-                          <span class="text-[8px] font-bold uppercase tracking-widest text-[#5a5a5a]">Est. Rating</span>
-                          <div id="rating-white-box" class="text-xs font-bold text-[#2563eb] font-mono">—</div>
+                          <span class="text-[8px] font-bold uppercase tracking-widest text-[#5a5648]">Est. Rating</span>
+                          <div id="rating-white-box" class="text-xs font-bold text-[#5b3aa8] font-mono">—</div>
                         </div>
                       </div>
 
                       <!-- Black card -->
                       <div class="relative rounded-xl overflow-hidden flex flex-col items-center justify-center py-2.5 px-3 gap-0.5"
-                           style="background: linear-gradient(135deg, #2a2d35 0%, #1a1d24 100%);">
-                        <span class="text-[9px] font-bold uppercase tracking-widest text-[#9a9a9a]">Black</span>
-                        <div id="accuracy-black-box" class="text-2xl font-bold text-[#f0f0f0] font-mono tracking-tight leading-none">—</div>
-                        <span class="text-[9px] text-[#9a9a9a]">accuracy</span>
+                           style="background: linear-gradient(135deg, #282a2f 0%, #17181b 100%);">
+                        <span class="text-[9px] font-bold uppercase tracking-widest text-[#9a9588]">Black</span>
+                        <div id="accuracy-black-box" class="text-2xl italic text-[#f0ede2] tracking-tight leading-none" style="font-family: var(--font-display); font-weight: 600;">—</div>
+                        <span class="text-[9px] text-[#9a9588]">accuracy</span>
                         <div id="rating-row-black" class="flex flex-col items-center gap-0 mt-0.5 hidden">
-                          <span class="text-[8px] font-bold uppercase tracking-widest text-[#9a9a9a]">Est. Rating</span>
-                          <div id="rating-black-box" class="text-xs font-bold text-[#60a5fa] font-mono">—</div>
+                          <span class="text-[8px] font-bold uppercase tracking-widest text-[#9a9588]">Est. Rating</span>
+                          <div id="rating-black-box" class="text-xs font-bold text-[#a279ff] font-mono">—</div>
                         </div>
                       </div>
 

@@ -1747,7 +1747,7 @@ function _updatePlayerCards() {
     if (top.title) {
       el.topPlayerTitle.classList.remove('hidden');
       if (top.title === 'ENGINE' || top.title === 'BOT') {
-        el.topPlayerTitle.className = 'text-[10px] bg-[#9333ea] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shadow-sm';
+        el.topPlayerTitle.className = 'text-[10px] bg-[#8a5cf6] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shadow-sm';
       } else {
         el.topPlayerTitle.className = 'text-[10px] bg-[#e53e3e] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider';
       }
@@ -1763,7 +1763,7 @@ function _updatePlayerCards() {
     if (bottom.title) {
       el.bottomPlayerTitle.classList.remove('hidden');
       if (bottom.title === 'ENGINE' || bottom.title === 'BOT') {
-        el.bottomPlayerTitle.className = 'text-[10px] bg-[#9333ea] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shadow-sm';
+        el.bottomPlayerTitle.className = 'text-[10px] bg-[#8a5cf6] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shadow-sm';
       } else {
         el.bottomPlayerTitle.className = 'text-[10px] bg-[#e53e3e] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider';
       }

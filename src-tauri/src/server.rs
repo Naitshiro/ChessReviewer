@@ -39,6 +39,8 @@ pub struct EngineSettingsRequest {
 #[derive(Deserialize)]
 pub struct TheoryRequest {
     pub sans: Vec<String>,
+    #[serde(default)]
+    pub initial_fen: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -288,6 +290,7 @@ pub fn parse_pgn(pgn: &str) -> Result<ParsedGame, String> {
         Chess::default()
     };
     let initial_fen = shakmaty::fen::Fen::from_position(pos.clone(), shakmaty::EnPassantMode::Always).to_string();
+    let is_standard_start = initial_fen == "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     let mut fens = vec![initial_fen];
     let mut move_records = Vec::new();
     let mut last_opening = "".to_string();
@@ -313,13 +316,17 @@ pub fn parse_pgn(pgn: &str) -> Result<ParsedGame, String> {
             non_pawn_material += (board.queens() & color_bb).count() as i32 * 900;
         }
 
-        let book = crate::openings::is_book_sequence(&moves_sans[0..=i]);
+        let book = if is_standard_start {
+            crate::openings::is_book_sequence(&moves_sans[0..=i])
+        } else {
+            false
+        };
 
         let white_queens = (board.queens() & board.by_color(Color::White)).count();
         let black_queens = (board.queens() & board.by_color(Color::Black)).count();
         let total_queens = white_queens + black_queens;
 
-        let phase = if book || move_number <= 10 {
+        let phase = if is_standard_start && (book || move_number <= 10) {
             "opening"
         } else if (total_queens == 0 && non_pawn_material <= 2600) || (total_queens > 0 && non_pawn_material <= 1600) {
             "endgame"
@@ -327,7 +334,6 @@ pub fn parse_pgn(pgn: &str) -> Result<ParsedGame, String> {
             "middlegame"
         };
 
-        let book = crate::openings::is_book_sequence(&moves_sans[0..=i]);
         let sacrificed = crate::analysis::is_sacrifice(&pos, &mv, None);
         let uci = shakmaty::uci::Uci::from_move(&mv, shakmaty::CastlingMode::Standard).to_string();
 
@@ -339,7 +345,11 @@ pub fn parse_pgn(pgn: &str) -> Result<ParsedGame, String> {
         let fen_after = shakmaty::fen::Fen::from_position(pos.clone(), shakmaty::EnPassantMode::Always).to_string();
         fens.push(fen_after.clone());
 
-        let mut opening_name = crate::openings::get_opening_name(&fen_after).unwrap_or_else(|| "".to_string());
+        let mut opening_name = if is_standard_start {
+            crate::openings::get_opening_name(&fen_after).unwrap_or_else(|| "".to_string())
+        } else {
+            "".to_string()
+        };
         if opening_name.is_empty() {
             opening_name = last_opening.clone();
         } else {
@@ -536,6 +546,18 @@ async fn health_handler(State(state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn check_theory_handler(Json(req): Json<TheoryRequest>) -> impl IntoResponse {
+    let is_standard_start = match req.initial_fen.as_deref() {
+        Some(f) => f.trim() == "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" || f.trim().is_empty(),
+        None => true,
+    };
+
+    if !is_standard_start {
+        return Json(serde_json::json!({
+            "is_theory": false,
+            "opening": "",
+        }));
+    }
+
     let is_theory = crate::openings::is_book_sequence(&req.sans);
 
     // Play the moves to get the final FEN and look up the opening name
@@ -563,6 +585,7 @@ async fn check_theory_handler(Json(req): Json<TheoryRequest>) -> impl IntoRespon
     }))
 }
 
+
 async fn classify_handler(Json(req): Json<ClassifyRequest>) -> impl IntoResponse {
     let mut player_white = true;
     let mut pos = Chess::default();
@@ -581,7 +604,7 @@ async fn classify_handler(Json(req): Json<ClassifyRequest>) -> impl IntoResponse
     let mate_played = req.mate_played.map(|m| if player_white { m } else { -m });
 
     // Parse the move as UCI (from/to squares), not SAN
-    let sacrificed = if is_valid_pos && req.move_uci.len() >= 4 {
+    let resolved_move = if is_valid_pos && req.move_uci.len() >= 4 {
         let from_sq = Square::from_ascii(req.move_uci[0..2].as_bytes()).ok();
         let to_sq = Square::from_ascii(req.move_uci[2..4].as_bytes()).ok();
         let promo = if req.move_uci.len() == 5 {
@@ -596,14 +619,24 @@ async fn classify_handler(Json(req): Json<ClassifyRequest>) -> impl IntoResponse
             None
         };
         if let (Some(from), Some(to)) = (from_sq, to_sq) {
-            // Find the matching legal move
-            let resolved = pos.legal_moves().into_iter()
-                .find(|m| m.from() == Some(from) && m.to() == to && m.promotion() == promo);
-            if let Some(m) = resolved {
-                crate::analysis::is_sacrifice(&pos, &m, mate_played)
-            } else {
-                false
-            }
+            pos.legal_moves().into_iter()
+                .find(|m| m.from() == Some(from) && m.to() == to && m.promotion() == promo)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let sacrificed = if let Some(ref m) = resolved_move {
+        crate::analysis::is_sacrifice(&pos, m, mate_played)
+    } else {
+        false
+    };
+
+    let is_checkmate_delivered = if let Some(ref m) = resolved_move {
+        if let Ok(after) = pos.clone().play(m) {
+            after.is_checkmate()
         } else {
             false
         }
@@ -632,6 +665,7 @@ async fn classify_handler(Json(req): Json<ClassifyRequest>) -> impl IntoResponse
         mate_played,
         is_engine_top_choice,
         req.is_recapture,
+        is_checkmate_delivered,
     );
 
     Json(serde_json::json!({ "classification": classification }))
@@ -1262,6 +1296,16 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
                 false
             };
 
+            let is_checkmate_delivered = if let Some(ref m) = resolved_move {
+                if let Ok(after) = pos_before.clone().play(m) {
+                    after.is_checkmate()
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+
             // Stop marking book moves after a brilliant theory move
             let is_book = if brilliant_theory_found {
                 false
@@ -1298,6 +1342,7 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
                 mate_played,
                 is_engine_top_choice,
                 is_recapture,
+                is_checkmate_delivered,
             );
 
             // Track brilliant theory
@@ -1672,3 +1717,32 @@ pub async fn start_axum_server(config: AppConfig) {
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_custom_fen_not_book_move() {
+        let pgn_custom = r#"[SetUp "1"]
+[FEN "r2q1k1r/pp3p1p/n1p3p1/4p3/8/2P5/PPBBQPPP/4NRK1 w - - 0 1"]
+
+1. Nf3 Ke8 2. Bg5 f6 3. Nxe5 fxg5 4. Nxc6+ Kf7 5. Nxd8+ Rhxd8 6. f4 g4 7. f5 Kg7 8. Qe7+ Kh8 9. Qf6+ Kg8 10. Bb3+ Rd5 11. Bxd5# 1-0"#;
+
+        let parsed = parse_pgn(pgn_custom).expect("Failed to parse custom FEN PGN");
+        assert_eq!(parsed.moves.len(), 21);
+        // Move 1 (1. Nf3) must NOT be marked as a book move
+        assert_eq!(parsed.moves[0]["is_book"], false, "1. Nf3 in custom FEN must not be book");
+        assert_eq!(parsed.moves[0]["phase"], "middlegame");
+    }
+
+    #[test]
+    fn test_standard_start_is_book_move() {
+        let pgn_standard = "1. Nf3 d5 2. d4 Nf6 1-0";
+        let parsed = parse_pgn(pgn_standard).expect("Failed to parse standard PGN");
+        // Move 1 (1. Nf3) in standard starting position must be marked as book
+        assert_eq!(parsed.moves[0]["is_book"], true, "1. Nf3 from start must be book");
+        assert_eq!(parsed.moves[0]["phase"], "opening");
+    }
+}
+

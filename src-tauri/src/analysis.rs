@@ -2,7 +2,7 @@ use shakmaty::{Chess, Move, Position, Role, Square};
 
 pub fn win_prob(cp: f64) -> f64 {
     let clamped = cp.max(-10000.0).min(10000.0);
-    1.0 / (1.0 + (-0.005756 * clamped).exp())
+    1.0 / (1.0 + (-0.00368208 * clamped).exp())
 }
 
 #[allow(dead_code)]
@@ -109,10 +109,12 @@ pub fn get_max_loss_for_move(pos: &Chess, mv: &Move) -> i32 {
 
         let mut max_recapture_value = 0;
         for my_cap in recapture_pos.legal_moves() {
-            if my_cap.is_capture() && my_cap.to() == op_move.to() {
+            if my_cap.is_capture() {
                 let cap_val = get_move_captured_value(&my_cap);
-                if cap_val > max_recapture_value {
-                    max_recapture_value = cap_val;
+                if my_cap.to() == op_move.to() || cap_val >= target_value {
+                    if cap_val > max_recapture_value {
+                        max_recapture_value = cap_val;
+                    }
                 }
             }
         }
@@ -163,11 +165,11 @@ pub fn is_piece_hanging_on_square(
     for atk_sq in attacker_squares {
         if let Some(piece) = pos.board().piece_at(atk_sq) {
             attackers_count += 1;
-            let atk_val = role_value(piece.role);
+            let atk_val = if piece.role == Role::King { 10_000 } else { role_value(piece.role) };
             if atk_val < min_attacker_val {
                 min_attacker_val = atk_val;
             }
-            if atk_val < piece_val {
+            if piece.role != Role::King && atk_val < piece_val {
                 has_lower_attacker = true;
             }
         }
@@ -184,7 +186,7 @@ pub fn is_piece_hanging_on_square(
     for dfn_sq in defender_squares {
         if let Some(piece) = pos.board().piece_at(dfn_sq) {
             defenders_count += 1;
-            let dfn_val = role_value(piece.role);
+            let dfn_val = if piece.role == Role::King { 10_000 } else { role_value(piece.role) };
             if dfn_val < min_attacker_val {
                 has_cheaper_defender = true;
             }
@@ -228,6 +230,7 @@ pub fn is_piece_hanging_on_square(
 
     false
 }
+
 
 pub fn is_sacrifice(pos: &Chess, mv: &Move, mate_played: Option<i32>) -> bool {
     // Exclude queen promotions and king moves from sacrifices
@@ -388,7 +391,16 @@ pub fn classify_move(
     mate_played: Option<i32>,
     is_engine_top_choice: bool,
     is_recapture: bool,
+    is_checkmate_delivered: bool,
 ) -> &'static str {
+    // 0. Checkmate delivered on the board
+    if is_checkmate_delivered || (mate_best == Some(1) && mate_played == Some(0)) {
+        let is_only_mate = mate_second.is_none() || mate_second.unwrap() <= 0;
+        if is_only_mate {
+            return "great";
+        }
+        return "best";
+    }
 
     let is_in_mating_sequence = mate_best.map(|m| m > 0 && m <= 8).unwrap_or(false)
         || mate_played.map(|m| m > 0 && m <= 8).unwrap_or(false);
@@ -414,7 +426,9 @@ pub fn classify_move(
         return "theory";
     }
 
-    if is_engine_top_choice && !sacrificed && !is_recapture {
+    let cp_loss = (cp_best - cp_played).max(0.0);
+
+    if (is_engine_top_choice || cp_loss <= 10.0) && !sacrificed && !is_recapture {
         let is_only_mating_move = if let Some(m_best) = mate_best {
             if m_best > 0 {
                 mate_second.is_none() || mate_second.unwrap() <= 0
@@ -437,15 +451,30 @@ pub fn classify_move(
         return "best";
     }
 
+    // Top-equivalent moves rule (eval difference <= 10 cp / 0.10 pawn)
+    if !sacrificed && !is_recapture && cp_loss <= 10.0 && mate_best.is_none() && mate_played.is_none() {
+        return "best";
+    }
+
     // 1. Explicit Mate Handling
     if mate_best.is_some() || mate_played.is_some() {
         if let (Some(m_best), Some(m_played)) = (mate_best, mate_played) {
             if m_best > 0 && m_played > 0 {
-                let is_only_mate = mate_second.is_none() || mate_second.unwrap() <= 0;
-                if is_only_mate {
-                    return "great";
+                if m_played <= m_best {
+                    let is_only_mate = mate_second.is_none() || mate_second.unwrap() <= 0 || mate_second.unwrap() > m_best;
+                    if is_only_mate {
+                        return "great";
+                    }
+                    return "best";
                 }
-                return "best";
+                let mate_loss = m_played - m_best;
+                if mate_loss <= 1 && m_played <= 5 {
+                    return "excellent";
+                } else if mate_loss <= 3 {
+                    return "good";
+                } else {
+                    return "inaccuracy";
+                }
             } else if m_best < 0 && m_played < 0 {
                 let is_only_mate = mate_second.is_none() || mate_second.unwrap() >= 0;
                 if is_only_mate {
@@ -488,11 +517,11 @@ pub fn classify_move(
     }
 
     // 2. Non-mating values classification
-    let cp_loss = (cp_best - cp_played).max(0.0);
-
     let mut classification = if cp_best > 1000.0 {
         // Percentage-based scaling for evaluations above +10.0 (+1000 cp)
-        if cp_played >= 1000.0 {
+        if cp_loss <= 10.0 {
+            "best"
+        } else if cp_played >= 1000.0 {
             // Still completely winning (> +10.0), e.g. +50.0 -> +14.0
             "excellent"
         } else {
@@ -516,7 +545,9 @@ pub fn classify_move(
         let inaccuracy_threshold = 200.0;
         let mistake_threshold = 600.0;
 
-        if cp_loss < excellent_threshold {
+        if cp_loss <= 10.0 {
+            "best"
+        } else if cp_loss < excellent_threshold {
             "excellent"
         } else if cp_loss < good_threshold {
             "good"
@@ -543,6 +574,7 @@ pub fn classify_move(
 
     classification
 }
+
 
 pub fn accuracy_to_rating(accuracy: f64) -> i32 {
     if accuracy <= 40.0 {
@@ -612,6 +644,26 @@ pub fn build_accuracy_report(moves: &[serde_json::Value]) -> serde_json::Value {
                 Some(move_accuracy(delta, cls))
             })
             .collect();
+
+        eprintln!("[ACC-DEBUG] side={}", color);
+        for (i, r) in records.iter().enumerate() {
+            let cls = r["classification"].as_str().unwrap_or("good");
+            let delta = r["delta"].as_f64().unwrap_or(0.0);
+            eprintln!(
+                "[ACC-DEBUG]   move={} class={} delta={:.4} move_acc={:.2}",
+                i, cls, delta, move_accuracies.get(i).copied().unwrap_or(0.0)
+            );
+        }
+        if !move_accuracies.is_empty() {
+            let n = move_accuracies.len() as f64;
+            let arith = move_accuracies.iter().sum::<f64>() / n;
+            let geo = (move_accuracies.iter().map(|a| (a.max(0.01)).ln()).sum::<f64>() / n).exp();
+            let harm = n / move_accuracies.iter().map(|a| 1.0 / a.max(0.01)).sum::<f64>();
+            eprintln!(
+                "[ACC-DEBUG]   arithmetic={:.2} geometric={:.2} harmonic={:.2}",
+                arith, geo, harm
+            );
+        }
 
         let accuracy = game_accuracy(&move_accuracies);
 
@@ -735,6 +787,7 @@ mod tests {
             Some(12), // mate_played
             true,   // is_engine_top_choice
             false,  // is_recapture
+            false,  // is_checkmate_delivered
         );
         assert_eq!(classification, "best");
     }
@@ -757,6 +810,7 @@ mod tests {
             None,  // mate_played
             true,  // is_engine_top_choice
             false, // is_recapture
+            false, // is_checkmate_delivered
         );
         assert_eq!(classification, "brilliant");
     }
@@ -768,7 +822,7 @@ mod tests {
             0.0, 1.0, 1.0, 1.0, false, false,
             5000.0, 4800.0, 1400.0,
             None, None, None,
-            false, false,
+            false, false, false,
         );
         assert_eq!(res1, "excellent");
 
@@ -777,7 +831,7 @@ mod tests {
             0.0, 1.0, 1.0, 1.0, false, false,
             3000.0, 2800.0, 1100.0,
             None, None, None,
-            false, false,
+            false, false, false,
         );
         assert_eq!(res2, "excellent");
 
@@ -786,7 +840,7 @@ mod tests {
             0.5, 1.0, 1.0, 0.5, false, false,
             5000.0, 4800.0, 0.0,
             None, None, None,
-            false, false,
+            false, false, false,
         );
         assert_eq!(res3, "blunder");
 
@@ -795,7 +849,7 @@ mod tests {
             0.01, 1.0, 1.0, 0.99, false, false,
             2000.0, 1800.0, 800.0,
             None, None, None,
-            false, false,
+            false, false, false,
         );
         assert_eq!(res4, "good");
 
@@ -804,7 +858,7 @@ mod tests {
             0.05, 1.0, 1.0, 0.95, false, false,
             2000.0, 1800.0, 500.0,
             None, None, None,
-            false, false,
+            false, false, false,
         );
         assert_eq!(res5, "inaccuracy");
 
@@ -813,19 +867,28 @@ mod tests {
             0.3, 1.0, 1.0, 0.7, false, false,
             2000.0, 1800.0, 150.0,
             None, None, None,
-            false, false,
+            false, false, false,
         );
         assert_eq!(res6, "mistake");
     }
 
     #[test]
     fn test_standard_thresholds_under_ten_eval() {
+        // Standard normal range (+4.0 -> +3.95): 5 cp loss (<= 10 cp) -> best
+        let res_best = classify_move(
+            0.005, 0.91, 0.91, 0.905, false, false,
+            400.0, 390.0, 395.0,
+            None, None, None,
+            false, false, false,
+        );
+        assert_eq!(res_best, "best");
+
         // Standard normal range (+4.0 -> +3.8): 20 cp loss -> excellent
         let res1 = classify_move(
             0.01, 0.91, 0.91, 0.90, false, false,
             400.0, 390.0, 380.0,
             None, None, None,
-            false, false,
+            false, false, false,
         );
         assert_eq!(res1, "excellent");
 
@@ -834,7 +897,7 @@ mod tests {
             0.21, 0.91, 0.91, 0.70, false, false,
             400.0, 390.0, 150.0,
             None, None, None,
-            false, false,
+            false, false, false,
         );
         assert_eq!(res2, "mistake");
     }
@@ -875,9 +938,11 @@ mod tests {
             None,
             true,
             false,
+            false,
         );
         assert_eq!(classification, "brilliant");
     }
+
 
     #[test]
     fn test_non_sacrifices_are_not_brilliant() {
@@ -1014,14 +1079,14 @@ mod tests {
         // Verify classify_move for 26. Qc3 produces "brilliant"
         let qc3_classification = classify_move(
             0.0, 0.95, 0.90, 0.95, true, false,
-            350.0, 280.0, 350.0, None, None, None, true, false,
+            350.0, 280.0, 350.0, None, None, None, true, false, false,
         );
         assert_eq!(qc3_classification, "brilliant");
 
         // Verify classify_move for 55. Bc5 (already winning +30.0) produces "best", not "brilliant"
         let bc5_classification = classify_move(
             0.0, 1.0, 1.0, 1.0, true, false,
-            3000.0, 2900.0, 3000.0, None, None, None, true, false,
+            3000.0, 2900.0, 3000.0, None, None, None, true, false, false,
         );
         assert_eq!(bc5_classification, "best");
     }
@@ -1068,15 +1133,120 @@ mod tests {
         assert!(sacrifices.contains(&"13. Rg6+".to_string()), "13. Rg6+ must be a sacrifice");
 
         // Verify classify_move for 10. Rxf6 (Rook sacrifice), 11. Qxg7+ (Queen sacrifice), 13. Rg6+ (Rook sacrifice)
-        let rxf6_class = classify_move(0.0, 1.0, 0.9, 1.0, true, false, 500.0, 200.0, 500.0, Some(4), Some(6), Some(4), true, false);
+        let rxf6_class = classify_move(0.0, 1.0, 0.9, 1.0, true, false, 500.0, 200.0, 500.0, Some(4), Some(6), Some(4), true, false, false);
         assert_eq!(rxf6_class, "brilliant");
 
-        let qxg7_class = classify_move(0.0, 1.0, 1.0, 1.0, true, false, 1500.0, 1200.0, 1500.0, Some(3), Some(5), Some(3), true, false);
+        let qxg7_class = classify_move(0.0, 1.0, 1.0, 1.0, true, false, 1500.0, 1200.0, 1500.0, Some(3), Some(5), Some(3), true, false, false);
         assert_eq!(qxg7_class, "brilliant");
 
-        let rg6_class = classify_move(0.0, 1.0, 1.0, 1.0, true, false, 2000.0, 1800.0, 2000.0, Some(1), Some(3), Some(1), true, false);
+        let rg6_class = classify_move(0.0, 1.0, 1.0, 1.0, true, false, 2000.0, 1800.0, 2000.0, Some(1), Some(3), Some(1), true, false, false);
         assert_eq!(rg6_class, "brilliant");
     }
+
+    #[test]
+    fn test_user_game_nf7_not_brilliant() {
+        use shakmaty::san::San;
+
+        let pgn_moves = [
+            "e4", "e5", "Nf3", "Nc6", "Nc3", "Nf6", "Bc4", "b5", "Bb3", "b4",
+            "Ng5", "bxc3", "Bxf7+", "Ke7", "Bb3", "cxb2", "Bxb2", "d5", "exd5", "Nb4",
+            "d6+", "cxd6", "Nf7", "Qb6", "Nxh8",
+        ];
+
+        let mut pos = Chess::default();
+        let mut sacrifices = Vec::new();
+
+        for (i, san_str) in pgn_moves.iter().enumerate() {
+            let move_num = (i / 2) + 1;
+            let is_white = i % 2 == 0;
+            let san: San = san_str.parse().unwrap();
+            let mv = san.to_move(&pos).unwrap();
+
+            let is_sac = is_sacrifice(&pos, &mv, None);
+            if is_white && is_sac {
+                sacrifices.push(format!("{}. {}", move_num, san_str));
+            }
+
+            pos = pos.play(&mv).unwrap();
+        }
+
+        println!("User game White sacrifices: {:?}", sacrifices);
+        assert!(!sacrifices.contains(&"12. Nf7".to_string()), "12. Nf7 should NOT be a sacrifice");
+    }
+
+    #[test]
+    fn test_checkmate_delivered_is_great_or_best() {
+        // Only one move mates: is_only_mate = true -> great
+        let class_only_mate = classify_move(
+            0.0, 1.0, 0.0, 1.0, false, false,
+            0.0, 0.0, 0.0,
+            Some(1), None, Some(0),
+            true, false, true,
+        );
+        assert_eq!(class_only_mate, "great");
+
+        // Multiple moves mate (Qg4#, Qh8#, Qh6#) -> mate_second is Some(1) -> best
+        let class_multi_mate = classify_move(
+            0.0, 1.0, 1.0, 1.0, false, false,
+            0.0, 0.0, 0.0,
+            Some(1), Some(1), Some(0),
+            false, false, true,
+        );
+        assert_eq!(class_multi_mate, "best");
+    }
+
+    #[test]
+    fn test_top_equivalent_moves_within_point_one_are_best() {
+        // cp_loss is 8.0 (<= 10 cp / 0.08 eval delta), not engine's top choice -> best
+        let res_near_top = classify_move(
+            0.008, 0.85, 0.84, 0.842, false, false,
+            300.0, 292.0, 292.0,
+            None, None, None,
+            false, false, false,
+        );
+        assert_eq!(res_near_top, "best");
+
+        // cp_loss is 25.0 (> 10 cp, < 35 cp) -> excellent
+        let res_excellent = classify_move(
+            0.025, 0.85, 0.84, 0.825, false, false,
+            300.0, 290.0, 275.0,
+            None, None, None,
+            false, false, false,
+        );
+        assert_eq!(res_excellent, "excellent");
+    }
+
+    #[test]
+    fn test_reciprocal_piece_trade_h6_not_brilliant() {
+        use shakmaty::san::San;
+
+        let pgn_moves = [
+            "e4", "e5", "Nf3", "Nc6", "Nc3", "Nf6", "Bc4", "Bc5", "Ng5", "O-O",
+            "O-O", "Na5", "Na4", "Bxf2+", "Rxf2", "Nxc4", "b3", "h6",
+        ];
+
+        let mut pos = Chess::default();
+        let mut sacrifices = Vec::new();
+
+        for (i, san_str) in pgn_moves.iter().enumerate() {
+            let move_num = (i / 2) + 1;
+            let is_white = i % 2 == 0;
+            let san: San = san_str.parse().unwrap();
+            let mv = san.to_move(&pos).unwrap();
+
+            let is_sac = is_sacrifice(&pos, &mv, None);
+            if is_sac {
+                sacrifices.push(format!("{}. {}{}", move_num, if is_white { "" } else { ".. " }, san_str));
+            }
+
+            pos = pos.play(&mv).unwrap();
+        }
+
+        println!("Sacrifices found: {:?}", sacrifices);
+        assert!(!sacrifices.contains(&"9. .. h6".to_string()), "9... h6 is a reciprocal piece trade and must NOT be a sacrifice");
+    }
 }
+
+
 
 
