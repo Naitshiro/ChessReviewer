@@ -577,7 +577,7 @@
                       <div class="relative rounded-xl overflow-hidden flex flex-col items-center justify-center py-2.5 px-3 gap-0.5"
                            style="background: linear-gradient(135deg, #e8e3d4 0%, #c9c2ac 100%);">
                         <span class="text-[9px] font-bold uppercase tracking-widest text-[#5a5648]">White</span>
-                        <div id="accuracy-white-box" class="text-2xl italic text-[#1a1712] tracking-tight leading-none" style="font-family: var(--font-display); font-weight: 600;">—</div>
+                        <div id="accuracy-white-box" class="text-2xl text-[#1a1712] tracking-tight leading-none" style="font-family: var(--font-display); font-weight: 600;">—</div>
                         <span class="text-[9px] text-[#5a5648]">accuracy</span>
                         <div id="rating-row-white" class="flex flex-col items-center gap-0 mt-0.5 hidden">
                           <span class="text-[8px] font-bold uppercase tracking-widest text-[#5a5648]">Est. Rating</span>
@@ -589,7 +589,7 @@
                       <div class="relative rounded-xl overflow-hidden flex flex-col items-center justify-center py-2.5 px-3 gap-0.5"
                            style="background: linear-gradient(135deg, #282a2f 0%, #17181b 100%);">
                         <span class="text-[9px] font-bold uppercase tracking-widest text-[#9a9588]">Black</span>
-                        <div id="accuracy-black-box" class="text-2xl italic text-[#f0ede2] tracking-tight leading-none" style="font-family: var(--font-display); font-weight: 600;">—</div>
+                        <div id="accuracy-black-box" class="text-2xl text-[#f0ede2] tracking-tight leading-none" style="font-family: var(--font-display); font-weight: 600;">—</div>
                         <span class="text-[9px] text-[#9a9588]">accuracy</span>
                         <div id="rating-row-black" class="flex flex-col items-center gap-0 mt-0.5 hidden">
                           <span class="text-[8px] font-bold uppercase tracking-widest text-[#9a9588]">Est. Rating</span>
@@ -602,6 +602,40 @@
 
                   <!-- rating-row kept as hidden anchor for JS compat -->
                   <div id="rating-row" class="hidden"></div>
+
+                  <!-- Game Phases -->
+                  <div id="game-phases-container" class="flex flex-col gap-1 mt-1 hidden">
+                    <div class="flex items-center justify-between mb-1 border-b border-[var(--border)] pb-2">
+                      <h3 class="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">Game Phases</h3>
+                      <div class="flex gap-4 text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] mr-1">
+                        <span class="w-6 text-center">W</span>
+                        <span class="w-6 text-center">B</span>
+                      </div>
+                    </div>
+                    <div class="flex flex-col gap-2 text-sm text-[var(--text-secondary)]">
+                      <div class="flex justify-between items-center" id="phase-row-opening">
+                        <span>Opening</span>
+                        <div class="flex justify-between items-center w-[56px] mr-1">
+                          <div id="phase-badge-white-opening" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
+                          <div id="phase-badge-black-opening" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
+                        </div>
+                      </div>
+                      <div class="flex justify-between items-center" id="phase-row-middlegame">
+                        <span>Middlegame</span>
+                        <div class="flex justify-between items-center w-[56px] mr-1">
+                          <div id="phase-badge-white-middlegame" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
+                          <div id="phase-badge-black-middlegame" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
+                        </div>
+                      </div>
+                      <div class="flex justify-between items-center" id="phase-row-endgame">
+                        <span>Endgame</span>
+                        <div class="flex justify-between items-center w-[56px] mr-1">
+                          <div id="phase-badge-white-endgame" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
+                          <div id="phase-badge-black-endgame" class="move-badge text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border)]">—</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
                   <!-- Move Classification Summary -->
                   <div class="flex flex-col gap-1 mt-1">

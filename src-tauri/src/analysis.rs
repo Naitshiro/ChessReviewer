@@ -58,9 +58,19 @@ pub fn game_accuracy(accuracies: &[f64]) -> f64 {
     if accuracies.is_empty() {
         return 100.0;
     }
+    let n = accuracies.len() as f64;
+
     let sum: f64 = accuracies.iter().sum();
-    let avg = sum / accuracies.len() as f64;
-    avg.max(0.0).min(100.0)
+    let arithmetic_mean = sum / n;
+
+    // Harmonic mean weighs low outliers (blunders/mistakes) far more heavily than
+    // the arithmetic mean, so a single bad move drags the score down disproportionately
+    // instead of being diluted by a long streak of good moves.
+    let reciprocal_sum: f64 = accuracies.iter().map(|a| 1.0 / a.max(0.01)).sum();
+    let harmonic_mean = n / reciprocal_sum;
+
+    let blended = (arithmetic_mean + harmonic_mean) / 2.0;
+    blended.max(0.0).min(100.0)
 }
 
 pub fn role_value(role: Role) -> i32 {
@@ -99,6 +109,9 @@ pub fn get_max_loss_for_move(pos: &Chess, mv: &Move) -> i32 {
         .collect();
 
     for op_move in opponent_captures {
+        if op_move.to() != mv.to() {
+            continue; // Only consider direct captures of the moved piece
+        }
         let target_value = get_move_captured_value(&op_move);
 
         let recapture_pos = after_pos.clone();
@@ -137,6 +150,11 @@ pub fn get_max_loss_for_move(pos: &Chess, mv: &Move) -> i32 {
     max_loss
 }
 
+// Minimum net material loss (centipawns) for a piece under attack to count as genuinely
+// "hanging" rather than just part of a fair/even trade. Matches the 150cp sacrifice
+// threshold used elsewhere in this module.
+const HANGING_LOSS_THRESHOLD: i32 = 150;
+
 pub fn is_piece_hanging_on_square(
     pos: &Chess,
     sq: Square,
@@ -149,86 +167,48 @@ pub fn is_piece_hanging_on_square(
 
     let piece_val = role_value(piece_role);
     let opponent_color = !friendly_color;
-    let occupied = pos.board().occupied();
+    let board = pos.board();
 
-    let attacker_squares = pos.board().attacks_to(sq, opponent_color, occupied);
-    if attacker_squares.is_empty() {
+    if board.attacks_to(sq, opponent_color, board.occupied()).is_empty() {
         return false;
     }
 
-    let defender_squares = pos.board().attacks_to(sq, friendly_color, occupied);
-
-    let mut min_attacker_val = i32::MAX;
-    let mut attackers_count = 0;
-    let mut has_lower_attacker = false;
-
-    for atk_sq in attacker_squares {
-        if let Some(piece) = pos.board().piece_at(atk_sq) {
-            attackers_count += 1;
-            let atk_val = if piece.role == Role::King { 10_000 } else { role_value(piece.role) };
-            if atk_val < min_attacker_val {
-                min_attacker_val = atk_val;
-            }
-            if piece.role != Role::King && atk_val < piece_val {
-                has_lower_attacker = true;
-            }
-        }
-    }
-
-    if has_lower_attacker {
-        return true;
-    }
-
-    let mut defenders_count = 0;
-    let mut has_cheaper_defender = false;
-    let mut has_pawn_defender = false;
-
-    for dfn_sq in defender_squares {
-        if let Some(piece) = pos.board().piece_at(dfn_sq) {
-            defenders_count += 1;
-            let dfn_val = if piece.role == Role::King { 10_000 } else { role_value(piece.role) };
-            if dfn_val < min_attacker_val {
-                has_cheaper_defender = true;
-            }
-            if piece.role == Role::Pawn {
-                has_pawn_defender = true;
-            }
-        }
-    }
-
-    if attackers_count == 1 && piece_val <= min_attacker_val {
-        // Check if capturing the piece allows an immediate recapture of equal or greater value (e.g. x-ray connected rooks)
-        for op_move in pos.legal_moves() {
-            if op_move.to() == sq && op_move.is_capture() {
-                if let Ok(recapture_pos) = pos.clone().play(&op_move) {
-                    let mut max_recapture_value = 0;
-                    for my_cap in recapture_pos.legal_moves() {
-                        if my_cap.is_capture() && my_cap.to() == sq {
-                            let cap_val = get_move_captured_value(&my_cap);
-                            if cap_val > max_recapture_value {
-                                max_recapture_value = cap_val;
-                            }
-                        }
-                    }
-                    if max_recapture_value >= piece_val {
-                        return false;
-                    }
+    // Static Exchange Evaluation: simulate the capture sequence on `sq`, with each side always
+    // using its currently-cheapest attacker. Occupancy is updated after every simulated capture
+    // so sliding pieces behind the piece that just moved (x-ray attackers/defenders, e.g. a rook
+    // battery revealed once the piece in front of it captures) are correctly taken into account.
+    let mut occupied = board.occupied();
+    let mut captured: Vec<i32> = Vec::new();
+    let mut on_square = piece_val;
+    let mut side = opponent_color;
+    loop {
+        let attackers = board.attacks_to(sq, side, occupied) & occupied;
+        let mut least: Option<(Square, i32)> = None;
+        for atk_sq in attackers {
+            if let Some(piece) = board.piece_at(atk_sq) {
+                let val = if piece.role == Role::King { 10_000 } else { role_value(piece.role) };
+                if least.map_or(true, |(_, lv)| val < lv) {
+                    least = Some((atk_sq, val));
                 }
             }
         }
+        let Some((from_sq, val)) = least else { break };
+        captured.push(on_square);
+        on_square = val;
+        occupied = occupied.without(from_sq);
+        side = !side;
     }
 
-    if attackers_count > defenders_count {
-        if piece_val < min_attacker_val && has_cheaper_defender {
-            return false;
-        }
-        if has_pawn_defender && piece_val == min_attacker_val {
-            return false;
-        }
-        return true;
+    if captured.is_empty() {
+        return false;
     }
 
-    false
+    let mut score = *captured.last().unwrap();
+    for i in (0..captured.len() - 1).rev() {
+        score = captured[i] - score.max(0);
+    }
+
+    score.max(0) >= HANGING_LOSS_THRESHOLD
 }
 
 
@@ -255,6 +235,9 @@ pub fn is_sacrifice(pos: &Chess, mv: &Move, mate_played: Option<i32>) -> bool {
             let material_won = get_move_captured_value(mv);
             let mut naive_loss = 0;
             for op_move in after_pos.legal_moves().into_iter().filter(|m| m.is_capture()) {
+                if op_move.to() != mv.to() {
+                    continue;
+                }
                 let target_value = get_move_captured_value(&op_move);
                 let loss = target_value - material_won;
                 if loss > naive_loss {
@@ -332,7 +315,8 @@ pub fn is_sacrifice(pos: &Chess, mv: &Move, mate_played: Option<i32>) -> bool {
         for sq in after_pos.board().occupied() {
             if let Some(piece) = after_pos.board().piece_at(sq) {
                 if piece.color == turn && piece.role != Role::Pawn && piece.role != Role::King {
-                    if captured_val >= role_value(piece.role) {
+                    let piece_val = role_value(piece.role);
+                    if captured_val >= piece_val || (captured_val >= 300 && piece_val <= 330) {
                         continue;
                     }
                     if is_piece_hanging_on_square(&after_pos, sq, piece.role, turn) {
@@ -405,22 +389,23 @@ pub fn classify_move(
     let is_in_mating_sequence = mate_best.map(|m| m > 0 && m <= 8).unwrap_or(false)
         || mate_played.map(|m| m > 0 && m <= 8).unwrap_or(false);
 
-    let is_runaway_winning = mate_best.is_none() && mate_played.is_none() && (cp_best >= 1000.0 && cp_second >= 800.0);
+    // Do not award brilliant if position before move is already completely winning (eval >= 9.0 pawns / full Queen)
+    let already_winning = cp_second >= 900.0
+        || (cp_best >= 1000.0 && cp_second >= 850.0);
 
-    // In a forcing mate sequence, a genuine sacrifice (sacrificing Q, R, B, N) is brilliant
-    if sacrificed && !is_recapture && is_in_mating_sequence && !is_runaway_winning {
+    // In a forcing mate sequence, ANY genuine direct sacrifice (sacrificing Q, R, B, N) is brilliant!
+    // Since get_max_loss_for_move now filters for direct sacrifices, we don't need to block it for runaway wins.
+    if sacrificed && !is_recapture && is_in_mating_sequence {
         return "brilliant";
     }
-
-    // Do not award brilliant if position before move is already completely winning
-    let already_winning = cp_second >= 600.0
-        || mate_second.map(|m| m > 0).unwrap_or(false)
-        || (cp_best >= 700.0 && cp_second >= 400.0);
 
     // Brilliant checks (needs material sacrifice, not a recapture, not already winning before the move, and maintains high win probability)
     if sacrificed && !is_recapture && !already_winning && (p_played >= 0.45 && (delta <= 0.03 || (cp_best - cp_played) <= 50.0)) {
         return "brilliant";
     }
+
+
+
 
     if is_book {
         return "theory";
@@ -431,7 +416,8 @@ pub fn classify_move(
     if (is_engine_top_choice || cp_loss <= 10.0) && !sacrificed && !is_recapture {
         let is_only_mating_move = if let Some(m_best) = mate_best {
             if m_best > 0 {
-                mate_second.is_none() || mate_second.unwrap() <= 0
+                let played_best_mate = mate_played.map_or(false, |m_played| m_played > 0 && m_played <= m_best);
+                played_best_mate && (mate_second.is_none() || mate_second.unwrap() <= 0)
             } else {
                 false
             }
@@ -1136,10 +1122,11 @@ mod tests {
         let rxf6_class = classify_move(0.0, 1.0, 0.9, 1.0, true, false, 500.0, 200.0, 500.0, Some(4), Some(6), Some(4), true, false, false);
         assert_eq!(rxf6_class, "brilliant");
 
-        let qxg7_class = classify_move(0.0, 1.0, 1.0, 1.0, true, false, 1500.0, 1200.0, 1500.0, Some(3), Some(5), Some(3), true, false, false);
+        // Use realistic pre-sacrifice evals (not runaway winning > 900 cp) since material is roughly equal before the sacrifice
+        let qxg7_class = classify_move(0.0, 1.0, 1.0, 1.0, true, false, 1500.0, 500.0, 1500.0, Some(3), Some(5), Some(3), true, false, false);
         assert_eq!(qxg7_class, "brilliant");
 
-        let rg6_class = classify_move(0.0, 1.0, 1.0, 1.0, true, false, 2000.0, 1800.0, 2000.0, Some(1), Some(3), Some(1), true, false, false);
+        let rg6_class = classify_move(0.0, 1.0, 1.0, 1.0, true, false, 2000.0, 600.0, 2000.0, Some(1), Some(3), Some(1), true, false, false);
         assert_eq!(rg6_class, "brilliant");
     }
 
@@ -1245,7 +1232,129 @@ mod tests {
         println!("Sacrifices found: {:?}", sacrifices);
         assert!(!sacrifices.contains(&"9. .. h6".to_string()), "9... h6 is a reciprocal piece trade and must NOT be a sacrifice");
     }
+
+    #[test]
+    fn test_user_caro_kann_game() {
+        use shakmaty::san::San;
+
+        let pgn_moves = [
+            "d4", "c6", "e4", "d5", "Bd3", "e6", "Qe2", "Bd6", "g3", "f6",
+            "f4", "e5", "dxe5", "fxe5", "Nf3", "exf4", "gxf4", "Qa5+", "Bd2", "Qd8",
+            "c4", "Bg4", "h3", "Bxf3", "Qxf3", "Qh4+", "Qf2", "Qxf2+", "Kxf2", "Nh6",
+            "cxd5", "cxd5", "exd5", "O-O", "Nc3", "Bxf4", "Bc1", "Bxc1+", "Ke1", "Re8+",
+            "Kd1", "Bxb2", "Rb1", "Bxc3", "Kc2", "Be5", "Rxb7", "a5", "Re1", "Nf7",
+            "Bb5", "Rd8", "d6", "Nxd6", "Rxe5", "Nxb7",
+        ];
+
+        let mut pos = Chess::default();
+        let mut sacrifices = Vec::new();
+
+        for (i, san_str) in pgn_moves.iter().enumerate() {
+            let move_num = (i / 2) + 1;
+            let is_white = i % 2 == 0;
+            let san: San = san_str.parse().unwrap();
+            let mv = san.to_move(&pos).unwrap();
+
+            let is_sac = is_sacrifice(&pos, &mv, None);
+            if is_sac {
+                sacrifices.push(format!("{}. {}{}", move_num, if is_white { "" } else { ".. " }, san_str));
+            }
+            pos = pos.play(&mv).unwrap();
+        }
+
+        println!("Caro Kann sacrifices found: {:?}", sacrifices);
+        assert!(!sacrifices.contains(&"12. .. Bxf3".to_string()), "12... Bxf3 (minor piece trade) must NOT be a sacrifice");
+        assert!(!sacrifices.contains(&"27. .. Nxd6".to_string()), "27... Nxd6 (winning combination) must NOT be a sacrifice");
+    }
+
+    #[test]
+    fn test_selenge88_game() {
+        use shakmaty::san::San;
+
+        let pgn_moves = [
+            "e4", "e5", "Nf3", "Qf6", "Nc3", "c6", "d3", "h6", "Be2", "Be7",
+            "Bd2", "Bd6", "Be3", "Be7", "Qd2", "d6", "h3", "Qg6", "g4", "h5",
+            "O-O-O", "hxg4", "hxg4", "Qxg4", "Rxh8", "Kf8", "a3", "Qe6", "d4", "exd4",
+            "Nxd4", "Qe5", "Bf4", "Qa5", "Bf3", "Na6", "Re1", "f6", "Bg4", "Bxg4",
+            "Rg1", "Bd7", "Bh6", "Kf7", "Rxg7+", "Kf8", "Rgxg8+", "Kf7", "Rxa8", "Nc7",
+            "Rh7+", "Kg6", "Rg8+", "Kxh7", "Rg7+", "Kh8", "Rxe7", "Qh5", "Rxd7", "Qh1+",
+            "Qd1", "Qxh6+",
+        ];
+
+        let mut pos = Chess::default();
+        let mut sacrifices = Vec::new();
+
+        for (i, san_str) in pgn_moves.iter().enumerate() {
+            let move_num = (i / 2) + 1;
+            let is_white = i % 2 == 0;
+            let san: San = san_str.parse().unwrap();
+            let mv = san.to_move(&pos).unwrap();
+
+            let is_sac = is_sacrifice(&pos, &mv, None);
+            if is_white && is_sac {
+                sacrifices.push(format!("{}. {}", move_num, san_str));
+            }
+
+            if move_num == 22 && is_white {
+                let max_loss = get_max_loss_for_move(&pos, &mv);
+                println!("22. Bh6 max_loss: {}", max_loss);
+            }
+
+            pos = pos.play(&mv).unwrap();
+        }
+
+        println!("Selenge88 White sacrifices found: {:?}", sacrifices);
+
+        // 22. Bh6 (eval ~ +8.5, not yet runaway > 9.0) should be classified as brilliant
+        let class_22_bh6 = classify_move(
+            0.0, 0.99, 0.98, 0.99, true, false,
+            850.0, 700.0, 850.0,
+            None, None, None,
+            true, false, false,
+        );
+        assert_eq!(class_22_bh6, "brilliant", "22. Bh6 should be brilliant");
+
+        // 27. Rg8+ (runaway eval > +12.0 / up 2 rooks) is NOT a direct sacrifice anymore (h7 rook was already hanging)
+        // so `sacrificed` should be passed as false from is_sacrifice
+        let class_27_rg8 = classify_move(
+            0.0, 1.0, 1.0, 1.0, false, false,
+            1500.0, 1400.0, 1500.0,
+            Some(6), Some(6), Some(6),
+            true, false, false,
+        );
+        assert_eq!(class_27_rg8, "best", "27. Rg8+ when already up 2 rooks (+15) should be best, not brilliant");
+    }
+
+    #[test]
+    fn test_ne5_already_hanging_bishop_not_flagged_as_sacrifice() {
+        use shakmaty::san::San;
+
+        // Regression: 32. Ne5 was misflagged as a sacrifice/brilliant because Bd4 was
+        // already attacked by both Rd8 and Ne2 before the move (a fair, defended trade,
+        // not a hang), but the "already hanging" exemption only applied to capturing moves.
+        let pgn_moves = [
+            "d4","c6","e3","d5","Nf3","e6","Be2","b6","Nbd2","c5","Bb5+","Bd7","Bxd7+","Nxd7",
+            "dxc5","bxc5","O-O","c4","b3","Bb4","bxc4","Bxd2","Qxd2","dxc4","Qc3","Rc8","Qxg7","Qf6",
+            "Qxf6","Ngxf6","Bb2","Rg8","Bd4","a5","c3","Ne4","Rfd1","Ndc5","g3","h5","Kg2","f5",
+            "a4","Rg6","Nh4","Rg4","Nf3","Nd3","Rab1","Nexf2","Rf1","f4","exf4","Nxf4+","Kxf2","Nh3+",
+            "Kg2","Nf4+","Kh1","Ne2","Rbd1","Rd8","Ne5",
+        ];
+
+        let mut pos = Chess::default();
+        for san_str in pgn_moves.iter() {
+            let san: San = san_str.parse().unwrap();
+            let mv = san.to_move(&pos).unwrap();
+            if *san_str == "Ne5" {
+                assert!(!is_sacrifice(&pos, &mv, None), "32. Ne5 must not be a sacrifice");
+            }
+            pos = pos.play(&mv).unwrap();
+        }
+    }
 }
+
+
+
+
 
 
 

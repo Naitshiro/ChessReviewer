@@ -580,9 +580,23 @@ export function highlightChartMove(moveIndex) {
  * @param {Array} branchMoves - Array of branch moves
  * @param {number} forkIndex - Index in main moves where branch started
  */
+function _parseMoveTimeSeconds(moveTimeStr) {
+  if (!moveTimeStr) return null;
+  const val = parseFloat(moveTimeStr);
+  return Number.isFinite(val) ? val : null;
+}
+
 export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex = null, overlayPriority = 'classification', liveReviewEnabled = false, result = null) {
   const container = document.getElementById('move-list');
   if (!container) return;
+
+  // Longest time spent on a single move across the game, used to scale the time bars
+  // (proportionally, not linearly, so a couple of long-think outliers don't flatten every other bar).
+  let maxMoveTime = 0;
+  for (const m of [...moves, ...(branchMoves || [])]) {
+    const t = _parseMoveTimeSeconds(m.move_time);
+    if (t !== null && t > maxMoveTime) maxMoveTime = t;
+  }
 
   const rows = [];
   const rowElements = [];
@@ -609,7 +623,7 @@ export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex =
       currentRow.appendChild(timeContainer);
 
       return currentRow;
-    }, (row) => currentRow = row, lastMoveNum, overlayPriority, liveReviewEnabled);
+    }, (row) => currentRow = row, lastMoveNum, overlayPriority, liveReviewEnabled, maxMoveTime);
     lastMoveNum = m.move_number;
     rowElements[i] = currentRow;
   }
@@ -652,7 +666,7 @@ export function renderMoveList(moves, onMoveClick, branchMoves = [], forkIndex =
         bCurrentRow.appendChild(timeContainer);
 
         return bCurrentRow;
-      }, (row) => bCurrentRow = row, bLastMoveNum, overlayPriority, liveReviewEnabled);
+      }, (row) => bCurrentRow = row, bLastMoveNum, overlayPriority, liveReviewEnabled, maxMoveTime);
       bLastMoveNum = m.move_number;
     }
 
@@ -719,7 +733,7 @@ function formatSanWithPieceIcon(san, isWhite) {
   return san;
 }
 
-function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setRowFn, lastMoveNum, overlayPriority = 'classification', liveReviewEnabled = false) {
+function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setRowFn, lastMoveNum, overlayPriority = 'classification', liveReviewEnabled = false, maxMoveTime = 0) {
   if (m.color === 'white' || m.move_number !== lastMoveNum) {
     rowsArray.push(createRowFn());
   }
@@ -822,8 +836,15 @@ function _appendMoveToRows(rowsArray, m, type, index, onClick, createRowFn, setR
 
   if (m.move_time) {
     const barColor = m.color === 'white' ? '#bab9b7' : '#5b5956';
+    const seconds = _parseMoveTimeSeconds(m.move_time);
+    // Square-root scale: keeps a couple of long-think outliers from squashing every
+    // other bar down to a sliver, while still visually distinguishing fast vs. slow moves.
+    const MIN_BAR_PX = 2;
+    const MAX_BAR_PX = 24;
+    const ratio = (seconds !== null && maxMoveTime > 0) ? Math.sqrt(seconds / maxMoveTime) : 0;
+    const barWidth = MIN_BAR_PX + (MAX_BAR_PX - MIN_BAR_PX) * Math.max(0, Math.min(1, ratio));
     timeItem.innerHTML = `
-      <span class="move-time-bar" style="background-color: ${barColor};"></span>
+      <span class="move-time-bar" style="background-color: ${barColor}; width: ${barWidth}px;"></span>
       <span class="move-time-text">${m.move_time}</span>
     `;
     timeItem.style.display = 'flex';

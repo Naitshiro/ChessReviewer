@@ -4,7 +4,7 @@
    ============================================================ */
 
 /* ── Google Fonts ────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 /* ── CSS Variables ────────────────────────────────────────── */
 :root {
@@ -64,7 +64,7 @@
   --eval-black: #0e0f10;
 
   /* Fonts */
-  --font-display: 'Fraunces', 'Source Serif 4', Georgia, serif;
+  --font-display: 'Inter', system-ui, -apple-system, sans-serif;
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
@@ -161,7 +161,6 @@ body {
 
 .titlebar-wordmark {
   font-family: var(--font-display);
-  font-style: italic;
   font-weight: 500;
   font-size: 15px;
   color: var(--text-primary);
@@ -573,7 +572,7 @@ img.move-badge {
 
 .move-row {
   display: grid;
-  grid-template-columns: 32px 1fr 1fr 52px;
+  grid-template-columns: 32px 1fr 1fr 60px;
   gap: 4px;
   align-items: center;
   padding: 2px 4px;
@@ -590,13 +589,13 @@ img.move-badge {
   align-items: flex-end;
   justify-content: center;
   gap: 2px;
-  min-width: 52px;
+  min-width: 60px;
   color: var(--text-muted);
 }
 
-.move-time-item    { display: flex; align-items: center; gap: 4px; }
-.move-time-bar     { display: inline-block; width: 3px; height: 8px; border-radius: 1px; }
-.move-time-text    { font-family: var(--font-sans); font-weight: 500; font-size: 9.5px; line-height: 1; }
+.move-time-item    { display: flex; align-items: center; gap: 4px; justify-content: flex-end; }
+.move-time-bar     { display: inline-block; flex-shrink: 0; height: 6px; border-radius: 1px; }
+.move-time-text    { font-family: var(--font-sans); font-weight: 500; font-size: 9.5px; line-height: 1; flex-shrink: 0; width: 28px; text-align: right; font-variant-numeric: tabular-nums; }
 
 .move-list-result-row {
   display: flex;
@@ -987,7 +986,6 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
   font-family: var(--font-display);
   font-size: 16px;
   font-weight: 600;
-  font-style: italic;
   color: var(--text-primary);
   letter-spacing: 0;
 }

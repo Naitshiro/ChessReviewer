@@ -1647,7 +1647,16 @@ function _isStockfishName(name) {
 }
 
 function _updatePlayerCards() {
-  if (!state.game.metadata) return;
+  if (!state.game.metadata) {
+    // No game loaded yet: still flip the generic Black/White labels and avatar
+    // colors to match board orientation instead of leaving them stuck.
+    const topIsWhite = state.boardOrientation !== 'white';
+    if (el.topPlayerName) el.topPlayerName.textContent = topIsWhite ? 'White' : 'Black';
+    if (el.bottomPlayerName) el.bottomPlayerName.textContent = topIsWhite ? 'Black' : 'White';
+    if (el.topPlayerAvatar) el.topPlayerAvatar.className = `player-avatar ${topIsWhite ? 'white' : 'black'}-avatar font-bold`;
+    if (el.bottomPlayerAvatar) el.bottomPlayerAvatar.className = `player-avatar ${topIsWhite ? 'black' : 'white'}-avatar font-bold`;
+    return;
+  }
   const m = state.game.metadata;
 
   let whiteName = (m.white && m.white !== '?') ? m.white : 'White';
