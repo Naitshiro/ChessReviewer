@@ -1206,6 +1206,7 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
         let mut last_opening = "".to_string();
         let mut last_was_capture = false;
         let mut last_uci: Option<String> = None;
+        let mut position_seen_count: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
 
         for (i, mut m_val) in parsed.moves.into_iter().enumerate() {
             let fen_before = m_val["fen_before"].as_str().unwrap_or("").to_string();
@@ -1327,6 +1328,15 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
             last_uci = Some(uci.clone());
             last_was_capture = is_capture;
 
+            // Threefold repetition: count how many times the position after this move
+            // (board + side to move + castling rights) has occurred so far in the game.
+            let position_repeat_count = {
+                let key = crate::openings::get_fen_key(&fen_after);
+                let count = position_seen_count.entry(key).or_insert(0);
+                *count += 1;
+                *count
+            };
+
             let classification = crate::analysis::classify_move(
                 delta,
                 p_best,
@@ -1419,13 +1429,38 @@ async fn analyze_handler(State(state): State<AppState>, Json(req): Json<AnalyzeR
             m_val["top_moves"] = serde_json::json!(top_moves);
             m_val["pv1_full"] = score_before["pv1_full"].clone();
             m_val["mate_best"] = serde_json::json!(mate_best);
+            // Mover-relative mate-in-N after this move: positive = the mover now has a forced
+            // mate; negative = the mover has just allowed the opponent a forced mate. Same sign
+            // convention as mate_best (computed relative to the position before the move).
+            m_val["mate_played"] = serde_json::json!(mate_played);
             m_val["is_book"] = serde_json::json!(is_book);
             m_val["is_sacrifice"] = serde_json::json!(sacrificed);
             m_val["opening"] = serde_json::json!(opening_name);
             // color key for accuracy report
             m_val["color"] = serde_json::json!(color);
 
+            if let Some(ref m) = resolved_move {
+                let opponent_reply_uci = score_after["pv1"].as_str().filter(|s| !s.is_empty());
+                let coach_facts = crate::analysis::compute_coach_facts(
+                    &pos_before,
+                    m,
+                    is_checkmate_delivered,
+                    is_recapture,
+                    position_repeat_count,
+                    best_move.as_deref(),
+                    opponent_reply_uci,
+                );
+                m_val["coach"] = serde_json::json!(coach_facts);
+            }
+
             final_moves.push(m_val);
+        }
+
+        // A book move is the *last* book move when the next move (if any) drops out of theory.
+        for i in 0..final_moves.len() {
+            let is_book = final_moves[i]["is_book"].as_bool().unwrap_or(false);
+            let next_is_book = final_moves.get(i + 1).map(|m| m["is_book"].as_bool().unwrap_or(false)).unwrap_or(false);
+            final_moves[i]["is_last_book_move"] = serde_json::json!(is_book && !next_is_book);
         }
 
         // --- Phase 3: Build accuracy report ---

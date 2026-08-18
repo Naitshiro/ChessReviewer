@@ -15,12 +15,23 @@ import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm';
 import { BoardManager } from './board.js?v=6';
 import {
   renderEvalBar, renderEvalChart, highlightChartMove,
-  renderMoveList, setActiveMoveInList,
+  renderMoveList, setActiveMoveInList as _setActiveMoveInListRaw,
   renderScorecard, renderAnnotationsScorecard, showToast, setEvalText,
   CLASS_META, getMateMoves, COMPREHENSIVE_NAG_MAP,
   registerChartClickCallback
 } from './analysis.js?v=8';
 import { TrainingModule } from './training.js';
+import { buildCoachMessage } from './coach.js';
+
+/**
+ * Wraps the analysis.js highlighter so every call site that already invokes
+ * `setActiveMoveInList(type, index)` also drives the move-coach bubble, without
+ * having to touch each of the ~8 navigation call sites individually.
+ */
+function setActiveMoveInList(type, moveIndex) {
+  _setActiveMoveInListRaw(type, moveIndex);
+  _updateCoachBubble(type, moveIndex);
+}
 
 // ── Constants ───────────────────────────────────────────────────────────
 
@@ -131,6 +142,11 @@ const el = {
   soundOnIcon: document.getElementById('sound-on-icon'),
   soundOffIcon: document.getElementById('sound-off-icon'),
   btnFlip: document.getElementById('btn-flip'),
+  btnCoach: document.getElementById('btn-coach'),
+  coachBubble: document.getElementById('coach-bubble'),
+  coachHeadline: document.getElementById('coach-headline'),
+  coachLines: document.getElementById('coach-lines'),
+  coachClose: document.getElementById('coach-close'),
   btnToggleOverlay: document.getElementById('btn-toggle-overlay'),
   backToReviewBtn: document.getElementById('back-to-review-btn'),
   tabImport: document.getElementById('tab-import'),
@@ -596,6 +612,24 @@ function _bindControls() {
     state.boardOrientation = state.boardOrientation === 'white' ? 'black' : 'white';
     _updatePlayerCards();
     _triggerEvalBarRender();
+  });
+
+  el.btnCoach?.classList.toggle('active', coachEnabled);
+  el.btnCoach?.addEventListener('click', () => {
+    coachEnabled = !coachEnabled;
+    el.btnCoach.classList.toggle('active', coachEnabled);
+    if (coachEnabled) {
+      const activeType = state.mode === MODE.ANALYSIS && state.analysis.branchMoves.length > 0 ? 'branch' : 'main';
+      const activeIdx = activeType === 'branch' ? state.analysis.currentBranchIndex : state.review.currentIndex;
+      _updateCoachBubble(activeType, activeIdx);
+    } else {
+      el.coachBubble?.classList.add('hidden');
+    }
+  });
+  el.coachClose?.addEventListener('click', () => {
+    coachEnabled = false;
+    el.btnCoach?.classList.remove('active');
+    el.coachBubble?.classList.add('hidden');
   });
 
   // Back to review (exits analysis mode)
@@ -1638,6 +1672,57 @@ function _updatePlayerClocksAndCaptured(idx, customFen = null) {
       }
     }
   }
+}
+
+// ── Move Coach ───────────────────────────────────────────────────────────
+
+let coachEnabled = true;
+
+function _resolveActiveMoveRecord(type, moveIndex) {
+  if (moveIndex === null || moveIndex === undefined || moveIndex < 0) return null;
+  if (type === 'branch') {
+    return state.analysis.branchMoves?.[moveIndex] || null;
+  }
+  return state.game.moves?.[moveIndex] || null;
+}
+
+function _updateCoachBubble(type, moveIndex) {
+  if (!el.coachBubble) return;
+
+  if (!coachEnabled) {
+    el.coachBubble.classList.add('hidden');
+    return;
+  }
+
+  const move = _resolveActiveMoveRecord(type, moveIndex);
+  if (!move) {
+    el.coachBubble.classList.add('hidden');
+    return;
+  }
+
+  // Live review streams classifications in as the engine finishes each move; don't show
+  // stale commentary for the previous move while this one is still being computed.
+  if (state.liveReviewEnabled && (move.classification === null || move.classification === undefined) && !move.is_book) {
+    el.coachHeadline.textContent = 'Thinking…';
+    el.coachLines.innerHTML = '';
+    el.coachBubble.classList.remove('hidden');
+    return;
+  }
+
+  const msg = buildCoachMessage(move);
+  if (!msg) {
+    el.coachBubble.classList.add('hidden');
+    return;
+  }
+
+  el.coachHeadline.textContent = msg.headline;
+  el.coachLines.innerHTML = '';
+  for (const line of msg.lines) {
+    const li = document.createElement('li');
+    li.textContent = line;
+    el.coachLines.appendChild(li);
+  }
+  el.coachBubble.classList.remove('hidden');
 }
 
 function _isStockfishName(name) {

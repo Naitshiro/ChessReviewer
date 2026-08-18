@@ -194,6 +194,16 @@
                 <div id="board"></div>
                 <svg id="board-arrows-overlay" class="absolute top-0 left-0 w-full h-full pointer-events-none z-10"
                   viewBox="0 0 800 800" style="display: block;"></svg>
+
+                <!-- Move Coach: floating vizier mascot + speech bubble -->
+                <div id="coach-bubble" class="coach-bubble hidden">
+                  <img id="coach-avatar" class="coach-avatar" src="assets/pieces/vizier-black.svg" alt="Coach" />
+                  <div class="coach-speech">
+                    <div id="coach-headline" class="coach-headline"></div>
+                    <ul id="coach-lines" class="coach-lines"></ul>
+                  </div>
+                  <button id="coach-close" class="coach-close" title="Hide coach">&times;</button>
+                </div>
               </div>
 
               <!-- Bottom Player Card -->
@@ -267,6 +277,9 @@
                 stroke="currentColor" stroke-width="2.5">
                 <path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6" />
               </svg>
+            </button>
+            <button id="btn-coach" class="nav-btn" title="Toggle move coach">
+              <img src="assets/pieces/vizier-black.svg" width="14" height="14" alt="Coach" />
             </button>
 
           </div>

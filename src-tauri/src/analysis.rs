@@ -1,4 +1,5 @@
-use shakmaty::{Chess, Move, Position, Role, Square};
+use shakmaty::{attacks, Chess, Move, Position, Role, Square};
+use serde::Serialize;
 
 pub fn win_prob(cp: f64) -> f64 {
     let clamped = cp.max(-10000.0).min(10000.0);
@@ -155,14 +156,20 @@ pub fn get_max_loss_for_move(pos: &Chess, mv: &Move) -> i32 {
 // threshold used elsewhere in this module.
 const HANGING_LOSS_THRESHOLD: i32 = 150;
 
-pub fn is_piece_hanging_on_square(
+/// Static Exchange Evaluation: simulates the capture sequence on `sq`, with each side always
+/// using its currently-cheapest attacker. Occupancy is updated after every simulated capture
+/// so sliding pieces behind the piece that just moved (x-ray attackers/defenders, e.g. a rook
+/// battery revealed once the piece in front of it captures) are correctly taken into account.
+/// Returns the net material loss (centipawns, >= 0) for the side that owns the piece on `sq`
+/// if the opponent initiates captures there and both sides play optimally.
+pub fn see_loss_on_square(
     pos: &Chess,
     sq: Square,
     piece_role: Role,
     friendly_color: shakmaty::Color,
-) -> bool {
+) -> i32 {
     if piece_role == Role::Pawn || piece_role == Role::King {
-        return false;
+        return 0;
     }
 
     let piece_val = role_value(piece_role);
@@ -170,13 +177,9 @@ pub fn is_piece_hanging_on_square(
     let board = pos.board();
 
     if board.attacks_to(sq, opponent_color, board.occupied()).is_empty() {
-        return false;
+        return 0;
     }
 
-    // Static Exchange Evaluation: simulate the capture sequence on `sq`, with each side always
-    // using its currently-cheapest attacker. Occupancy is updated after every simulated capture
-    // so sliding pieces behind the piece that just moved (x-ray attackers/defenders, e.g. a rook
-    // battery revealed once the piece in front of it captures) are correctly taken into account.
     let mut occupied = board.occupied();
     let mut captured: Vec<i32> = Vec::new();
     let mut on_square = piece_val;
@@ -200,7 +203,7 @@ pub fn is_piece_hanging_on_square(
     }
 
     if captured.is_empty() {
-        return false;
+        return 0;
     }
 
     let mut score = *captured.last().unwrap();
@@ -208,7 +211,16 @@ pub fn is_piece_hanging_on_square(
         score = captured[i] - score.max(0);
     }
 
-    score.max(0) >= HANGING_LOSS_THRESHOLD
+    score.max(0)
+}
+
+pub fn is_piece_hanging_on_square(
+    pos: &Chess,
+    sq: Square,
+    piece_role: Role,
+    friendly_color: shakmaty::Color,
+) -> bool {
+    see_loss_on_square(pos, sq, piece_role, friendly_color) >= HANGING_LOSS_THRESHOLD
 }
 
 
@@ -358,6 +370,237 @@ pub fn is_sacrifice(pos: &Chess, mv: &Move, mate_played: Option<i32>) -> bool {
 
     // Default return
     false
+}
+
+fn role_name(role: Role) -> &'static str {
+    match role {
+        Role::Pawn => "pawn",
+        Role::Knight => "knight",
+        Role::Bishop => "bishop",
+        Role::Rook => "rook",
+        Role::Queen => "queen",
+        Role::King => "king",
+    }
+}
+
+#[derive(Serialize, Clone)]
+pub struct HangingPieceFact {
+    pub square: String,
+    pub role: String,
+    pub loss_cp: i32,
+}
+
+#[derive(Serialize, Clone)]
+pub struct ForkedPieceFact {
+    pub square: String,
+    pub role: String,
+}
+
+#[derive(Serialize, Clone, Default)]
+pub struct CoachFacts {
+    pub moved_role: String,
+    pub captured_role: Option<String>,
+    pub captured_value: i32,
+    /// True when the piece this move captured had no real defense in the position *before*
+    /// the move (a "free" piece), as opposed to a contested trade.
+    pub captured_was_free: bool,
+    pub gives_check: bool,
+    pub delivers_checkmate: bool,
+    /// True if the mover was in check before this move (so the move is a check response).
+    pub was_in_check: bool,
+    /// How the mover got out of check, when `was_in_check` is true: "captures_checker",
+    /// "blocks", or "king_moves".
+    pub check_response: Option<String>,
+    /// Role of the piece that was giving check, when `was_in_check` is true.
+    pub checker_role: Option<String>,
+    /// This move recaptured on the same square an opponent capture just landed on.
+    pub is_recapture: bool,
+    /// No other legal move existed in the position before this move.
+    pub is_forced_move: bool,
+    /// The position after this move has now occurred for the 3rd+ time in the game — a draw
+    /// by threefold repetition can be claimed.
+    pub is_repetition_draw: bool,
+    /// The mover's own pieces left hanging (materially loseable) as of this position, most
+    /// severe first. Reported regardless of whether this exact move created the weakness, since
+    /// from the coach's point of view "your bishop is hanging" is useful either way.
+    pub hanging: Vec<HangingPieceFact>,
+    /// Enemy non-pawn pieces the moved piece now attacks from its new square, when there are
+    /// two or more (a fork).
+    pub forks: Vec<ForkedPieceFact>,
+    pub best_move_san: Option<String>,
+    /// What the engine's suggested best move would have won, so a "miss" can name the missed
+    /// tactic instead of just saying "there was a stronger option".
+    pub best_move_forks: Vec<ForkedPieceFact>,
+    pub best_move_captured_role: Option<String>,
+    pub opponent_reply_san: Option<String>,
+}
+
+/// Computes what a single move (already known to be legal in `pos_before`) captures and
+/// forks, without any of the "was this move actually played" context. Shared between the
+/// played move and the hypothetical best move so a "miss" can describe what was missed.
+fn analyze_move_shape(pos_before: &Chess, mv: &Move) -> (Vec<ForkedPieceFact>, Option<String>, i32) {
+    let turn = pos_before.turn();
+    let after_pos = match pos_before.clone().play(mv) {
+        Ok(p) => p,
+        Err(_) => return (Vec::new(), None, 0),
+    };
+
+    let captured_role = match mv {
+        Move::Normal { capture: Some(r), .. } => Some(role_name(*r).to_string()),
+        Move::EnPassant { .. } => Some("pawn".to_string()),
+        _ => None,
+    };
+    let captured_value = get_move_captured_value(mv);
+
+    let mut forks: Vec<ForkedPieceFact> = Vec::new();
+    if let Some(moved_piece) = after_pos.board().piece_at(mv.to()) {
+        let occupied = after_pos.board().occupied();
+        let attacked = match moved_piece.role {
+            Role::Pawn => attacks::pawn_attacks(moved_piece.color, mv.to()),
+            Role::Knight => attacks::knight_attacks(mv.to()),
+            Role::Bishop => attacks::bishop_attacks(mv.to(), occupied),
+            Role::Rook => attacks::rook_attacks(mv.to(), occupied),
+            Role::Queen => attacks::rook_attacks(mv.to(), occupied) | attacks::bishop_attacks(mv.to(), occupied),
+            Role::King => attacks::king_attacks(mv.to()),
+        };
+        let enemy_color = !turn;
+        let mut targets: Vec<ForkedPieceFact> = Vec::new();
+        for sq in attacked & after_pos.board().by_color(enemy_color) {
+            if let Some(p) = after_pos.board().piece_at(sq) {
+                if p.role != Role::Pawn {
+                    targets.push(ForkedPieceFact { square: sq.to_string(), role: role_name(p.role).to_string() });
+                }
+            }
+        }
+        if targets.len() >= 2 {
+            forks = targets;
+        }
+    }
+
+    (forks, captured_role, captured_value)
+}
+
+fn uci_to_move(uci: &str, pos: &Chess) -> Option<Move> {
+    if uci.len() < 4 {
+        return None;
+    }
+    let from = Square::from_ascii(uci[0..2].as_bytes()).ok()?;
+    let to = Square::from_ascii(uci[2..4].as_bytes()).ok()?;
+    let promo = if uci.len() == 5 {
+        match uci.chars().nth(4) {
+            Some('q') => Some(Role::Queen),
+            Some('r') => Some(Role::Rook),
+            Some('b') => Some(Role::Bishop),
+            Some('n') => Some(Role::Knight),
+            _ => None,
+        }
+    } else {
+        None
+    };
+    pos.legal_moves().into_iter().find(|m| m.from() == Some(from) && m.to() == to && m.promotion() == promo)
+}
+
+/// Extracts concrete, engine-grounded facts about a played move for the move-coach feature.
+/// This is deliberately just data (no prose) — wording is a frontend concern so it can be
+/// iterated on without recompiling the engine-facing analysis code.
+#[allow(clippy::too_many_arguments)]
+pub fn compute_coach_facts(
+    pos_before: &Chess,
+    mv: &Move,
+    is_checkmate_delivered: bool,
+    is_recapture: bool,
+    position_repeat_count: u32,
+    best_move_uci: Option<&str>,
+    opponent_reply_uci: Option<&str>,
+) -> CoachFacts {
+    let turn = pos_before.turn();
+    let after_pos = match pos_before.clone().play(mv) {
+        Ok(p) => p,
+        Err(_) => return CoachFacts::default(),
+    };
+
+    let moved_role = role_name(mv.role()).to_string();
+    let (_, captured_role, captured_value) = analyze_move_shape(pos_before, mv);
+    let gives_check = after_pos.is_check();
+
+    let captured_was_free = if captured_value > 0 {
+        match mv {
+            Move::Normal { capture: Some(r), .. } => {
+                see_loss_on_square(pos_before, mv.to(), *r, !turn) >= captured_value - 20
+            }
+            _ => false,
+        }
+    } else {
+        false
+    };
+
+    // Check-response classification (computed on pos_before, before the move is played).
+    let was_in_check = pos_before.is_check();
+    let mut check_response = None;
+    let mut checker_role = None;
+    if was_in_check {
+        let checkers = pos_before.checkers();
+        checker_role = checkers.first().and_then(|sq| pos_before.board().piece_at(sq)).map(|p| role_name(p.role).to_string());
+        check_response = Some(if mv.role() == Role::King {
+            "king_moves".to_string()
+        } else if checkers.contains(mv.to()) {
+            "captures_checker".to_string()
+        } else {
+            "blocks".to_string()
+        });
+    }
+
+    let is_forced_move = pos_before.legal_moves().len() == 1;
+    let is_repetition_draw = position_repeat_count >= 3;
+
+    // Pieces of the side that just moved which are now capturable at a loss.
+    let mut hanging: Vec<HangingPieceFact> = Vec::new();
+    for sq in after_pos.board().occupied() {
+        if let Some(piece) = after_pos.board().piece_at(sq) {
+            if piece.color == turn && piece.role != Role::Pawn && piece.role != Role::King {
+                let loss = see_loss_on_square(&after_pos, sq, piece.role, turn);
+                if loss >= HANGING_LOSS_THRESHOLD {
+                    hanging.push(HangingPieceFact {
+                        square: sq.to_string(),
+                        role: role_name(piece.role).to_string(),
+                        loss_cp: loss,
+                    });
+                }
+            }
+        }
+    }
+    hanging.sort_by(|a, b| b.loss_cp.cmp(&a.loss_cp));
+
+    let (forks, _, _) = analyze_move_shape(pos_before, mv);
+
+    let best_move_san = best_move_uci.and_then(|u| uci_to_move(u, pos_before)).map(|m| shakmaty::san::San::from_move(pos_before, &m).to_string());
+    let opponent_reply_san = opponent_reply_uci.and_then(|u| uci_to_move(u, &after_pos)).map(|m| shakmaty::san::San::from_move(&after_pos, &m).to_string());
+
+    let (best_move_forks, best_move_captured_role, _) = best_move_uci
+        .and_then(|u| uci_to_move(u, pos_before))
+        .map(|best_mv| analyze_move_shape(pos_before, &best_mv))
+        .unwrap_or_default();
+
+    CoachFacts {
+        moved_role,
+        captured_role,
+        captured_value,
+        captured_was_free,
+        gives_check,
+        delivers_checkmate: is_checkmate_delivered,
+        was_in_check,
+        check_response,
+        checker_role,
+        is_recapture,
+        is_forced_move,
+        is_repetition_draw,
+        hanging,
+        forks,
+        best_move_san,
+        best_move_forks,
+        best_move_captured_role,
+        opponent_reply_san,
+    }
 }
 
 pub fn classify_move(
